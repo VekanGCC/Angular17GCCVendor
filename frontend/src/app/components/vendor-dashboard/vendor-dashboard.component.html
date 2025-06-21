@@ -151,7 +151,8 @@
           (openResourceModal)="showResourceModal = true"
           (editResource)="handleEditResource($event)"
           (toggleResourceStatus)="handleToggleResourceStatus($event)"
-          (pageChange)="onResourcesPageChange($event)">
+          (pageChange)="onResourcesPageChange($event)"
+          (sortChange)="onResourcesSortChange($event)">
         </app-vendor-resources>
 
         <!-- Requirements Tab -->
@@ -161,7 +162,8 @@
           [isLoading]="requirementsPaginationState.isLoading"
           [paginationState]="requirementsPaginationState"
           (applyResources)="handleApplyResources($event)"
-          (pageChange)="onRequirementsPageChange($event)">
+          (pageChange)="onRequirementsPageChange($event)"
+          (sortChange)="onRequirementsSortChange($event)">
         </app-vendor-requirements>
 
         <!-- Applications Tab -->
@@ -172,7 +174,8 @@
           [paginationState]="applicationsPaginationState"
           (updateApplicationStatus)="handleUpdateApplicationStatus($event)"
           (viewApplicationHistory)="handleViewApplicationHistory($event)"
-          (pageChange)="onApplicationsPageChange($event)">
+          (pageChange)="onApplicationsPageChange($event)"
+          (sortChange)="onApplicationsSortChange($event)">
         </app-vendor-applications>
 
         <!-- Skills Management Tab -->
@@ -225,7 +228,7 @@
 
     <!-- Application History Modal -->
     <app-application-history-modal
-      *ngIf="showHistoryModal"
+      [hidden]="!showHistoryModal"
       [applicationId]="selectedApplicationId"
       [isVisible]="showHistoryModal"
       [isLoading]="isLoadingHistory"

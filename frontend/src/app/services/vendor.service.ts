@@ -1,8 +1,10 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpParams, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { PaginationParams, PaginatedResponse } from '../models/pagination.model';
+import { tap, catchError } from 'rxjs/operators';
+import { throwError } from 'rxjs';
 
 @Injectable({
   providedIn: 'root'
@@ -11,6 +13,14 @@ export class VendorService {
   private apiUrl = `${environment.apiUrl}/vendors`;
 
   constructor(private http: HttpClient) {}
+
+  private getAuthHeaders(): HttpHeaders {
+    const token = sessionStorage.getItem('authToken');
+    return new HttpHeaders({
+      'Content-Type': 'application/json',
+      'Authorization': token ? `Bearer ${token}` : ''
+    });
+  }
 
   private buildHttpParams(params: PaginationParams): HttpParams {
     let httpParams = new HttpParams();
@@ -29,49 +39,55 @@ export class VendorService {
 
   // Get vendor profile
   getProfile(): Observable<any> {
-    return this.http.get(`${this.apiUrl}/profile`);
+    return this.http.get(`${this.apiUrl}/profile`, { headers: this.getAuthHeaders() });
   }
 
   // Update vendor profile
   updateProfile(data: any): Observable<any> {
-    return this.http.put(`${this.apiUrl}/profile`, data);
+    return this.http.put(`${this.apiUrl}/profile`, data, { headers: this.getAuthHeaders() });
   }
 
   // Get vendor resources with pagination
   getResources(params?: PaginationParams): Observable<PaginatedResponse<any>> {
-    const options = params ? { params: this.buildHttpParams(params) } : {};
+    const options = { 
+      headers: this.getAuthHeaders(),
+      params: params ? this.buildHttpParams(params) : undefined 
+    };
     return this.http.get<PaginatedResponse<any>>(`${environment.apiUrl}/resources`, options);
   }
 
   // Create new resource
   createResource(data: any): Observable<any> {
-    return this.http.post(`${environment.apiUrl}/resources`, data);
+    return this.http.post(`${environment.apiUrl}/resources`, data, { headers: this.getAuthHeaders() });
   }
 
   // Update resource
   updateResource(id: string, data: any): Observable<any> {
-    return this.http.put(`${environment.apiUrl}/resources/${id}`, data);
+    return this.http.put(`${environment.apiUrl}/resources/${id}`, data, { headers: this.getAuthHeaders() });
   }
 
   // Update resource status
   updateResourceStatus(id: string, status: 'active' | 'inactive'): Observable<any> {
-    return this.http.put(`${environment.apiUrl}/resources/${id}`, { status });
+    return this.http.put(`${environment.apiUrl}/resources/${id}`, { status }, { headers: this.getAuthHeaders() });
   }
 
   // Delete resource
   deleteResource(id: string): Observable<any> {
-    return this.http.delete(`${environment.apiUrl}/resources/${id}`);
+    return this.http.delete(`${environment.apiUrl}/resources/${id}`, { headers: this.getAuthHeaders() });
   }
 
   // Get vendor applications with pagination
   getApplications(params?: PaginationParams): Observable<PaginatedResponse<any>> {
-    const options = params ? { params: this.buildHttpParams(params) } : {};
+    const options = { 
+      headers: this.getAuthHeaders(),
+      params: params ? this.buildHttpParams(params) : undefined 
+    };
     return this.http.get<PaginatedResponse<any>>(`${environment.apiUrl}/applications/vendor`, options);
   }
 
   // Create application (vendor applying resource to requirement)
   createApplication(data: any): Observable<any> {
-    return this.http.post(`${environment.apiUrl}/applications`, data);
+    return this.http.post(`${environment.apiUrl}/applications`, data, { headers: this.getAuthHeaders() });
   }
 
   // Update application status
@@ -80,31 +96,39 @@ export class VendorService {
     if (notes) {
       payload.notes = notes;
     }
-    return this.http.put(`${this.apiUrl}/applications/${applicationId}/status`, payload);
+    return this.http.put(`${this.apiUrl}/applications/${applicationId}/status`, payload, { headers: this.getAuthHeaders() });
   }
 
   // Get application history
   getApplicationHistory(applicationId: string): Observable<any> {
-    return this.http.get(`${environment.apiUrl}/applications/${applicationId}/history`);
+    return this.http.get(`${environment.apiUrl}/applications/${applicationId}/history`, { headers: this.getAuthHeaders() }).pipe(
+      tap((response: any) => {
+        console.log('🔧 VendorService: Application history response:', response);
+      }),
+      catchError(error => {
+        console.error('🔧 VendorService: Error in getApplicationHistory:', error);
+        throw error;
+      })
+    );
   }
 
   // Get vendor analytics
   getAnalytics(): Observable<any> {
-    return this.http.get(`${this.apiUrl}/analytics`);
+    return this.http.get(`${this.apiUrl}/analytics`, { headers: this.getAuthHeaders() });
   }
 
   // Get vendor skills
   getSkills(): Observable<any> {
-    return this.http.get(`${this.apiUrl}/skills`);
+    return this.http.get(`${this.apiUrl}/skills`, { headers: this.getAuthHeaders() });
   }
 
   // Add vendor skill
   addSkill(data: any): Observable<any> {
-    return this.http.post(`${this.apiUrl}/skills`, data);
+    return this.http.post(`${this.apiUrl}/skills`, data, { headers: this.getAuthHeaders() });
   }
 
   // Remove vendor skill
   removeSkill(id: string): Observable<any> {
-    return this.http.delete(`${this.apiUrl}/skills/${id}`);
+    return this.http.delete(`${this.apiUrl}/skills/${id}`, { headers: this.getAuthHeaders() });
   }
 } 

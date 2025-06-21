@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, NavigationEnd } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
@@ -153,7 +153,8 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
     private apiService: ApiService,
     private vendorManagementService: VendorManagementService,
     private router: Router,
-    private vendorService: VendorService
+    private vendorService: VendorService,
+    private changeDetectorRef: ChangeDetectorRef
   ) {}
 
   async ngOnInit(): Promise<void> {
@@ -427,6 +428,111 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
 
   onRequirementsPageChange(page: number): void {
     this.loadVendorRequirements(page);
+  }
+
+  // Sort change event handlers
+  onResourcesSortChange(sortData: {sortBy: string, sortOrder: 'asc' | 'desc'}): void {
+    console.log('🔧 VendorDashboard: Resources sort changed:', sortData);
+    this.loadVendorResourcesWithSort(1, sortData.sortBy, sortData.sortOrder);
+  }
+
+  onRequirementsSortChange(sortData: {sortBy: string, sortOrder: 'asc' | 'desc'}): void {
+    console.log('🔧 VendorDashboard: Requirements sort changed:', sortData);
+    this.loadVendorRequirementsWithSort(1, sortData.sortBy, sortData.sortOrder);
+  }
+
+  onApplicationsSortChange(sortData: {sortBy: string, sortOrder: 'asc' | 'desc'}): void {
+    console.log('🔧 VendorDashboard: Applications sort changed:', sortData);
+    this.loadVendorApplicationsWithSort(1, sortData.sortBy, sortData.sortOrder);
+  }
+
+  // Enhanced loading methods with sorting
+  private async loadVendorResourcesWithSort(page: number = 1, sortBy: string = 'createdAt', sortOrder: 'asc' | 'desc' = 'desc'): Promise<void> {
+    try {
+      this.resourcesPaginationState.isLoading = true;
+      const params: PaginationParams = {
+        page,
+        limit: this.resourcesPaginationState.pageSize,
+        sortBy,
+        sortOrder
+      };
+      
+      console.log('🔧 VendorDashboard: Loading vendor resources with sort params:', params);
+      const response = await this.vendorService.getResources(params).toPromise();
+      console.log('🔧 VendorDashboard: Resources response:', response);
+      
+      if (response && response.success && response.data) {
+        this.vendorResources = response.data;
+        console.log('🔧 VendorDashboard: Updated vendorResources:', this.vendorResources);
+        
+        const paginationData = response.meta || response.pagination;
+        if (paginationData) {
+          console.log('🔧 VendorDashboard: Pagination data:', paginationData);
+          this.updateResourcesPagination(paginationData);
+          console.log('🔧 VendorDashboard: Updated pagination state:', this.resourcesPaginationState);
+        } else {
+          console.log('🔧 VendorDashboard: No pagination data found in response');
+        }
+      } else {
+        console.log('🔧 VendorDashboard: Invalid response structure:', response);
+      }
+    } catch (error) {
+      console.error('Error loading vendor resources with sort:', error);
+    } finally {
+      this.resourcesPaginationState.isLoading = false;
+    }
+  }
+
+  private async loadVendorRequirementsWithSort(page: number = 1, sortBy: string = 'createdAt', sortOrder: 'asc' | 'desc' = 'desc'): Promise<void> {
+    try {
+      this.requirementsPaginationState.isLoading = true;
+      const params: PaginationParams = {
+        page,
+        limit: this.requirementsPaginationState.pageSize,
+        sortBy,
+        sortOrder
+      };
+      
+      console.log('🔧 VendorDashboard: Loading vendor requirements with sort params:', params);
+      const response = await this.apiService.getRequirements(params).toPromise();
+      if (response && response.success && response.data) {
+        this.requirements = response.data;
+        const paginationData = response.meta || response.pagination;
+        if (paginationData) {
+          this.updateRequirementsPagination(paginationData);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading vendor requirements with sort:', error);
+    } finally {
+      this.requirementsPaginationState.isLoading = false;
+    }
+  }
+
+  private async loadVendorApplicationsWithSort(page: number = 1, sortBy: string = 'createdAt', sortOrder: 'asc' | 'desc' = 'desc'): Promise<void> {
+    try {
+      this.applicationsPaginationState.isLoading = true;
+      const params: PaginationParams = {
+        page,
+        limit: this.applicationsPaginationState.pageSize,
+        sortBy,
+        sortOrder
+      };
+      
+      console.log('🔧 VendorDashboard: Loading vendor applications with sort params:', params);
+      const response = await this.vendorService.getApplications(params).toPromise();
+      if (response && response.success && response.data) {
+        this.vendorApplications = response.data;
+        const paginationData = response.meta || response.pagination;
+        if (paginationData) {
+          this.updateApplicationsPagination(paginationData);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading vendor applications with sort:', error);
+    } finally {
+      this.applicationsPaginationState.isLoading = false;
+    }
   }
 
   private updateData(): void {
@@ -713,28 +819,65 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
 
   // Application history management for vendors
   handleViewApplicationHistory(applicationId: string): void {
-    console.log('🔄 VendorDashboard: Viewing application history for:', applicationId);
+    if (!applicationId || applicationId.trim() === '') {
+      return;
+    }
+    
+    // Set all states together to ensure proper binding
     this.selectedApplicationId = applicationId;
     this.showHistoryModal = true;
+    this.isLoadingHistory = true;
+    this.applicationHistory = []; // Clear previous data
+    
+    // Load data immediately without delay
     this.loadApplicationHistory(applicationId);
   }
 
   private loadApplicationHistory(applicationId: string): void {
-    this.isLoadingHistory = true;
     this.vendorService.getApplicationHistory(applicationId).subscribe({
       next: (response: any) => {
-        console.log('Application history loaded:', response);
-        if (response.success && response.data) {
-          this.applicationHistory = response.data;
-        } else {
-          this.applicationHistory = [];
+        // Handle different response structures
+        let historyData = [];
+        
+        if (response && typeof response === 'object') {
+          // If response has a data property
+          if (response.data && Array.isArray(response.data)) {
+            historyData = response.data;
+          }
+          // If response has a success property and data
+          else if (response.success && response.data && Array.isArray(response.data)) {
+            historyData = response.data;
+          }
+          // If response is directly an array
+          else if (Array.isArray(response)) {
+            historyData = response;
+          }
+          // If response has a different structure, try to find the data
+          else {
+            // Look for any array property that might contain the history
+            for (const key in response) {
+              if (Array.isArray(response[key])) {
+                historyData = response[key];
+                break;
+              }
+            }
+          }
         }
+        
+        // Update the data immediately
+        this.applicationHistory = historyData;
         this.isLoadingHistory = false;
+        
+        // Force change detection to ensure UI updates immediately
+        this.changeDetectorRef.detectChanges();
       },
       error: (error: any) => {
-        console.error('Error loading application history:', error);
+        // Update the data immediately on error
         this.applicationHistory = [];
         this.isLoadingHistory = false;
+        
+        // Force change detection to ensure UI updates immediately
+        this.changeDetectorRef.detectChanges();
       }
     });
   }
@@ -743,6 +886,7 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
     this.showHistoryModal = false;
     this.selectedApplicationId = '';
     this.applicationHistory = [];
+    this.isLoadingHistory = false;
   }
 
   closeApplyModal(): void {

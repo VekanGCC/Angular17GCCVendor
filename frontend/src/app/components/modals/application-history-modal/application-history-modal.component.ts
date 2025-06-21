@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, OnInit } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit, OnChanges, SimpleChanges, ChangeDetectorRef, ChangeDetectionStrategy, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 export interface ApplicationHistoryEntry {
@@ -18,77 +18,273 @@ export interface ApplicationHistoryEntry {
 
 @Component({
   selector: 'app-application-history-modal',
+  templateUrl: './application-history-modal.component.html',
   standalone: true,
   imports: [CommonModule],
-  template: `
-    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div class="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden">
-        <!-- Header -->
-        <div class="flex items-center justify-between p-6 border-b border-gray-200">
-          <h3 class="text-lg font-semibold text-gray-900">Application History</h3>
-          <button 
-            (click)="onClose()"
-            class="text-gray-400 hover:text-gray-600">
-            <img src="assets/icons/lucide/lucide/x.svg" alt="x" class="w-5 h-5" />
-          </button>
-        </div>
+  changeDetection: ChangeDetectionStrategy.Default,
+  styles: [`
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
 
-        <!-- Content -->
-        <div class="p-6 overflow-y-auto max-h-[60vh]">
-          <div *ngIf="isLoading" class="flex items-center justify-center py-8">
-            <img src="assets/icons/lucide/lucide/loader.svg" alt="loader-2" class="w-6 h-6 animate-spin text-blue-600" />
-            <span class="ml-2 text-gray-600">Loading history...</span>
-          </div>
+    .modal-content {
+      background: white;
+      border-radius: 8px;
+      max-width: 600px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    }
 
-          <div *ngIf="!isLoading && history.length === 0" class="text-center py-8">
-            <img src="assets/icons/lucide/lucide/history.svg" alt="history" class="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <p class="text-gray-500">No history available for this application.</p>
-          </div>
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px;
+      border-bottom: 1px solid #e5e7eb;
+    }
 
-          <div *ngIf="!isLoading && history.length > 0" class="space-y-4">
-            <div 
-              *ngFor="let entry of history; trackBy: trackById" 
-              class="border-l-4 border-blue-500 pl-4 py-3 bg-gray-50 rounded-r-lg">
-              <div class="flex items-start justify-between">
-                <div class="flex-1">
-                  <div class="flex items-center space-x-2 mb-2">
-                    <span [class]="'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ' + getStatusClass(entry.status)">
-                      {{formatStatus(entry.status)}}
-                    </span>
-                    <span *ngIf="entry.previousStatus" class="text-gray-500 text-xs">
-                      from {{formatStatus(entry.previousStatus)}}
-                    </span>
-                  </div>
-                  <p *ngIf="entry.notes" class="text-sm text-gray-700 mb-2">{{entry.notes}}</p>
-                  <div class="flex items-center text-xs text-gray-500">
-                    <img src="assets/icons/lucide/lucide/user.svg" alt="user" class="w-3 h-3 mr-1" />
-                    <span>{{entry.updatedBy.firstName}} {{entry.updatedBy.lastName}}</span>
-                    <span class="mx-2">•</span>
-                    <img src="assets/icons/lucide/lucide/clock.svg" alt="clock" class="w-3 h-3 mr-1" />
-                    <span>{{entry.createdAt | date:'medium'}}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  `
+    .modal-title {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #111827;
+    }
+
+    .close-button {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 4px;
+      color: #6b7280;
+      transition: color 0.2s;
+    }
+
+    .close-button:hover {
+      color: #374151;
+    }
+
+    .modal-body {
+      padding: 20px;
+    }
+
+    .modal-footer {
+      padding: 20px;
+      border-top: 1px solid #e5e7eb;
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+    }
+
+    .loading-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+    }
+
+    .loading-spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid #f3f4f6;
+      border-top: 4px solid #3b82f6;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 16px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .loading-text {
+      color: #6b7280;
+      font-size: 0.875rem;
+    }
+
+    .no-data-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+      text-align: center;
+    }
+
+    .no-data-icon {
+      color: #9ca3af;
+      margin-bottom: 16px;
+    }
+
+    .no-data-title {
+      margin: 0 0 8px 0;
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: #374151;
+    }
+
+    .no-data-message {
+      margin: 0;
+      color: #6b7280;
+      font-size: 0.875rem;
+    }
+
+    .history-list {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .history-item {
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 16px;
+      background-color: #fafafa;
+    }
+
+    .history-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .status-badge {
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      text-transform: uppercase;
+    }
+
+    .status-pending {
+      background-color: #fef3c7;
+      color: #92400e;
+    }
+
+    .status-approved {
+      background-color: #d1fae5;
+      color: #065f46;
+    }
+
+    .status-rejected {
+      background-color: #fee2e2;
+      color: #991b1b;
+    }
+
+    .status-applied {
+      background-color: #dbeafe;
+      color: #1e40af;
+    }
+
+    .status-unknown {
+      background-color: #f3f4f6;
+      color: #374151;
+    }
+
+    .history-date {
+      font-size: 0.875rem;
+      color: #6b7280;
+    }
+
+    .history-content {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .history-field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .field-label {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: #374151;
+    }
+
+    .field-value {
+      margin: 0;
+      font-size: 0.875rem;
+      color: #6b7280;
+      line-height: 1.4;
+    }
+
+    .btn {
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+    }
+
+    .btn-secondary {
+      background-color: #f3f4f6;
+      color: #374151;
+    }
+
+    .btn-secondary:hover {
+      background-color: #e5e7eb;
+    }
+
+    .debug-info {
+      font-size: 0.75rem;
+      color: #6b7280;
+      font-weight: normal;
+    }
+  `]
 })
-export class ApplicationHistoryModalComponent implements OnInit {
+export class ApplicationHistoryModalComponent implements OnInit, OnChanges, OnDestroy {
   @Input() applicationId: string = '';
   @Input() isVisible: boolean = false;
   @Input() isLoading: boolean = false;
   @Input() history: ApplicationHistoryEntry[] = [];
   @Output() close = new EventEmitter<void>();
 
-  constructor() {}
+  constructor(private cdr: ChangeDetectorRef) {}
 
-  ngOnInit(): void {}
+  ngOnInit(): void {
+    // Component initialization
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    // Force change detection for all input changes
+    if (changes['isLoading'] || changes['history'] || changes['applicationId'] || changes['isVisible']) {
+      this.cdr.detectChanges();
+    }
+  }
+
+  ngOnDestroy(): void {
+    // Cleanup
+  }
+
+  handleBackdropClick(event: MouseEvent): void {
+    if (event.target === event.currentTarget) {
+      this.close.emit();
+    }
+  }
 
   onClose(): void {
-    this.close.emit();
+    if (!this.isLoading) {
+      this.close.emit();
+    }
   }
 
   getStatusClass(status: string): string {
@@ -122,7 +318,28 @@ export class ApplicationHistoryModalComponent implements OnInit {
     return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   }
 
-  trackById(index: number, item: ApplicationHistoryEntry): string {
+  trackByHistoryItem(index: number, item: any): any {
     return item._id || `history-${index}`;
+  }
+
+  closeModal(): void {
+    // Emit close event (you'll need to add Output if you want to handle this)
+  }
+
+  // Helper method to check if modal should show content
+  shouldShowContent(): boolean {
+    const result = this.isVisible && !this.isLoading;
+    return result;
+  }
+
+  // Helper method to check if we have history data
+  hasHistoryData(): boolean {
+    const result = this.history && this.history.length > 0;
+    return result;
+  }
+
+  // Debug method to log current state
+  logCurrentState(): void {
+    // Implement debug logging if needed
   }
 } 
