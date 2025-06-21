@@ -21,7 +21,7 @@ export interface Requirement {
     currency: string;
   };
   description: string;
-  status: 'open' | 'in-progress' | 'closed';
+  status: 'draft' | 'open' | 'in_progress' | 'on_hold' | 'completed' | 'cancelled';
   createdBy: string;
   createdAt: string;
   updatedAt: string;

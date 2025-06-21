@@ -50,7 +50,7 @@ export class ClientService {
 
   // Update requirement
   updateRequirement(id: string, data: any): Observable<any> {
-    return this.http.put(`${this.apiUrl}/requirements/${id}`, data);
+    return this.http.put(`${environment.apiUrl}/requirements/${id}`, data);
   }
 
   // Delete requirement

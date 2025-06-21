@@ -110,8 +110,8 @@ export class RequirementModalComponent implements OnInit {
 
   onSubmit(): void {
     if (this.mode === 'close' && this.requirement) {
-      // For close mode, just emit the requirement with closed status
-      this.confirm.emit({ ...this.requirement, status: 'closed' });
+      // For close mode, just emit the requirement with cancelled status
+      this.confirm.emit({ ...this.requirement, status: 'cancelled' });
       this.close.emit();
       return;
     }

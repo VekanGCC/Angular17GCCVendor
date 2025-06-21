@@ -1,20 +1,40 @@
-import { Component, OnInit, Input, Output, EventEmitter } from '@angular/core';
+import { ModuleRegistry } from 'ag-grid-community';
+import { AllCommunityModule } from 'ag-grid-community';
+
+ModuleRegistry.registerModules([AllCommunityModule]);
+
+import { Component, OnInit, Input, Output, EventEmitter, OnChanges, SimpleChanges, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
 import { Application } from '../../../models/application.model';
+import { AgGridModule } from 'ag-grid-angular';
+import { ColDef, ValueGetterParams, SortChangedEvent } from 'ag-grid-community';
+import { PaginationState } from '../../../models/pagination.model';
 
 @Component({
   selector: 'app-client-applications',
   standalone: true,
-  imports: [CommonModule, LucideAngularModule],
+  imports: [CommonModule, LucideAngularModule, AgGridModule],
   templateUrl: './client-applications.component.html',
   styleUrls: ['./client-applications.component.scss']
 })
-export class ClientApplicationsComponent implements OnInit {
+export class ClientApplicationsComponent implements OnInit, OnChanges {
   @Input() applications: Application[] = [];
+  @Input() isLoading = false;
+  @Input() paginationState: PaginationState = {
+    currentPage: 1,
+    pageSize: 10,
+    totalItems: 0,
+    totalPages: 0,
+    isLoading: false,
+    hasNextPage: false,
+    hasPreviousPage: false
+  };
   @Output() updateApplicationStatus = new EventEmitter<{applicationId: string, status: string, notes?: string}>();
   @Output() viewApplicationHistory = new EventEmitter<string>();
   @Output() viewApplicationDetails = new EventEmitter<Application>();
+  @Output() pageChange = new EventEmitter<number>();
+  @Output() sortChange = new EventEmitter<{sortBy: string, sortOrder: 'asc' | 'desc'}>();
 
   availableStatuses = [
     { value: 'applied', label: 'Applied', color: 'bg-gray-100 text-gray-800' },
@@ -27,9 +47,198 @@ export class ClientApplicationsComponent implements OnInit {
     { value: 'did_not_join', label: 'Did Not Join', color: 'bg-orange-100 text-orange-800' }
   ];
 
-  constructor() {}
+  columnDefs: ColDef[] = [
+    {
+      headerName: 'Application',
+      field: '_id',
+      flex: 1,
+      sortable: true,
+      cellRenderer: (params: any) => {
+        const app = params.data;
+        const appId = app._id ? app._id.slice(-6) : 'N/A';
+        return `<div class="text-sm font-medium text-gray-900">#${appId}</div>`;
+      }
+    },
+    {
+      headerName: 'Resource',
+      field: 'resource.name',
+      flex: 2,
+      sortable: true,
+      cellRenderer: (params: any) => {
+        const resourceName = this.getResourceName(params.data);
+        return `<div class="text-sm text-gray-900">${resourceName}</div>`;
+      }
+    },
+    {
+      headerName: 'Requirement',
+      field: 'requirement.title',
+      flex: 2,
+      sortable: true,
+      cellRenderer: (params: any) => {
+        const requirementTitle = this.getRequirementTitle(params.data);
+        return `<div class="text-sm text-gray-900">${requirementTitle}</div>`;
+      }
+    },
+    {
+      headerName: 'Status',
+      field: 'status',
+      flex: 1.5,
+      sortable: true,
+      cellRenderer: (params: any) => {
+        const status = params.data.status || 'unknown';
+        const statusClass = this.getStatusClass(status);
+        const formattedStatus = this.formatStatus(status);
+        return `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusClass}">${formattedStatus}</span>`;
+      }
+    },
+    {
+      headerName: 'Applied Date',
+      field: 'createdAt',
+      flex: 1.5,
+      sortable: true,
+      cellRenderer: (params: any) => {
+        const date = new Date(params.value);
+        return `<span class="text-sm text-gray-500">${date.toLocaleDateString()}</span>`;
+      }
+    },
+    {
+      headerName: 'Actions',
+      field: 'actions',
+      flex: 2,
+      sortable: false,
+      filter: false,
+      cellRenderer: (params: any) => {
+        const app = params.data;
+        const availableStatuses = this.getAvailableStatuses(app.status);
+        const hasOptions = availableStatuses.length > 0;
+        
+        let html = '<div class="flex items-center space-x-2">';
+        
+        // Status dropdown
+        if (hasOptions) {
+          html += `
+            <select 
+              class="status-select inline-flex items-center px-2 py-1 rounded-md text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 border border-gray-300 transition-all duration-200"
+              id="status-${app._id}">
+              <option value="" disabled selected>Actions</option>
+          `;
+          
+          availableStatuses.forEach((option: any) => {
+            html += `<option value="${option.value}" class="text-sm">${option.label}</option>`;
+          });
+          
+          html += '</select>';
+        } else {
+          html += '<span class="text-xs text-gray-400">No actions available</span>';
+        }
+        
+        // History button
+        html += `
+          <button 
+            class="history-btn inline-flex items-center px-2 py-1 rounded-md text-xs font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200"
+            id="history-${app._id}">
+            📋
+          </button>
+        `;
+        
+        // View details button
+        html += `
+          <button 
+            class="details-btn inline-flex items-center px-2 py-1 rounded-md text-xs font-medium text-blue-600 hover:text-blue-900 hover:bg-blue-50 transition-all duration-200"
+            id="details-${app._id}">
+            👁️
+          </button>
+        </div>`;
+        
+        // Add event listeners after rendering
+        setTimeout(() => {
+          const statusSelect = document.getElementById(`status-${app._id}`) as HTMLSelectElement;
+          const historyBtn = document.getElementById(`history-${app._id}`);
+          const detailsBtn = document.getElementById(`details-${app._id}`);
+          
+          if (statusSelect) {
+            statusSelect.addEventListener('change', (event) => {
+              const newStatus = (event.target as HTMLSelectElement).value;
+              if (newStatus) {
+                this.onStatusChange(app._id, newStatus);
+              }
+            });
+          }
+          
+          if (historyBtn) {
+            historyBtn.addEventListener('click', () => {
+              this.onViewHistory(app._id);
+              this.changeDetectorRef.detectChanges();
+            });
+          }
+          
+          if (detailsBtn) {
+            detailsBtn.addEventListener('click', () => {
+              this.onViewDetails(app);
+              this.changeDetectorRef.detectChanges();
+            });
+          }
+        });
+        
+        return html;
+      }
+    }
+  ];
 
-  ngOnInit(): void {}
+  defaultColDef = {
+    resizable: true,
+    sortable: true,
+    filter: true,
+    flex: 1,
+    minWidth: 100
+  };
+
+  gridOptions = {
+    defaultColDef: {
+      flex: 1,
+      minWidth: 100,
+    },
+    rowHeight: 60, // Set row height to 60px
+    tooltipShowDelay: 500,
+    onSortChanged: (event: SortChangedEvent) => {
+      this.onSortChanged(event);
+    }
+  };
+
+  constructor(private changeDetectorRef: ChangeDetectorRef) {}
+
+  ngOnInit(): void {
+    console.log('🔧 ClientApplicationsComponent: ngOnInit called');
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    console.log('🔧 ClientApplicationsComponent: ngOnChanges called');
+    console.log('🔧 ClientApplicationsComponent: Applications updated:', this.applications);
+    console.log('🔧 ClientApplicationsComponent: Pagination state:', this.paginationState);
+  }
+
+  onSortChanged(event: SortChangedEvent): void {
+    const sortModel = event.api.getColumnState().filter(col => col.sort);
+    if (sortModel && sortModel.length > 0) {
+      const sort = sortModel[0];
+      console.log('🔧 ClientApplicationsComponent: Sort changed:', sort);
+      
+      // Map AG Grid field names to backend field names
+      const fieldMapping: { [key: string]: string } = {
+        '_id': '_id',
+        'resource.name': 'resource.name',
+        'requirement.title': 'requirement.title',
+        'status': 'status',
+        'createdAt': 'createdAt',
+        'updatedAt': 'updatedAt'
+      };
+      
+      const sortBy = fieldMapping[sort.colId] || sort.colId;
+      const sortOrder = sort.sort as 'asc' | 'desc';
+      
+      this.sortChange.emit({ sortBy, sortOrder });
+    }
+  }
 
   getApplicationResourceName(app: any): string {
     if (typeof app.resource === 'object' && app.resource?.name) {
@@ -144,5 +353,9 @@ export class ClientApplicationsComponent implements OnInit {
   getAvailableStatuses(currentStatus: string): any[] {
     // Filter out the current status and return available options
     return this.availableStatuses.filter(status => status.value !== currentStatus);
+  }
+
+  onPageChange(page: number): void {
+    this.pageChange.emit(page);
   }
 } 

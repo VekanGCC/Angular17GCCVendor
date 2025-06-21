@@ -57,74 +57,45 @@
         <p class="text-gray-500">Try adjusting your search criteria</p>
       </div>
 
-      <!-- Resources Grid -->
-      <div *ngIf="!isLoading && resources.length > 0" class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200">
-          <thead class="bg-gray-50">
-            <tr>
-              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                <input 
-                  type="checkbox" 
-                  class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  [checked]="selectedResources.size === resources.length && resources.length > 0"
-                  (change)="toggleAllResources($event)"
-                >
-              </th>
-              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Resource</th>
-              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Skills</th>
-              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Experience</th>
-              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
-              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Availability</th>
-              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rate</th>
-              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
-            </tr>
-          </thead>
-          <tbody class="bg-white divide-y divide-gray-200">
-            <tr *ngFor="let resource of resources" class="hover:bg-gray-50">
-              <td class="px-6 py-4 whitespace-nowrap">
-                <input 
-                  type="checkbox" 
-                  [checked]="isResourceSelected(resource._id)"
-                  (change)="toggleResourceSelection(resource._id)"
-                  class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                >
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap">
-                <div class="text-sm font-medium text-gray-900">{{ resource.name }}</div>
-                <div class="text-sm text-gray-500">{{ resource.category }}</div>
-              </td>
-              <td class="px-6 py-4">
-                <div class="flex flex-wrap gap-1">
-                  <span *ngFor="let skill of resource.skills" 
-                        class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                    {{ skill }}
-                  </span>
-                </div>
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                {{ resource.experience.years }} years ({{ resource.experience.level }})
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                {{ resource.location.city }}, {{ resource.location.state }}
-                <span *ngIf="resource.location.remote" class="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full ml-2">Remote</span>
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                {{ resource.availability.status }} ({{ resource.availability.hours_per_week }} hrs/week)
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                {{ resource.rate.currency }}{{ resource.rate.hourly }}/hr
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                <button 
-                  (click)="onApplyResource(resource._id)"
-                  class="inline-flex items-center px-3 py-1.5 border border-transparent rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                >
-                  Apply
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+      <!-- AG Grid -->
+      <div *ngIf="!isLoading && resources.length > 0" class="ag-theme-alpine w-full" style="height: 600px;">
+        <ag-grid-angular
+          [rowData]="resources"
+          [columnDefs]="columnDefs"
+          [defaultColDef]="defaultColDef"
+          [gridOptions]="gridOptions"
+          [animateRows]="true"
+          [rowSelection]="'multiple'"
+          (gridReady)="onGridReady($event)"
+          (cellClicked)="onCellClicked($event)"
+          class="w-full h-full">
+        </ag-grid-angular>
+      </div>
+
+      <!-- Pagination -->
+      <div *ngIf="!isLoading && resources.length > 0" class="mt-6 flex items-center justify-between">
+        <div class="text-sm text-gray-700">
+          Showing {{ (paginationState.currentPage - 1) * paginationState.pageSize + 1 }} to 
+          {{ Math.min(paginationState.currentPage * paginationState.pageSize, paginationState.totalItems) }} of 
+          {{ paginationState.totalItems }} results
+        </div>
+        <div class="flex space-x-2">
+          <button 
+            (click)="onPageChange(paginationState.currentPage - 1)"
+            [disabled]="!paginationState.hasPreviousPage"
+            class="px-3 py-1 text-sm border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50">
+            Previous
+          </button>
+          <span class="px-3 py-1 text-sm text-gray-700">
+            Page {{ paginationState.currentPage }} of {{ paginationState.totalPages }}
+          </span>
+          <button 
+            (click)="onPageChange(paginationState.currentPage + 1)"
+            [disabled]="!paginationState.hasNextPage"
+            class="px-3 py-1 text-sm border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50">
+            Next
+          </button>
+        </div>
       </div>
     </div>
   </div>

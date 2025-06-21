@@ -174,6 +174,7 @@ export class VendorRequirementsComponent implements OnInit {
       flex: 1,
       minWidth: 100,
     },
+    rowHeight: 60,
     tooltipShowDelay: 500,
     onSortChanged: (event: SortChangedEvent) => {
       this.onSortChanged(event);

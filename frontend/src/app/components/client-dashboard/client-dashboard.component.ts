@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, ActivatedRoute } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
@@ -137,7 +137,8 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
     private router: Router,
     private route: ActivatedRoute,
     private clientService: ClientService,
-    private apiService: ApiService
+    private apiService: ApiService,
+    private changeDetectorRef: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
@@ -293,13 +294,13 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
     });
   }
 
-  private loadResources(page: number = 1): void {
+  private loadResources(page: number = 1, sortBy: string = 'createdAt', sortOrder: 'asc' | 'desc' = 'desc'): void {
     this.resourcesPaginationState.isLoading = true;
     const params = {
       page,
       limit: this.resourcesPaginationState.pageSize,
-      sortBy: 'createdAt',
-      sortOrder: 'desc' as const
+      sortBy,
+      sortOrder
     };
     
     this.apiService.getResources(params).subscribe({
@@ -365,8 +366,10 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
   }
 
   openCloseRequirementModal(requirement: Requirement): void {
+    console.log('🔍 DEBUG: Client dashboard - Opening close requirement modal for:', requirement._id);
     this.requirementToClose = requirement;
     this.showCloseRequirementModal = true;
+    this.changeDetectorRef.detectChanges();
   }
 
   openEditRequirementModal(requirement: Requirement): void {
@@ -375,23 +378,27 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
   }
 
   closeCloseRequirementModal(): void {
+    console.log('🔍 DEBUG: Client dashboard - Closing close requirement modal');
     this.showCloseRequirementModal = false;
     this.requirementToClose = null;
+    this.changeDetectorRef.detectChanges();
   }
 
   confirmCloseRequirement(): void {
+    console.log('🔍 DEBUG: Client dashboard - Confirming close requirement for:', this.requirementToClose?._id);
     if (this.requirementToClose) {
       this.isLoading = true;
-      this.clientService.updateRequirement(this.requirementToClose._id, { status: 'closed' }).subscribe({
+      this.clientService.updateRequirement(this.requirementToClose._id, { status: 'cancelled' }).subscribe({
         next: (response) => {
           if (response.success) {
             // Update the requirement in the local array
             const index = this.clientRequirements.findIndex(r => r._id === this.requirementToClose?._id);
             if (index !== -1) {
-              this.clientRequirements[index] = { ...this.clientRequirements[index], status: 'closed' };
+              this.clientRequirements[index] = { ...this.clientRequirements[index], status: 'cancelled' };
             }
             this.showCloseRequirementModal = false;
             this.requirementToClose = null;
+            this.changeDetectorRef.detectChanges();
           }
           this.isLoading = false;
         },
@@ -587,5 +594,11 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
 
   onResourcesPageChange(page: number): void {
     this.loadResources(page);
+  }
+
+  onResourcesSortChange(sortData: {sortBy: string, sortOrder: 'asc' | 'desc'}): void {
+    console.log('🔧 ClientDashboard: Resources sort changed:', sortData);
+    // Reload resources with new sort parameters
+    this.loadResources(1, sortData.sortBy, sortData.sortOrder);
   }
 }

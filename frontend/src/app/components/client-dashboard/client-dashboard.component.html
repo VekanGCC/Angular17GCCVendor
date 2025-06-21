@@ -110,7 +110,10 @@
           *ngIf="activeTab === 'resources'"
           [resources]="resources"
           [isLoading]="resourcesPaginationState.isLoading"
-          (applyResources)="applyMultipleResources($event)">
+          [paginationState]="resourcesPaginationState"
+          (applyResources)="applyMultipleResources($event)"
+          (pageChange)="onResourcesPageChange($event)"
+          (sortChange)="onResourcesSortChange($event)">
         </app-client-resources>
         
         <!-- Resources Pagination -->
