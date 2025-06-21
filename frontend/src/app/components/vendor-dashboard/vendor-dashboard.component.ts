@@ -76,6 +76,7 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
   applicationHistory: any[] = [];
   activeTab: 'overview' | 'requirements' | 'resources' | 'applications' | 'profile' | 'user-management' | 'skill-management' = 'overview';
   showVendorManagementDropdown = false;
+  showMobileMenu = false;
 
   vendorResources: Resource[] = [];
   vendorApplications: Application[] = [];

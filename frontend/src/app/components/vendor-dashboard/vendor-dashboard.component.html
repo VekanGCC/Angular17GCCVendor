@@ -1,13 +1,20 @@
 <app-layout>
   <div class="flex h-screen bg-gray-50">
+    <!-- Mobile Menu Overlay -->
+    <div *ngIf="showMobileMenu" 
+         (click)="showMobileMenu = false"
+         class="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"></div>
+
     <!-- Sidebar -->
-    <div class="w-64 bg-white shadow-sm border-r border-gray-200 flex flex-col">
+    <div [class]="'bg-white shadow-sm border-r border-gray-200 flex flex-col z-50 transition-transform duration-300 ' + 
+                  (showMobileMenu ? 'fixed inset-y-0 left-0 w-64 transform translate-x-0' : 
+                   'fixed inset-y-0 left-0 w-64 transform -translate-x-full lg:relative lg:translate-x-0')">
       <!-- Header -->
-      <div class="p-6 border-b border-gray-200">
+      <div class="p-4 sm:p-6 border-b border-gray-200">
         <div class="flex items-center justify-between">
-          <div>
-            <h1 class="text-xl font-bold text-gray-900">Vendor Portal</h1>
-            <p class="text-sm text-gray-600 mt-1">
+          <div class="flex-1 min-w-0">
+            <h1 class="text-lg sm:text-xl font-bold text-gray-900 truncate">Vendor Portal</h1>
+            <p class="text-xs sm:text-sm text-gray-600 mt-1 truncate">
               <span *ngIf="currentUser?.firstName && currentUser?.lastName">
                 {{currentUser?.firstName}} {{currentUser?.lastName}}
               </span>
@@ -16,14 +23,14 @@
           </div>
           <button
             (click)="showResourceModal = true"
-            class="bg-gradient-to-r from-green-600 to-emerald-600 text-white p-2 rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-200">
+            class="bg-gradient-to-r from-green-600 to-emerald-600 text-white p-2 rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-200 flex-shrink-0">
             <img src="assets/icons/lucide/lucide/plus.svg" class="w-4 h-4" alt="Plus">
           </button>
         </div>
       </div>
 
       <!-- Navigation Menu -->
-      <nav class="flex-1 p-4 space-y-2">
+      <nav class="flex-1 p-3 sm:p-4 space-y-1 sm:space-y-2 overflow-y-auto">
         <button
           *ngFor="let tab of [
             { id: 'overview', label: 'Overview', icon: 'home.svg' },
@@ -34,27 +41,27 @@
             { id: 'user-management', label: 'User Management', icon: 'user-plus.svg' },
             { id: 'profile', label: 'Profile', icon: 'user.svg' }
           ]"
-          (click)="setActiveTab(tab.id)"
-          [class]="'w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ' + 
+          (click)="setActiveTab(tab.id); showMobileMenu = false"
+          [class]="'w-full flex items-center px-3 py-2 sm:px-4 sm:py-3 text-left rounded-lg transition-colors text-sm sm:text-base ' + 
             (activeTab === tab.id
               ? 'bg-green-50 text-green-700 border border-green-200'
               : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900')">
-          <img [src]="'assets/icons/lucide/lucide/' + tab.icon" class="w-5 h-5 mr-3" [alt]="tab.label">
-          <span class="font-medium">{{tab.label}}</span>
+          <img [src]="'assets/icons/lucide/lucide/' + tab.icon" class="w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3 flex-shrink-0" [alt]="tab.label">
+          <span class="font-medium truncate">{{tab.label}}</span>
         </button>
       </nav>
 
       <!-- Stats Summary -->
-      <div class="p-4 border-t border-gray-200">
-        <div class="space-y-3">
+      <div class="p-3 sm:p-4 border-t border-gray-200">
+        <div class="space-y-2 sm:space-y-3">
           <div *ngFor="let stat of stats; trackBy: trackByStatTitle" class="flex items-center justify-between">
-            <div class="flex items-center">
-              <div [class]="'p-2 rounded-lg ' + stat.bg">
-                <img [src]="'assets/icons/lucide/lucide/' + stat.icon + '.svg'" [class]="'w-4 h-4 ' + stat.color" [alt]="stat.title">
+            <div class="flex items-center min-w-0 flex-1">
+              <div [class]="'p-1.5 sm:p-2 rounded-lg flex-shrink-0 ' + stat.bg">
+                <img [src]="'assets/icons/lucide/lucide/' + stat.icon + '.svg'" [class]="'w-3 h-3 sm:w-4 sm:h-4 ' + stat.color" [alt]="stat.title">
               </div>
-              <span class="ml-3 text-sm font-medium text-gray-700">{{stat.title}}</span>
+              <span class="ml-2 sm:ml-3 text-xs sm:text-sm font-medium text-gray-700 truncate">{{stat.title}}</span>
             </div>
-            <span class="text-lg font-bold text-gray-900">{{stat.value}}</span>
+            <span class="text-sm sm:text-lg font-bold text-gray-900 flex-shrink-0">{{stat.value}}</span>
           </div>
         </div>
       </div>
@@ -62,11 +69,24 @@
 
     <!-- Main Content -->
     <div class="flex-1 flex flex-col overflow-hidden">
-      <!-- Content Header -->
-      <div class="bg-blue-50 border-b border-blue-200 px-6 py-4">
+      <!-- Mobile Header -->
+      <div class="lg:hidden bg-white border-b border-gray-200 px-4 py-3">
         <div class="flex items-center justify-between">
-          <div>
-            <h2 class="text-2xl font-bold text-gray-900">
+          <button
+            (click)="showMobileMenu = true"
+            class="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg">
+            <img src="assets/icons/lucide/lucide/list.svg" class="w-5 h-5" alt="Menu">
+          </button>
+          <h1 class="text-lg font-bold text-gray-900">Vendor Portal</h1>
+          <div class="w-9"></div> <!-- Spacer for centering -->
+        </div>
+      </div>
+
+      <!-- Content Header -->
+      <div class="bg-blue-50 border-b border-blue-200 px-3 sm:px-6 py-3 sm:py-4">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
+          <div class="min-w-0 flex-1">
+            <h2 class="text-lg sm:text-2xl font-bold text-gray-900 truncate">
               <span *ngIf="activeTab === 'overview'">Dashboard Overview</span>
               <span *ngIf="activeTab === 'resources'">My Resources</span>
               <span *ngIf="activeTab === 'requirements'">Opportunities</span>
@@ -75,7 +95,7 @@
               <span *ngIf="activeTab === 'user-management'">User Management</span>
               <span *ngIf="activeTab === 'profile'">Profile</span>
             </h2>
-            <p class="text-gray-600 mt-1">
+            <p class="text-xs sm:text-sm text-gray-600 mt-1 truncate">
               <span *ngIf="activeTab === 'overview'">Welcome back to your dashboard</span>
               <span *ngIf="activeTab === 'resources'">Manage your available resources</span>
               <span *ngIf="activeTab === 'requirements'">Explore new business opportunities</span>
@@ -85,29 +105,34 @@
               <span *ngIf="activeTab === 'profile'">Manage your account information and settings</span>
             </p>
           </div>
-          <button *ngIf="activeTab === 'resources'"
-            (click)="showResourceModal = true"
-            class="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-4 py-2 rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-200 flex items-center">
-            <img src="assets/icons/lucide/lucide/plus.svg" class="w-4 h-4 mr-2" alt="Plus">
-            Add Resource
-          </button>
-          <button *ngIf="activeTab === 'skill-management'"
-            (click)="showAddSkillModal = true"
-            class="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-4 py-2 rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-200 flex items-center">
-            <img src="assets/icons/lucide/lucide/plus.svg" class="w-4 h-4 mr-2" alt="Plus">
-            Add Skill
-          </button>
-          <button *ngIf="activeTab === 'user-management'"
-            (click)="showAddUserModal = true"
-            class="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-4 py-2 rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-200 flex items-center">
-            <img src="assets/icons/lucide/lucide/plus.svg" class="w-4 h-4 mr-2" alt="Plus">
-            Add User
-          </button>
+          <div class="flex flex-wrap gap-2 sm:gap-3">
+            <button *ngIf="activeTab === 'resources'"
+              (click)="showResourceModal = true"
+              class="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-3 py-2 sm:px-4 sm:py-2 rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-200 flex items-center text-sm">
+              <img src="assets/icons/lucide/lucide/plus.svg" class="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" alt="Plus">
+              <span class="hidden sm:inline">Add Resource</span>
+              <span class="sm:hidden">Add</span>
+            </button>
+            <button *ngIf="activeTab === 'skill-management'"
+              (click)="showAddSkillModal = true"
+              class="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-3 py-2 sm:px-4 sm:py-2 rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-200 flex items-center text-sm">
+              <img src="assets/icons/lucide/lucide/plus.svg" class="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" alt="Plus">
+              <span class="hidden sm:inline">Add Skill</span>
+              <span class="sm:hidden">Add</span>
+            </button>
+            <button *ngIf="activeTab === 'user-management'"
+              (click)="showAddUserModal = true"
+              class="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-3 py-2 sm:px-4 sm:py-2 rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-200 flex items-center text-sm">
+              <img src="assets/icons/lucide/lucide/plus.svg" class="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" alt="Plus">
+              <span class="hidden sm:inline">Add User</span>
+              <span class="sm:hidden">Add</span>
+            </button>
+          </div>
         </div>
       </div>
 
       <!-- Content Area -->
-      <div class="flex-1 overflow-y-auto p-6">
+      <div class="flex-1 overflow-y-auto p-3 sm:p-6">
         <!-- Overview Tab -->
         <app-vendor-overview 
           *ngIf="activeTab === 'overview'"

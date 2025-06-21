@@ -12,4 +12,76 @@ html, body {
 
 body {
   overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+  -ms-text-size-adjust: 100%;
+}
+
+/* Mobile-specific improvements */
+@media (max-width: 640px) {
+  /* Prevent horizontal scrolling */
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  
+  /* Improve touch targets */
+  button, 
+  input[type="button"], 
+  input[type="submit"], 
+  input[type="reset"],
+  select,
+  a {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Better form controls on mobile */
+  input, 
+  select, 
+  textarea {
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+  
+  /* Improve table responsiveness */
+  table {
+    font-size: 14px;
+  }
+  
+  /* Better spacing for mobile */
+  .p-6 {
+    padding: 1rem;
+  }
+  
+  .px-6 {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  
+  .py-4 {
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+  }
+}
+
+/* Tablet improvements */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .container {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+}
+
+/* Ensure proper focus states for accessibility */
+button:focus,
+input:focus,
+select:focus,
+textarea:focus,
+a:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
 }

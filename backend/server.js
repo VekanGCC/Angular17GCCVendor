@@ -102,6 +102,9 @@ app.use('/api/notifications', require('./routes/notifications'));
 // Admin routes
 app.use('/api/admin', require('./routes/adminRoutes'));
 
+// File management routes
+app.use('/api/files', require('./routes/files'));
+
 // Mount routers
 app.use('/api/users', require('./routes/users'));
 app.use('/api/skills', require('./routes/skills'));

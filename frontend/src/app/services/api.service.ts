@@ -5,6 +5,7 @@ import { delay, map, catchError, tap, retry } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import { ApiResponse } from '../models/api-response.model';
 import { AdminSkill } from '../models/admin.model';
+import { File, FileUploadRequest, FileUpdateRequest, FileApprovalRequest, BulkApprovalRequest, FileFilters, FileStats } from '../models/file.model';
 
 import { PaginationParams, PaginatedResponse } from '../models/pagination.model';
 
@@ -582,5 +583,181 @@ export class ApiService {
   createAdminUser(user: any): Observable<any> {
     console.log('➕ API: Creating admin user:', user.email);
     return this.post('/admin/users', user);
+  }
+
+  // File Management APIs
+  uploadFile(file: globalThis.File, entityType: string, entityId: string, metadata?: any): Observable<ApiResponse<File>> {
+    console.log('📁 API: Uploading file:', file.name);
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('entityType', entityType);
+    formData.append('entityId', entityId);
+    
+    if (metadata) {
+      if (metadata.category) formData.append('category', metadata.category);
+      if (metadata.description) formData.append('description', metadata.description);
+      if (metadata.isPublic !== undefined) formData.append('isPublic', metadata.isPublic.toString());
+      if (metadata.tags) formData.append('tags', metadata.tags);
+    }
+
+    const options = {
+      headers: new HttpHeaders({
+        'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+      })
+    };
+
+    return this.http.post<ApiResponse<File>>(`${this.apiUrl}/files/upload`, formData, options).pipe(
+      tap(response => console.log('✅ API: File uploaded successfully:', response)),
+      catchError(error => {
+        console.error('❌ API: File upload error:', error);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  getFilesByEntity(entityType: string, entityId: string, filters?: FileFilters): Observable<PaginatedResponse<File>> {
+    console.log('📁 API: Fetching files for entity:', entityType, entityId);
+    
+    let params = new HttpParams();
+    if (filters) {
+      if (filters.category) params = params.set('category', filters.category);
+      if (filters.approvalStatus) params = params.set('approvalStatus', filters.approvalStatus);
+      if (filters.page) params = params.set('page', filters.page.toString());
+      if (filters.limit) params = params.set('limit', filters.limit.toString());
+    }
+
+    const options = this.getHttpOptions();
+    (options as any).params = params;
+
+    return this.http.get<PaginatedResponse<File>>(`${this.apiUrl}/files/entity/${entityType}/${entityId}`, options).pipe(
+      tap(response => console.log('✅ API: Files retrieved successfully:', response)),
+      catchError(error => {
+        console.error('❌ API: Error fetching files:', error);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  getMyFiles(filters?: FileFilters): Observable<PaginatedResponse<File>> {
+    console.log('📁 API: Fetching my files');
+    
+    let params = new HttpParams();
+    if (filters) {
+      if (filters.category) params = params.set('category', filters.category);
+      if (filters.approvalStatus) params = params.set('approvalStatus', filters.approvalStatus);
+      if (filters.page) params = params.set('page', filters.page.toString());
+      if (filters.limit) params = params.set('limit', filters.limit.toString());
+    }
+
+    const options = this.getHttpOptions();
+    (options as any).params = params;
+
+    return this.http.get<PaginatedResponse<File>>(`${this.apiUrl}/files/my-files`, options).pipe(
+      tap(response => console.log('✅ API: My files retrieved successfully:', response)),
+      catchError(error => {
+        console.error('❌ API: Error fetching my files:', error);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  getFile(fileId: string): Observable<ApiResponse<File>> {
+    console.log('📁 API: Fetching file:', fileId);
+    
+    return this.http.get<ApiResponse<File>>(`${this.apiUrl}/files/${fileId}`, this.getHttpOptions()).pipe(
+      tap(response => console.log('✅ API: File retrieved successfully:', response)),
+      catchError(error => {
+        console.error('❌ API: Error fetching file:', error);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  downloadFile(fileId: string): Observable<Blob> {
+    console.log('📁 API: Downloading file:', fileId);
+    
+    const options = {
+      headers: new HttpHeaders({
+        'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+      }),
+      responseType: 'blob' as 'json'
+    };
+
+    return this.http.get<Blob>(`${this.apiUrl}/files/${fileId}/download`, options).pipe(
+      tap(() => console.log('✅ API: File download started')),
+      catchError(error => {
+        console.error('❌ API: Error downloading file:', error);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  updateFile(fileId: string, updates: FileUpdateRequest): Observable<ApiResponse<File>> {
+    console.log('📁 API: Updating file:', fileId);
+    
+    return this.http.put<ApiResponse<File>>(`${this.apiUrl}/files/${fileId}`, updates, this.getHttpOptions()).pipe(
+      tap(response => console.log('✅ API: File updated successfully:', response)),
+      catchError(error => {
+        console.error('❌ API: Error updating file:', error);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  deleteFile(fileId: string): Observable<ApiResponse<any>> {
+    console.log('📁 API: Deleting file:', fileId);
+    
+    return this.http.delete<ApiResponse<any>>(`${this.apiUrl}/files/${fileId}`, this.getHttpOptions()).pipe(
+      tap(response => console.log('✅ API: File deleted successfully:', response)),
+      catchError(error => {
+        console.error('❌ API: Error deleting file:', error);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  // Admin file management
+  getPendingFileApprovals(page?: number, limit?: number): Observable<PaginatedResponse<File>> {
+    console.log('📁 API: Fetching pending file approvals');
+    
+    let params = new HttpParams();
+    if (page) params = params.set('page', page.toString());
+    if (limit) params = params.set('limit', limit.toString());
+
+    const options = this.getHttpOptions();
+    (options as any).params = params;
+
+    return this.http.get<PaginatedResponse<File>>(`${this.apiUrl}/files/pending-approvals`, options).pipe(
+      tap(response => console.log('✅ API: Pending approvals retrieved successfully:', response)),
+      catchError(error => {
+        console.error('❌ API: Error fetching pending approvals:', error);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  approveFile(fileId: string, approval: FileApprovalRequest): Observable<ApiResponse<File>> {
+    console.log('📁 API: Approving file:', fileId, approval.approvalStatus);
+    
+    return this.http.patch<ApiResponse<File>>(`${this.apiUrl}/files/${fileId}/approval`, approval, this.getHttpOptions()).pipe(
+      tap(response => console.log('✅ API: File approval updated successfully:', response)),
+      catchError(error => {
+        console.error('❌ API: Error updating file approval:', error);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  bulkApproveFiles(approval: BulkApprovalRequest): Observable<ApiResponse<any>> {
+    console.log('📁 API: Bulk approving files:', approval.fileIds.length, 'files');
+    
+    return this.http.post<ApiResponse<any>>(`${this.apiUrl}/files/bulk-approval`, approval, this.getHttpOptions()).pipe(
+      tap(response => console.log('✅ API: Bulk approval completed successfully:', response)),
+      catchError(error => {
+        console.error('❌ API: Error in bulk approval:', error);
+        return throwError(() => error);
+      })
+    );
   }
 }
