@@ -24,14 +24,22 @@
           class="ag-theme-alpine w-full"
           [columnDefs]="columnDefs"
           [defaultColDef]="defaultColDef"
-          [rowData]="applications"
           [gridOptions]="gridOptions"
+          [rowData]="applications"
           [domLayout]="'autoHeight'"
           [rowSelection]="'single'"
           [animateRows]="true"
           [enableCellTextSelection]="true"
         >
         </ag-grid-angular>
+      </div>
+
+      <!-- Custom Pagination -->
+      <div *ngIf="!isLoading && applications.length > 0">
+        <app-pagination
+          [paginationState]="paginationState"
+          (pageChange)="onPageChange($event)">
+        </app-pagination>
       </div>
     </div>
   </div>

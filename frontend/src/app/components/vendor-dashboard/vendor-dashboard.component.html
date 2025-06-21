@@ -21,11 +21,6 @@
               <span *ngIf="!currentUser?.firstName || !currentUser?.lastName">Loading...</span>
             </p>
           </div>
-          <button
-            (click)="showResourceModal = true"
-            class="bg-gradient-to-r from-green-600 to-emerald-600 text-white p-2 rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-200 flex-shrink-0">
-            <img src="assets/icons/lucide/lucide/plus.svg" class="w-4 h-4" alt="Plus">
-          </button>
         </div>
       </div>
 
@@ -36,7 +31,7 @@
             { id: 'overview', label: 'Overview', icon: 'home.svg' },
             { id: 'requirements', label: 'Browse Requirements', icon: 'briefcase.svg' },
             { id: 'resources', label: 'My Resources', icon: 'users.svg' },
-            { id: 'applications', label: 'Applications', icon: 'trending-up.svg' },
+            { id: 'applications', label: 'Vendor Applications', icon: 'trending-up.svg' },
             { id: 'skill-management', label: 'Skills Management', icon: 'settings.svg' },
             { id: 'user-management', label: 'User Management', icon: 'user-plus.svg' },
             { id: 'profile', label: 'Profile', icon: 'user.svg' }
@@ -82,55 +77,6 @@
         </div>
       </div>
 
-      <!-- Content Header -->
-      <div class="bg-blue-50 border-b border-blue-200 px-3 sm:px-6 py-3 sm:py-4">
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
-          <div class="min-w-0 flex-1">
-            <h2 class="text-lg sm:text-2xl font-bold text-gray-900 truncate">
-              <span *ngIf="activeTab === 'overview'">Dashboard Overview</span>
-              <span *ngIf="activeTab === 'resources'">My Resources</span>
-              <span *ngIf="activeTab === 'requirements'">Opportunities</span>
-              <span *ngIf="activeTab === 'applications'">Applications</span>
-              <span *ngIf="activeTab === 'skill-management'">Skills Management</span>
-              <span *ngIf="activeTab === 'user-management'">User Management</span>
-              <span *ngIf="activeTab === 'profile'">Profile</span>
-            </h2>
-            <p class="text-xs sm:text-sm text-gray-600 mt-1 truncate">
-              <span *ngIf="activeTab === 'overview'">Welcome back to your dashboard</span>
-              <span *ngIf="activeTab === 'resources'">Manage your available resources</span>
-              <span *ngIf="activeTab === 'requirements'">Explore new business opportunities</span>
-              <span *ngIf="activeTab === 'applications'">Track your resource applications</span>
-              <span *ngIf="activeTab === 'skill-management'">Manage your organization's skill portfolio</span>
-              <span *ngIf="activeTab === 'user-management'">Manage organization users and permissions</span>
-              <span *ngIf="activeTab === 'profile'">Manage your account information and settings</span>
-            </p>
-          </div>
-          <div class="flex flex-wrap gap-2 sm:gap-3">
-            <button *ngIf="activeTab === 'resources'"
-              (click)="showResourceModal = true"
-              class="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-3 py-2 sm:px-4 sm:py-2 rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-200 flex items-center text-sm">
-              <img src="assets/icons/lucide/lucide/plus.svg" class="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" alt="Plus">
-              <span class="hidden sm:inline">Add Resource</span>
-              <span class="sm:hidden">Add</span>
-            </button>
-            <button *ngIf="activeTab === 'skill-management'"
-              (click)="showAddSkillModal = true"
-              class="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-3 py-2 sm:px-4 sm:py-2 rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-200 flex items-center text-sm">
-              <img src="assets/icons/lucide/lucide/plus.svg" class="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" alt="Plus">
-              <span class="hidden sm:inline">Add Skill</span>
-              <span class="sm:hidden">Add</span>
-            </button>
-            <button *ngIf="activeTab === 'user-management'"
-              (click)="showAddUserModal = true"
-              class="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-3 py-2 sm:px-4 sm:py-2 rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-200 flex items-center text-sm">
-              <img src="assets/icons/lucide/lucide/plus.svg" class="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" alt="Plus">
-              <span class="hidden sm:inline">Add User</span>
-              <span class="sm:hidden">Add</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
       <!-- Content Area -->
       <div class="flex-1 overflow-y-auto p-3 sm:p-6">
         <!-- Overview Tab -->
@@ -148,7 +94,7 @@
           [resources]="vendorResources"
           [isLoading]="resourcesPaginationState.isLoading"
           [paginationState]="resourcesPaginationState"
-          (openResourceModal)="showResourceModal = true"
+          (openResourceModal)="onOpenResourceModal()"
           (editResource)="handleEditResource($event)"
           (toggleResourceStatus)="handleToggleResourceStatus($event)"
           (pageChange)="onResourcesPageChange($event)"
@@ -203,7 +149,7 @@
     </div>
 
     <!-- Resource Modal -->
-    <app-resource-modal *ngIf="showResourceModal" (close)="showResourceModal = false"></app-resource-modal>
+    <app-resource-modal *ngIf="showResourceModal" (close)="onCloseResourceModal()"></app-resource-modal>
 
     <!-- Apply Resource Modal - Temporarily disabled due to interface changes -->
     <!-- <app-apply-resource-modal

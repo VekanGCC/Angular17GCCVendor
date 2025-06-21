@@ -192,6 +192,61 @@
           required></textarea>
       </div>
 
+      <!-- File Upload Section -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">
+          Attach Document (Optional)
+        </label>
+        <div class="space-y-3">
+          <!-- File Input -->
+          <div class="flex items-center justify-center w-full">
+            <label 
+              for="requirement-file-upload" 
+              class="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
+              <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                <img src="assets/icons/lucide/lucide/upload.svg" alt="upload" class="w-8 h-8 mb-2 text-gray-400" />
+                <p class="mb-2 text-sm text-gray-500">
+                  <span class="font-semibold">Click to upload</span> or drag and drop
+                </p>
+                <p class="text-xs text-gray-500">PDF or DOC files only (Max 5MB)</p>
+              </div>
+              <input 
+                id="requirement-file-upload" 
+                type="file" 
+                class="hidden" 
+                accept=".pdf,.doc,.docx"
+                (change)="onFileSelected($event)"
+                #fileInput>
+            </label>
+          </div>
+
+          <!-- Selected File Display -->
+          <div *ngIf="selectedFile" class="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+            <div class="flex items-center space-x-3">
+              <img src="assets/icons/lucide/lucide/file-text.svg" alt="file" class="w-5 h-5 text-green-600" />
+              <div>
+                <p class="text-sm font-medium text-green-800">{{ selectedFile.name }}</p>
+                <p class="text-xs text-green-600">{{ (selectedFile.size / 1024 / 1024).toFixed(2) }} MB</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              (click)="removeFile()"
+              class="p-1 text-red-600 hover:text-red-700 hover:bg-red-50 rounded transition-colors">
+              <img src="assets/icons/lucide/lucide/x.svg" alt="remove" class="w-4 h-4" />
+            </button>
+          </div>
+
+          <!-- Error Message -->
+          <div *ngIf="fileError" class="p-3 bg-red-50 border border-red-200 rounded-lg">
+            <div class="flex items-center space-x-2">
+              <img src="assets/icons/lucide/lucide/alert-circle.svg" alt="error" class="w-4 h-4 text-red-600" />
+              <p class="text-sm text-red-800">{{ fileError }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="flex items-center justify-end space-x-4 pt-6 border-t border-gray-200">
         <button
           type="button"

@@ -46,10 +46,11 @@ export class VendorResourcesComponent implements OnInit {
       field: 'name', 
       flex: 2,
       sortable: true,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       cellRenderer: (params: any) => {
         const resource = params.data;
         return `
-          <div class="flex items-center">
+          <div class="flex items-center justify-start text-left">
             <div class="min-w-0 flex-1">
               <div class="text-sm font-medium text-gray-900 truncate">${resource.name || 'N/A'}</div>
               <div class="text-xs text-gray-500 truncate">${resource.category || 'N/A'}</div>
@@ -63,6 +64,7 @@ export class VendorResourcesComponent implements OnInit {
       field: 'skills', 
       flex: 1,
       sortable: true,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       valueGetter: (params: any) => {
         const skills = params.data.skills || [];
         return skills.length > 0 ? skills[0] : '';
@@ -74,7 +76,7 @@ export class VendorResourcesComponent implements OnInit {
         const displaySkills = skills.slice(0, 2);
         const remainingCount = skills.length - 2;
         
-        let html = '<div class="flex flex-wrap gap-1">';
+        let html = '<div class="flex flex-wrap gap-1 justify-start">';
         displaySkills.forEach((skill: string) => {
           html += `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">${skill}</span>`;
         });
@@ -90,10 +92,11 @@ export class VendorResourcesComponent implements OnInit {
       field: 'experience.years', 
       flex: 1,
       sortable: true,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       cellRenderer: (params: any) => {
         const experience = params.data.experience || {};
         return `
-          <div>
+          <div class="text-left">
             <div class="text-sm text-gray-900">${experience.years || 0} years</div>
             <div class="text-xs text-gray-500">${experience.level || 'Not specified'}</div>
           </div>
@@ -105,10 +108,11 @@ export class VendorResourcesComponent implements OnInit {
       field: 'rate.hourly', 
       flex: 1,
       sortable: true,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       cellRenderer: (params: any) => {
         const rate = params.data.rate || {};
         return `
-          <div>
+          <div class="text-left">
             <div class="text-sm text-gray-900">$${rate.hourly || 0}/hr</div>
             <div class="text-xs text-gray-500">${rate.currency || 'USD'}</div>
           </div>
@@ -120,6 +124,7 @@ export class VendorResourcesComponent implements OnInit {
       field: 'status', 
       flex: 1,
       sortable: true,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       cellRenderer: (params: any) => {
         const status = params.data.status;
         const statusClass = this.getStatusClass(status);
@@ -133,11 +138,37 @@ export class VendorResourcesComponent implements OnInit {
       }
     },
     {
+      headerName: 'Attachment',
+      field: 'attachment',
+      flex: 1,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
+      sortable: false,
+      filter: false,
+      cellRenderer: (params: any) => {
+        const attachment = params.data.attachment;
+        if (!attachment || !attachment.originalName) {
+          return '<span class="text-xs text-gray-500 italic">No file</span>';
+        }
+        
+        return `
+          <div class="flex items-center justify-center">
+            <button 
+              class="download-btn p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
+              id="download-${params.data._id}"
+              title="${attachment.originalName}">
+              <img src="assets/icons/lucide/lucide/file-text.svg" alt="file" class="w-4 h-4" />
+            </button>
+          </div>
+        `;
+      }
+    },
+    {
       headerName: 'Actions',
       field: 'actions',
       flex: 1,
       sortable: false,
       filter: false,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       cellRenderer: (params: any) => {
         const resource = params.data;
         const isActive = this.isResourceActive(resource);
@@ -145,7 +176,7 @@ export class VendorResourcesComponent implements OnInit {
         const toggleButtonText = this.getToggleButtonText(resource);
         
         const html = `
-          <div class="flex space-x-2">
+          <div class="flex space-x-2 justify-start">
             <button 
               class="toggle-btn inline-flex items-center px-2 py-1 rounded-md text-xs font-medium transition-all duration-200 ${toggleButtonClass}"
               id="toggle-${resource._id}">
@@ -163,6 +194,7 @@ export class VendorResourcesComponent implements OnInit {
         setTimeout(() => {
           const toggleBtn = document.getElementById(`toggle-${resource._id}`);
           const editBtn = document.getElementById(`edit-${resource._id}`);
+          const downloadBtn = document.getElementById(`download-${resource._id}`);
           
           if (toggleBtn) {
             toggleBtn.addEventListener('click', () => this.onToggleResourceStatus(resource));
@@ -170,6 +202,13 @@ export class VendorResourcesComponent implements OnInit {
           
           if (editBtn) {
             editBtn.addEventListener('click', () => this.onEditResource(resource));
+          }
+          
+          if (downloadBtn && resource.attachment) {
+            downloadBtn.addEventListener('click', () => {
+              console.log('🔍 DEBUG: Download button clicked for resource:', resource._id);
+              this.downloadAttachment(resource);
+            });
           }
         });
         
@@ -325,5 +364,29 @@ export class VendorResourcesComponent implements OnInit {
 
   trackById(index: number, item: Resource): string {
     return item._id || `resource-${index}`;
+  }
+
+  downloadAttachment(resource: Resource): void {
+    if (!resource.attachment || !resource.attachment.fileId) {
+      console.error('No attachment found for resource:', resource._id);
+      return;
+    }
+
+    // Create a download link
+    const link = document.createElement('a');
+    link.href = `/api/files/${resource.attachment.fileId}/download`;
+    link.download = resource.attachment.originalName;
+    link.target = '_blank';
+    
+    // Add authorization header if needed
+    const token = sessionStorage.getItem('authToken');
+    if (token) {
+      link.setAttribute('data-token', token);
+    }
+    
+    // Trigger download
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   }
 } 

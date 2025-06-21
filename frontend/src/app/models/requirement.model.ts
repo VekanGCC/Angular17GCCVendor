@@ -17,8 +17,9 @@ export interface Requirement {
   };
   duration: string;
   budget: {
-    hourly: number;
+    charge: number;
     currency: string;
+    type: string;
   };
   description: string;
   status: 'draft' | 'open' | 'in_progress' | 'on_hold' | 'completed' | 'cancelled';
@@ -27,4 +28,12 @@ export interface Requirement {
   updatedAt: string;
   startDate: string;
   endDate: string;
+  attachment?: {
+    originalName: string;
+    fileSize: number;
+    fileType: string;
+    fileId?: string;
+    filename?: string;
+    path?: string;
+  };
 }

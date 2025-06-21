@@ -20,6 +20,13 @@ export class ResourceModalComponent implements OnInit {
 
   resourceForm: FormGroup;
   availableSkills: AdminSkill[] = [];
+  isSubmitting = false;
+  
+  // File upload properties
+  selectedFile: File | null = null;
+  fileError: string | null = null;
+  readonly maxFileSize = 5 * 1024 * 1024; // 5MB
+  readonly allowedFileTypes = ['.pdf', '.doc', '.docx'];
 
   constructor(
     private fb: FormBuilder,
@@ -89,23 +96,153 @@ export class ResourceModalComponent implements OnInit {
 
   onSubmit(): void {
     if (this.resourceForm.valid) {
-      const user = this.authService.currentUser;
-      if (!user) return;
-
+      this.isSubmitting = true;
       const formValue = this.resourceForm.value;
-      const filteredSkills = formValue.skills.filter((skill: string) => skill.trim() !== '');
+      
+      // Prepare resource data without attachment
+      const resourceData = {
+        name: formValue.name,
+        description: formValue.description,
+        category: formValue.category,
+        skills: formValue.skills || [],
+        experience: {
+          years: formValue.experience.years,
+          level: formValue.experience.level
+        },
+        location: {
+          city: formValue.location.city,
+          state: formValue.location.state,
+          country: formValue.location.country,
+          remote: formValue.location.remote
+        },
+        availability: {
+          status: formValue.availability.status,
+          hours_per_week: formValue.availability.hours_per_week,
+          start_date: formValue.availability.start_date
+        },
+        rate: {
+          hourly: formValue.rate.hourly,
+          currency: formValue.rate.currency
+        },
+        status: 'active',
+        vendorName: 'Unknown Company'
+      };
 
-      if (filteredSkills.length === 0) return;
+      console.log('🔧 ResourceModal: Creating resource with data:', resourceData);
 
-      this.appService.addResource({
-        ...formValue,
-        skills: filteredSkills,
-        vendorId: user._id,
-        vendorName: user.businessInfo?.companyName || 'Unknown Company',
-        createdBy: user._id
+      // Step 1: Create the resource first
+      this.apiService.createResource(resourceData).subscribe({
+        next: (response) => {
+          console.log('🔧 ResourceModal: Resource created successfully:', response);
+          
+          if (response.success && response.data) {
+            const resourceId = response.data._id;
+            
+            // Step 2: If file is selected, upload it with the resource ID
+            if (this.selectedFile) {
+              console.log('🔧 ResourceModal: Uploading file for resource:', resourceId);
+              
+              this.apiService.uploadFile(this.selectedFile, 'resource', resourceId, {
+                category: 'document',
+                description: `Resource document for: ${resourceData.name}`,
+                isPublic: false
+              }).subscribe({
+                next: (fileResponse) => {
+                  console.log('🔧 ResourceModal: File upload successful:', fileResponse);
+                  
+                  if (fileResponse.success && fileResponse.data) {
+                    // Step 3: Update the resource with file information
+                    const updateData = {
+                      attachment: {
+                        fileId: fileResponse.data._id,
+                        filename: fileResponse.data.filename,
+                        path: fileResponse.data.path,
+                        originalName: fileResponse.data.originalName,
+                        fileSize: fileResponse.data.size,
+                        fileType: fileResponse.data.mimetype
+                      }
+                    };
+                    
+                    console.log('🔧 ResourceModal: Updating resource with file info:', updateData);
+                    
+                    this.apiService.updateResource(resourceId, updateData).subscribe({
+                      next: (updateResponse) => {
+                        console.log('🔧 ResourceModal: Resource updated with file info:', updateResponse);
+                        this.isSubmitting = false;
+                        this.close.emit();
+                        console.log('✅ Resource created successfully with file attachment!');
+                      },
+                      error: (error) => {
+                        console.error('🔧 ResourceModal: Error updating resource with file info:', error);
+                        this.isSubmitting = false;
+                        console.error('❌ Resource created but failed to attach file. Please try again.');
+                      }
+                    });
+                  } else {
+                    console.error('🔧 ResourceModal: File upload failed:', fileResponse);
+                    this.isSubmitting = false;
+                    console.error('❌ Resource created but file upload failed. Please try again.');
+                  }
+                },
+                error: (error) => {
+                  console.error('🔧 ResourceModal: File upload error:', error);
+                  this.isSubmitting = false;
+                  console.error('❌ Resource created but file upload failed. Please try again.');
+                }
+              });
+            } else {
+              // No file selected, resource creation is complete
+              console.log('🔧 ResourceModal: Resource created without file attachment');
+              this.isSubmitting = false;
+              this.close.emit();
+              console.log('✅ Resource created successfully!');
+            }
+          } else {
+            console.error('🔧 ResourceModal: Resource creation failed:', response);
+            this.isSubmitting = false;
+            console.error('❌ Failed to create resource. Please try again.');
+          }
+        },
+        error: (error) => {
+          console.error('🔧 ResourceModal: Resource creation error:', error);
+          this.isSubmitting = false;
+          console.error('❌ Failed to create resource. Please try again.');
+        }
       });
+    }
+  }
 
-      this.close.emit();
+  // File upload methods
+  onFileSelected(event: any): void {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    this.fileError = null;
+
+    // Validate file type
+    const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
+    if (!this.allowedFileTypes.includes(fileExtension)) {
+      this.fileError = 'Please select a PDF or DOC file only.';
+      return;
+    }
+
+    // Validate file size
+    if (file.size > this.maxFileSize) {
+      this.fileError = 'File size must be less than 5MB.';
+      return;
+    }
+
+    this.selectedFile = file;
+    console.log('🔧 ResourceModal: File selected:', file.name, file.size);
+  }
+
+  removeFile(): void {
+    this.selectedFile = null;
+    this.fileError = null;
+    // Reset the file input
+    const fileInput = document.getElementById('resource-file-upload') as HTMLInputElement;
+    if (fileInput) {
+      fileInput.value = '';
     }
   }
 

@@ -87,7 +87,12 @@ export class AppService {
 
   async addRequirement(requirementData: Omit<Requirement, '_id' | 'createdAt' | 'updatedAt'>): Promise<void> {
     try {
+      console.log('🔧 AppService: addRequirement called with data:', requirementData);
+      console.log('🔧 AppService: Budget data in requirementData:', requirementData.budget);
+      
       const response = await firstValueFrom(this.apiService.createRequirement(requirementData));
+      console.log('🔧 AppService: API response:', response);
+      
       if (response.success) {
         const currentRequirements = this.requirementsSubject.value;
         this.requirementsSubject.next([...currentRequirements, response.data]);

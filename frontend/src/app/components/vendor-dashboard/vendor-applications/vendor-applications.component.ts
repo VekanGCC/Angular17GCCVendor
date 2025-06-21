@@ -36,6 +36,7 @@ export class VendorApplicationsComponent implements OnInit {
       field: '_id', 
       flex: 1,
       sortable: true,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       cellRenderer: (params: any) => {
         const appId = params.data._id;
         return `<div class="text-sm font-medium text-gray-900">#${appId ? appId.slice(-6) : 'N/A'}</div>`;
@@ -46,6 +47,7 @@ export class VendorApplicationsComponent implements OnInit {
       field: 'resource.name', 
       flex: 2,
       sortable: true,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       valueGetter: (params: any) => {
         if (typeof params.data.resource === 'string') {
           return 'Unknown';
@@ -62,6 +64,7 @@ export class VendorApplicationsComponent implements OnInit {
       field: 'requirement.title', 
       flex: 2,
       sortable: true,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       valueGetter: (params: any) => {
         if (typeof params.data.requirement === 'string') {
           return 'Unknown';
@@ -78,6 +81,7 @@ export class VendorApplicationsComponent implements OnInit {
       field: 'status', 
       flex: 1,
       sortable: true,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       cellRenderer: (params: any) => {
         const status = params.data.status;
         const statusClass = this.getStatusClass(status);
@@ -95,6 +99,7 @@ export class VendorApplicationsComponent implements OnInit {
       field: 'createdAt', 
       flex: 1,
       sortable: true,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       cellRenderer: (params: any) => {
         const date = params.data.createdAt;
         const formattedDate = date ? new Date(date).toLocaleDateString() : 'N/A';
@@ -107,12 +112,13 @@ export class VendorApplicationsComponent implements OnInit {
       flex: 2,
       sortable: false,
       filter: false,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       cellRenderer: (params: any) => {
         const application = params.data;
         const hasOptions = this.hasStatusOptions(application.status);
         const statusOptions = this.getAvailableStatusOptions(application.status);
         
-        let html = '<div class="flex items-center justify-end space-x-2">';
+        let html = '<div class="flex items-center justify-start space-x-2">';
         
         // Status dropdown
         if (hasOptions) {

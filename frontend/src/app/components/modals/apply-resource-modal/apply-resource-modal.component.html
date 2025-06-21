@@ -127,7 +127,7 @@
                 <p class="text-sm text-gray-600 mb-3">{{ requirement.description }}</p>
                 
                 <div class="flex items-center gap-4 text-sm text-gray-500 mb-3">
-                  <span *ngIf="requirement.budget?.hourly">${{ requirement.budget.hourly }}/hr</span>
+                  <span *ngIf="requirement.budget?.charge">${{ requirement.budget.charge }}/hr</span>
                   <span *ngIf="requirement.duration">{{ requirement.duration }}</span>
                   <span *ngIf="requirement.location?.city">{{ requirement.location.city }}, {{ requirement.location.state }}</span>
                 </div>

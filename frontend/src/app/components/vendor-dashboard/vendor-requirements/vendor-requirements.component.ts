@@ -35,10 +35,11 @@ export class VendorRequirementsComponent implements OnInit {
       field: 'title', 
       flex: 2,
       sortable: true,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       cellRenderer: (params: any) => {
         const requirement = params.data;
         return `
-          <div class="flex items-center">
+          <div class="flex items-center justify-start text-left">
             <div class="min-w-0 flex-1">
               <div class="text-sm font-medium text-gray-900 truncate">${requirement.title || 'No Title'}</div>
               <div class="text-xs text-gray-500 truncate">${requirement.description || 'No Description'}</div>
@@ -51,7 +52,8 @@ export class VendorRequirementsComponent implements OnInit {
       headerName: 'Skills', 
       field: 'skills', 
       flex: 1,
-      sortable: true, // Enable sorting
+      sortable: true,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       valueGetter: (params: any) => {
         // Sort by the first skill in the array
         const skills = params.data.skills || [];
@@ -64,7 +66,7 @@ export class VendorRequirementsComponent implements OnInit {
         const displaySkills = skills.slice(0, 2);
         const remainingCount = skills.length - 2;
         
-        let html = '<div class="flex flex-wrap gap-1">';
+        let html = '<div class="flex flex-wrap gap-1 justify-start">';
         displaySkills.forEach((skill: string) => {
           html += `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">${skill}</span>`;
         });
@@ -77,12 +79,13 @@ export class VendorRequirementsComponent implements OnInit {
     },
     { 
       headerName: 'Budget', 
-      field: 'budget.amount', 
+      field: 'budget.charge', 
       flex: 1,
       sortable: true,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       cellRenderer: (params: any) => {
-        const budget = this.getBudgetDisplay(params.data);
-        return `<div class="text-sm text-gray-900">${budget}</div>`;
+        const budgetDisplay = this.getBudgetDisplay(params.data);
+        return `<span class="text-sm text-gray-900">${budgetDisplay}</span>`;
       }
     },
     { 
@@ -90,6 +93,7 @@ export class VendorRequirementsComponent implements OnInit {
       field: 'duration', 
       flex: 1,
       sortable: true,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       cellRenderer: (params: any) => {
         const duration = this.getDurationDisplay(params.data);
         return `<div class="text-sm text-gray-900">${duration}</div>`;
@@ -100,11 +104,12 @@ export class VendorRequirementsComponent implements OnInit {
       field: 'location.city', 
       flex: 1,
       sortable: true,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       cellRenderer: (params: any) => {
         const location = this.getLocationDisplay(params.data);
         const isRemote = params.data.location?.remote;
         
-        let html = `<div class="flex flex-col">`;
+        let html = `<div class="flex flex-col items-start text-left">`;
         html += `<span class="text-sm text-gray-900">${location}</span>`;
         if (isRemote) {
           html += `<span class="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full w-fit">Remote</span>`;
@@ -118,6 +123,7 @@ export class VendorRequirementsComponent implements OnInit {
       field: 'status', 
       flex: 1,
       sortable: true,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       cellRenderer: (params: any) => {
         const status = params.data.status || 'unknown';
         return `
@@ -133,11 +139,12 @@ export class VendorRequirementsComponent implements OnInit {
       flex: 1,
       sortable: false,
       filter: false,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       cellRenderer: (params: any) => {
         const requirement = params.data;
         
         const html = `
-          <div class="flex justify-end">
+          <div class="flex justify-start">
             <button 
               class="apply-btn inline-flex items-center px-2 py-1 rounded-md text-xs font-medium text-blue-700 bg-blue-50 border border-blue-300 hover:bg-blue-100 transition-all duration-200"
               id="apply-${requirement._id}">
@@ -205,7 +212,7 @@ export class VendorRequirementsComponent implements OnInit {
       const fieldMapping: { [key: string]: string } = {
         'title': 'title',
         'skills': 'skills',
-        'budget.amount': 'budget.amount',
+        'budget.charge': 'budget.charge',
         'duration': 'duration',
         'location.city': 'location.city',
         'status': 'status',
@@ -230,7 +237,7 @@ export class VendorRequirementsComponent implements OnInit {
     
     if (typeof req.budget === 'object') {
       const budget = req.budget as any;
-      const amount = budget.amount || budget.hourly || budget.value || 0;
+      const amount = budget.charge || budget.amount || budget.hourly || budget.value || 0;
       const currency = budget.currency || 'USD';
       const type = budget.type || 'hourly';
       return `${currency}${amount}/${type}`;

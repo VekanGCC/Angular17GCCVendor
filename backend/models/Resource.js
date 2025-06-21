@@ -98,6 +98,16 @@ const resourceSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
+  },
+  
+  // File attachment information
+  attachment: {
+    originalName: String,
+    fileSize: Number,
+    fileType: String,
+    fileId: String,      // File ID for download
+    filename: String, // Stored filename in uploads folder
+    path: String     // File path in uploads folder
   }
 }, {
   timestamps: true

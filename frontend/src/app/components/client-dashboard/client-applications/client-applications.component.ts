@@ -8,13 +8,15 @@ import { CommonModule } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
 import { Application } from '../../../models/application.model';
 import { AgGridModule } from 'ag-grid-angular';
-import { ColDef, ValueGetterParams, SortChangedEvent } from 'ag-grid-community';
+import { ColDef, ValueGetterParams, SortChangedEvent, GridReadyEvent } from 'ag-grid-community';
+import { PaginationComponent } from '../../pagination/pagination.component';
 import { PaginationState } from '../../../models/pagination.model';
+import { ClientService } from '../../../services/client.service';
 
 @Component({
   selector: 'app-client-applications',
   standalone: true,
-  imports: [CommonModule, LucideAngularModule, AgGridModule],
+  imports: [CommonModule, LucideAngularModule, AgGridModule, PaginationComponent],
   templateUrl: './client-applications.component.html',
   styleUrls: ['./client-applications.component.scss']
 })
@@ -33,8 +35,8 @@ export class ClientApplicationsComponent implements OnInit, OnChanges {
   @Output() updateApplicationStatus = new EventEmitter<{applicationId: string, status: string, notes?: string}>();
   @Output() viewApplicationHistory = new EventEmitter<string>();
   @Output() viewApplicationDetails = new EventEmitter<Application>();
-  @Output() pageChange = new EventEmitter<number>();
   @Output() sortChange = new EventEmitter<{sortBy: string, sortOrder: 'asc' | 'desc'}>();
+  @Output() pageChange = new EventEmitter<number>();
 
   availableStatuses = [
     { value: 'applied', label: 'Applied', color: 'bg-gray-100 text-gray-800' },
@@ -48,82 +50,98 @@ export class ClientApplicationsComponent implements OnInit, OnChanges {
   ];
 
   columnDefs: ColDef[] = [
-    {
-      headerName: 'Application',
-      field: '_id',
+    { 
+      headerName: 'Application ID', 
+      field: '_id', 
       flex: 1,
-      sortable: true,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       cellRenderer: (params: any) => {
-        const app = params.data;
-        const appId = app._id ? app._id.slice(-6) : 'N/A';
-        return `<div class="text-sm font-medium text-gray-900">#${appId}</div>`;
+        const appId = params.data._id;
+        return `<div class="text-sm font-medium text-gray-900">#${appId ? appId.slice(-6) : 'N/A'}</div>`;
       }
     },
-    {
-      headerName: 'Resource',
-      field: 'resource.name',
+    { 
+      headerName: 'Resource', 
+      field: 'resource.name', 
       flex: 2,
-      sortable: true,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
+      valueGetter: (params: any) => {
+        if (typeof params.data.resource === 'string') {
+          return 'Unknown';
+        }
+        return params.data.resource?.name || 'Unknown';
+      },
       cellRenderer: (params: any) => {
         const resourceName = this.getResourceName(params.data);
         return `<div class="text-sm text-gray-900">${resourceName}</div>`;
       }
     },
-    {
-      headerName: 'Requirement',
-      field: 'requirement.title',
+    { 
+      headerName: 'Requirement', 
+      field: 'requirement.title', 
       flex: 2,
-      sortable: true,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
+      valueGetter: (params: any) => {
+        if (typeof params.data.requirement === 'string') {
+          return 'Unknown';
+        }
+        return params.data.requirement?.title || 'Unknown';
+      },
       cellRenderer: (params: any) => {
         const requirementTitle = this.getRequirementTitle(params.data);
         return `<div class="text-sm text-gray-900">${requirementTitle}</div>`;
       }
     },
-    {
-      headerName: 'Status',
-      field: 'status',
-      flex: 1.5,
-      sortable: true,
+    { 
+      headerName: 'Status', 
+      field: 'status', 
+      flex: 1,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       cellRenderer: (params: any) => {
-        const status = params.data.status || 'unknown';
+        const status = params.data.status;
         const statusClass = this.getStatusClass(status);
-        const formattedStatus = this.formatStatus(status);
-        return `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusClass}">${formattedStatus}</span>`;
+        const statusText = this.formatStatus(status);
+        
+        return `
+          <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusClass}">
+            ${statusText}
+          </span>
+        `;
       }
     },
-    {
-      headerName: 'Applied Date',
-      field: 'createdAt',
-      flex: 1.5,
-      sortable: true,
+    { 
+      headerName: 'Applied Date', 
+      field: 'createdAt', 
+      flex: 1,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       cellRenderer: (params: any) => {
-        const date = new Date(params.value);
-        return `<span class="text-sm text-gray-500">${date.toLocaleDateString()}</span>`;
+        const date = params.data.createdAt;
+        const formattedDate = date ? new Date(date).toLocaleDateString() : 'N/A';
+        return `<div class="text-sm text-gray-500">${formattedDate}</div>`;
       }
     },
     {
       headerName: 'Actions',
       field: 'actions',
       flex: 2,
-      sortable: false,
-      filter: false,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       cellRenderer: (params: any) => {
-        const app = params.data;
-        const availableStatuses = this.getAvailableStatuses(app.status);
-        const hasOptions = availableStatuses.length > 0;
+        const application = params.data;
+        const hasOptions = this.hasStatusOptions(application.status);
+        const statusOptions = this.getAvailableStatusOptions(application.status);
         
-        let html = '<div class="flex items-center space-x-2">';
+        let html = '<div class="flex items-center justify-start space-x-2">';
         
         // Status dropdown
         if (hasOptions) {
           html += `
             <select 
-              class="status-select inline-flex items-center px-2 py-1 rounded-md text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 border border-gray-300 transition-all duration-200"
-              id="status-${app._id}">
+              class="status-select text-xs border border-gray-300 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              id="status-${application._id}">
               <option value="" disabled selected>Actions</option>
           `;
           
-          availableStatuses.forEach((option: any) => {
+          statusOptions.forEach((option: any) => {
             html += `<option value="${option.value}" class="text-sm">${option.label}</option>`;
           });
           
@@ -135,48 +153,30 @@ export class ClientApplicationsComponent implements OnInit, OnChanges {
         // History button
         html += `
           <button 
-            class="history-btn inline-flex items-center px-2 py-1 rounded-md text-xs font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200"
-            id="history-${app._id}">
-            📋
+            class="history-btn text-gray-600 hover:text-gray-900 p-1 rounded hover:bg-gray-100"
+            id="history-${application._id}">
+            <span>📋</span>
           </button>
         `;
         
-        // View details button
-        html += `
-          <button 
-            class="details-btn inline-flex items-center px-2 py-1 rounded-md text-xs font-medium text-blue-600 hover:text-blue-900 hover:bg-blue-50 transition-all duration-200"
-            id="details-${app._id}">
-            👁️
-          </button>
-        </div>`;
+        html += '</div>';
         
         // Add event listeners after rendering
         setTimeout(() => {
-          const statusSelect = document.getElementById(`status-${app._id}`) as HTMLSelectElement;
-          const historyBtn = document.getElementById(`history-${app._id}`);
-          const detailsBtn = document.getElementById(`details-${app._id}`);
+          const statusSelect = document.getElementById(`status-${application._id}`) as HTMLSelectElement;
+          const historyBtn = document.getElementById(`history-${application._id}`);
           
           if (statusSelect) {
             statusSelect.addEventListener('change', (event) => {
               const newStatus = (event.target as HTMLSelectElement).value;
               if (newStatus) {
-                this.onStatusChange(app._id, newStatus);
+                this.onStatusChange(application._id, newStatus);
               }
             });
           }
           
           if (historyBtn) {
-            historyBtn.addEventListener('click', () => {
-              this.onViewHistory(app._id);
-              this.changeDetectorRef.detectChanges();
-            });
-          }
-          
-          if (detailsBtn) {
-            detailsBtn.addEventListener('click', () => {
-              this.onViewDetails(app);
-              this.changeDetectorRef.detectChanges();
-            });
+            historyBtn.addEventListener('click', () => this.onViewHistory(application._id));
           }
         });
         
@@ -187,25 +187,21 @@ export class ClientApplicationsComponent implements OnInit, OnChanges {
 
   defaultColDef = {
     resizable: true,
-    sortable: true,
-    filter: true,
+    sortable: false,
+    filter: false,
     flex: 1,
     minWidth: 100
   };
 
-  gridOptions = {
-    defaultColDef: {
-      flex: 1,
-      minWidth: 100,
-    },
-    rowHeight: 60, // Set row height to 60px
+  gridOptions: any = {
+    pagination: false,
+    rowHeight: 60,
     tooltipShowDelay: 500,
-    onSortChanged: (event: SortChangedEvent) => {
-      this.onSortChanged(event);
-    }
+    suppressRowClickSelection: true,
+    suppressCellFocus: true
   };
 
-  constructor(private changeDetectorRef: ChangeDetectorRef) {}
+  constructor(private changeDetectorRef: ChangeDetectorRef, private clientService: ClientService) {}
 
   ngOnInit(): void {
     console.log('🔧 ClientApplicationsComponent: ngOnInit called');
@@ -213,8 +209,6 @@ export class ClientApplicationsComponent implements OnInit, OnChanges {
 
   ngOnChanges(changes: SimpleChanges): void {
     console.log('🔧 ClientApplicationsComponent: ngOnChanges called');
-    console.log('🔧 ClientApplicationsComponent: Applications updated:', this.applications);
-    console.log('🔧 ClientApplicationsComponent: Pagination state:', this.paginationState);
   }
 
   onSortChanged(event: SortChangedEvent): void {
@@ -343,7 +337,10 @@ export class ClientApplicationsComponent implements OnInit, OnChanges {
   }
 
   onViewHistory(applicationId: string): void {
+    console.log('🔧 ClientApplicationsComponent: View history clicked for application:', applicationId);
     this.viewApplicationHistory.emit(applicationId);
+    // Force change detection to ensure the modal opens immediately
+    this.changeDetectorRef.detectChanges();
   }
 
   onViewDetails(application: Application): void {
@@ -351,11 +348,47 @@ export class ClientApplicationsComponent implements OnInit, OnChanges {
   }
 
   getAvailableStatuses(currentStatus: string): any[] {
-    // Filter out the current status and return available options
-    return this.availableStatuses.filter(status => status.value !== currentStatus);
+    // Return available status transitions based on current status
+    switch (currentStatus) {
+      case 'applied':
+        return [
+          { value: 'shortlisted', label: 'Shortlist' },
+          { value: 'rejected', label: 'Reject' }
+        ];
+      case 'shortlisted':
+        return [
+          { value: 'interview', label: 'Interview' },
+          { value: 'rejected', label: 'Reject' }
+        ];
+      case 'interview':
+        return [
+          { value: 'accepted', label: 'Accept' },
+          { value: 'rejected', label: 'Reject' }
+        ];
+      case 'accepted':
+        return [
+          { value: 'offer_created', label: 'Create Offer' }
+        ];
+      case 'offer_created':
+        return [
+          { value: 'onboarded', label: 'Onboarded' },
+          { value: 'did_not_join', label: 'Did Not Join' }
+        ];
+      default:
+        return [];
+    }
   }
 
   onPageChange(page: number): void {
     this.pageChange.emit(page);
+  }
+
+  hasStatusOptions(status: string): boolean {
+    const availableStatuses = this.getAvailableStatuses(status);
+    return availableStatuses.length > 0;
+  }
+
+  getAvailableStatusOptions(status: string): any[] {
+    return this.getAvailableStatuses(status);
   }
 } 

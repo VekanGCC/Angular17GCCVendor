@@ -8,7 +8,6 @@ import { User } from '../../models/user.model';
 import { Resource } from '../../models/resource.model';
 import { Requirement } from '../../models/requirement.model';
 import { Application } from '../../models/application.model';
-import { PaginationState } from '../../models/pagination.model';
 import { LayoutComponent } from '../layout/layout.component';
 import { RequirementModalComponent } from '../modals/requirement-modal/requirement-modal.component';
 import { ApplyResourceModalComponent } from '../modals/apply-resource-modal/apply-resource-modal.component';
@@ -20,8 +19,8 @@ import { ApplicationHistoryModalComponent, ApplicationHistoryEntry } from '../mo
 import { ApplicationDetailsModalComponent } from '../modals/application-details-modal/application-details-modal.component';
 import { Subscription } from 'rxjs';
 import { ProfileDashboardComponent } from '../profile/profile-dashboard.component';
-import { PaginationComponent } from '../pagination/pagination.component';
 import { ApiService } from '../../services/api.service';
+import { PaginationState } from '../../models/pagination.model';
 
 @Component({
   selector: 'app-client-dashboard',
@@ -37,8 +36,7 @@ import { ApiService } from '../../services/api.service';
     ClientApplicationsComponent,
     ApplicationHistoryModalComponent,
     ApplicationDetailsModalComponent,
-    ProfileDashboardComponent,
-    PaginationComponent
+    ProfileDashboardComponent
   ],
   templateUrl: './client-dashboard.component.html',
   styleUrls: ['./client-dashboard.component.css']
@@ -67,7 +65,7 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
   showApplicationDetailsModal = false;
   selectedApplication: Application | null = null;
 
-  // Pagination state for each tab
+  // Pagination states
   requirementsPaginationState: PaginationState = {
     currentPage: 1,
     pageSize: 10,
@@ -180,9 +178,9 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
       }
     }));
 
-    this.loadRequirements();
     this.loadApplications();
     this.loadResources();
+    this.loadRequirements();
     this.initializeActiveTab();
   }
 
@@ -221,13 +219,7 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
 
   private loadRequirements(page: number = 1): void {
     this.requirementsPaginationState.isLoading = true;
-    const params = {
-      page,
-      limit: this.requirementsPaginationState.pageSize,
-      sortBy: 'createdAt',
-      sortOrder: 'desc' as const
-    };
-    
+    const params = { page, limit: this.requirementsPaginationState.pageSize };
     this.clientService.getRequirements(params).subscribe({
       next: (response) => {
         console.log('Requirements loaded:', response);
@@ -246,31 +238,81 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
           console.log('Processed requirements:', this.clientRequirements);
           
           // Update pagination state
-          const paginationData = response.meta || response.pagination;
+          const paginationData = response.pagination || response.meta;
           if (paginationData) {
             this.updateRequirementsPagination(paginationData);
           }
           
           this.updateStats();
         }
-        this.requirementsPaginationState.isLoading = false;
       },
       error: (error) => {
         console.error('Error loading requirements:', error);
+      },
+      complete: () => {
         this.requirementsPaginationState.isLoading = false;
       }
     });
   }
 
+  // Pagination update methods
+  private updateRequirementsPagination(meta: any): void {
+    this.requirementsPaginationState = {
+      ...this.requirementsPaginationState,
+      currentPage: meta.page,
+      pageSize: meta.limit,
+      totalItems: meta.total,
+      totalPages: meta.pages,
+      hasNextPage: meta.page < meta.pages,
+      hasPreviousPage: meta.page > 1
+    };
+  }
+
+  private updateApplicationsPagination(meta: any): void {
+    this.applicationsPaginationState = {
+      ...this.applicationsPaginationState,
+      currentPage: meta.page,
+      pageSize: meta.limit,
+      totalItems: meta.total,
+      totalPages: meta.pages,
+      hasNextPage: meta.page < meta.pages,
+      hasPreviousPage: meta.page > 1
+    };
+  }
+
+  private updateResourcesPagination(meta: any): void {
+    this.resourcesPaginationState = {
+      ...this.resourcesPaginationState,
+      currentPage: meta.page,
+      pageSize: meta.limit,
+      totalItems: meta.total,
+      totalPages: meta.pages,
+      hasNextPage: meta.page < meta.pages,
+      hasPreviousPage: meta.page > 1
+    };
+  }
+
+  // Pagination event handlers
+  onRequirementsPageChange(page: number): void {
+    this.loadRequirements(page);
+  }
+
+  onRequirementsSortChange(sortData: {sortBy: string, sortOrder: 'asc' | 'desc'}): void {
+    console.log('Requirements sort change:', sortData);
+    // You can implement sorting logic here if needed
+  }
+
+  onApplicationsPageChange(page: number): void {
+    this.loadApplications(page);
+  }
+
+  onResourcesPageChange(page: number): void {
+    this.loadResources(page);
+  }
+
   private loadApplications(page: number = 1): void {
     this.applicationsPaginationState.isLoading = true;
-    const params = {
-      page,
-      limit: this.applicationsPaginationState.pageSize,
-      sortBy: 'createdAt',
-      sortOrder: 'desc' as const
-    };
-    
+    const params = { page, limit: this.applicationsPaginationState.pageSize };
     this.clientService.getApplications(params).subscribe({
       next: (response) => {
         if (response.success && response.data) {
@@ -278,17 +320,18 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
           this.clientApplications = response.data;
           
           // Update pagination state
-          const paginationData = response.meta || response.pagination;
+          const paginationData = response.pagination || response.meta;
           if (paginationData) {
             this.updateApplicationsPagination(paginationData);
           }
           
           this.updateStats();
         }
-        this.applicationsPaginationState.isLoading = false;
       },
       error: (error) => {
         console.error('Error loading applications:', error);
+      },
+      complete: () => {
         this.applicationsPaginationState.isLoading = false;
       }
     });
@@ -296,13 +339,7 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
 
   private loadResources(page: number = 1, sortBy: string = 'createdAt', sortOrder: 'asc' | 'desc' = 'desc'): void {
     this.resourcesPaginationState.isLoading = true;
-    const params = {
-      page,
-      limit: this.resourcesPaginationState.pageSize,
-      sortBy,
-      sortOrder
-    };
-    
+    const params = { page, limit: this.resourcesPaginationState.pageSize, sortBy, sortOrder };
     this.apiService.getResources(params).subscribe({
       next: (response) => {
         console.log('Resources loaded:', response);
@@ -322,17 +359,18 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
           console.log('Processed resources:', this.resources);
           
           // Update pagination state
-          const paginationData = response.meta || response.pagination;
+          const paginationData = response.pagination || response.meta;
           if (paginationData) {
             this.updateResourcesPagination(paginationData);
           }
           
           this.updateStats();
         }
-        this.resourcesPaginationState.isLoading = false;
       },
       error: (error) => {
         console.error('Error loading resources:', error);
+      },
+      complete: () => {
         this.resourcesPaginationState.isLoading = false;
       }
     });
@@ -375,12 +413,21 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
   openEditRequirementModal(requirement: Requirement): void {
     this.requirementToEdit = requirement;
     this.showEditRequirementModal = true;
+    // Force change detection to ensure modal opens immediately
+    this.changeDetectorRef.detectChanges();
   }
 
   closeCloseRequirementModal(): void {
     console.log('🔍 DEBUG: Client dashboard - Closing close requirement modal');
     this.showCloseRequirementModal = false;
     this.requirementToClose = null;
+    this.changeDetectorRef.detectChanges();
+  }
+
+  closeEditRequirementModal(): void {
+    console.log('🔍 DEBUG: Client dashboard - Closing edit requirement modal');
+    this.showEditRequirementModal = false;
+    this.requirementToEdit = null;
     this.changeDetectorRef.detectChanges();
   }
 
@@ -420,8 +467,7 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
           if (index !== -1) {
             this.clientRequirements[index] = { ...this.clientRequirements[index], ...updates };
           }
-          this.showEditRequirementModal = false;
-          this.requirementToEdit = null;
+          this.closeEditRequirementModal();
         }
         this.isLoading = false;
       },
@@ -459,7 +505,6 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
   handleRequirementUpdate(requirement: Requirement): void {
     console.log('Handling requirement update:', requirement);
     this.updateRequirement(requirement._id, requirement);
-    this.showEditRequirementModal = false;
   }
 
   // Application status management
@@ -507,6 +552,8 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
     this.selectedApplicationId = applicationId;
     this.showHistoryModal = true;
     this.loadApplicationHistory(applicationId);
+    // Force change detection to ensure the modal opens immediately
+    this.changeDetectorRef.detectChanges();
   }
 
   handleViewApplicationDetails(application: Application): void {
@@ -526,11 +573,15 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
           this.applicationHistory = [];
         }
         this.isLoadingHistory = false;
+        // Force change detection immediately after setting isLoading to false
+        this.changeDetectorRef.detectChanges();
       },
       error: (error) => {
         console.error('Error loading application history:', error);
         this.applicationHistory = [];
         this.isLoadingHistory = false;
+        // Force change detection immediately after setting isLoading to false
+        this.changeDetectorRef.detectChanges();
       }
     });
   }
@@ -544,56 +595,6 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
   closeApplicationDetailsModal(): void {
     this.showApplicationDetailsModal = false;
     this.selectedApplication = null;
-  }
-
-  // Pagination update methods
-  private updateRequirementsPagination(meta: any): void {
-    this.requirementsPaginationState = {
-      ...this.requirementsPaginationState,
-      currentPage: meta.page,
-      pageSize: meta.limit,
-      totalItems: meta.total,
-      totalPages: meta.pages,
-      hasNextPage: meta.page < meta.pages,
-      hasPreviousPage: meta.page > 1
-    };
-  }
-
-  private updateApplicationsPagination(meta: any): void {
-    this.applicationsPaginationState = {
-      ...this.applicationsPaginationState,
-      currentPage: meta.page,
-      pageSize: meta.limit,
-      totalItems: meta.total,
-      totalPages: meta.pages,
-      hasNextPage: meta.page < meta.pages,
-      hasPreviousPage: meta.page > 1
-    };
-  }
-
-  private updateResourcesPagination(meta: any): void {
-    this.resourcesPaginationState = {
-      ...this.resourcesPaginationState,
-      currentPage: meta.page,
-      pageSize: meta.limit,
-      totalItems: meta.total,
-      totalPages: meta.pages,
-      hasNextPage: meta.page < meta.pages,
-      hasPreviousPage: meta.page > 1
-    };
-  }
-
-  // Pagination event handlers
-  onRequirementsPageChange(page: number): void {
-    this.loadRequirements(page);
-  }
-
-  onApplicationsPageChange(page: number): void {
-    this.loadApplications(page);
-  }
-
-  onResourcesPageChange(page: number): void {
-    this.loadResources(page);
   }
 
   onResourcesSortChange(sortData: {sortBy: string, sortOrder: 'asc' | 'desc'}): void {

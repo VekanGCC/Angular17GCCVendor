@@ -58,44 +58,27 @@
       </div>
 
       <!-- AG Grid -->
-      <div *ngIf="!isLoading && resources.length > 0" class="ag-theme-alpine w-full" style="height: 600px;">
+      <div *ngIf="!isLoading && resources.length > 0" class="ag-grid-container">
         <ag-grid-angular
-          [rowData]="resources"
+          class="ag-theme-alpine w-full"
           [columnDefs]="columnDefs"
           [defaultColDef]="defaultColDef"
           [gridOptions]="gridOptions"
+          [rowData]="resources"
+          [domLayout]="'autoHeight'"
+          [rowSelection]="'single'"
           [animateRows]="true"
-          [rowSelection]="'multiple'"
-          (gridReady)="onGridReady($event)"
-          (cellClicked)="onCellClicked($event)"
-          class="w-full h-full">
+          [enableCellTextSelection]="true"
+        >
         </ag-grid-angular>
       </div>
 
-      <!-- Pagination -->
-      <div *ngIf="!isLoading && resources.length > 0" class="mt-6 flex items-center justify-between">
-        <div class="text-sm text-gray-700">
-          Showing {{ (paginationState.currentPage - 1) * paginationState.pageSize + 1 }} to 
-          {{ Math.min(paginationState.currentPage * paginationState.pageSize, paginationState.totalItems) }} of 
-          {{ paginationState.totalItems }} results
-        </div>
-        <div class="flex space-x-2">
-          <button 
-            (click)="onPageChange(paginationState.currentPage - 1)"
-            [disabled]="!paginationState.hasPreviousPage"
-            class="px-3 py-1 text-sm border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50">
-            Previous
-          </button>
-          <span class="px-3 py-1 text-sm text-gray-700">
-            Page {{ paginationState.currentPage }} of {{ paginationState.totalPages }}
-          </span>
-          <button 
-            (click)="onPageChange(paginationState.currentPage + 1)"
-            [disabled]="!paginationState.hasNextPage"
-            class="px-3 py-1 text-sm border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50">
-            Next
-          </button>
-        </div>
+      <!-- Custom Pagination -->
+      <div *ngIf="!isLoading && resources.length > 0">
+        <app-pagination
+          [paginationState]="paginationState"
+          (pageChange)="onPageChange($event)">
+        </app-pagination>
       </div>
     </div>
   </div>

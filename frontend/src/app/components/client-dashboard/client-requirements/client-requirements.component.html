@@ -38,14 +38,22 @@
           class="ag-theme-alpine w-full"
           [columnDefs]="columnDefs"
           [defaultColDef]="defaultColDef"
-          [rowData]="requirements"
           [gridOptions]="gridOptions"
+          [rowData]="requirements"
           [domLayout]="'autoHeight'"
           [rowSelection]="'single'"
           [animateRows]="true"
           [enableCellTextSelection]="true"
         >
         </ag-grid-angular>
+      </div>
+
+      <!-- Custom Pagination -->
+      <div *ngIf="!isLoading && requirements.length > 0" class="mt-4">
+        <app-pagination
+          [paginationState]="paginationState"
+          (pageChange)="onPageChange($event)">
+        </app-pagination>
       </div>
     </div>
   </div>

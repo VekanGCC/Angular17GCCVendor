@@ -8,32 +8,48 @@ import { CommonModule } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
 import { Requirement } from '../../../models/requirement.model';
 import { AgGridModule } from 'ag-grid-angular';
-import { ColDef, ValueGetterParams, SortChangedEvent } from 'ag-grid-community';
+import { ColDef, ValueGetterParams, SortChangedEvent, GridReadyEvent } from 'ag-grid-community';
+import { PaginationComponent } from '../../pagination/pagination.component';
+import { PaginationState } from '../../../models/pagination.model';
+import { ClientService } from '../../../services/client.service';
 
 @Component({
   selector: 'app-client-requirements',
   standalone: true,
-  imports: [CommonModule, LucideAngularModule, AgGridModule],
+  imports: [CommonModule, LucideAngularModule, AgGridModule, PaginationComponent],
   templateUrl: './client-requirements.component.html',
   styleUrls: ['./client-requirements.component.scss']
 })
 export class ClientRequirementsComponent implements OnInit, OnChanges {
   @Input() requirements: Requirement[] = [];
   @Input() isLoading = false;
+  @Input() paginationState: PaginationState = {
+    currentPage: 1,
+    pageSize: 10,
+    totalItems: 0,
+    totalPages: 0,
+    isLoading: false,
+    hasNextPage: false,
+    hasPreviousPage: false
+  };
   @Output() openRequirementModal = new EventEmitter<void>();
   @Output() openCloseRequirementModal = new EventEmitter<Requirement>();
   @Output() openEditRequirementModal = new EventEmitter<Requirement>();
+  @Output() pageChange = new EventEmitter<number>();
+  @Output() sortChange = new EventEmitter<{sortBy: string, sortOrder: 'asc' | 'desc'}>();
 
   columnDefs: ColDef[] = [
     {
-      headerName: 'Requirement',
+      headerName: 'Title',
       field: 'title',
       flex: 2,
-      sortable: true,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
+      sortable: false,
+      filter: false,
       cellRenderer: (params: any) => {
         const requirement = params.data;
         return `
-          <div class="flex items-center">
+          <div class="flex items-center justify-start text-left">
             <div class="min-w-0 flex-1">
               <div class="text-sm font-medium text-gray-900 truncate">${requirement.title || 'No Title'}</div>
               <div class="text-xs text-gray-500 truncate">${requirement.description || 'No Description'}</div>
@@ -45,8 +61,10 @@ export class ClientRequirementsComponent implements OnInit, OnChanges {
     {
       headerName: 'Skills',
       field: 'skills',
-      flex: 1.5,
-      sortable: true,
+      flex: 1,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
+      sortable: false,
+      filter: false,
       valueGetter: (params: any) => {
         const skills = params.data.skills || [];
         return skills.length > 0 ? skills[0] : '';
@@ -58,9 +76,9 @@ export class ClientRequirementsComponent implements OnInit, OnChanges {
         const displaySkills = skills.slice(0, 2);
         const remainingCount = skills.length - 2;
         
-        let html = '<div class="flex flex-wrap gap-1">';
+        let html = '<div class="flex flex-wrap gap-1 justify-start">';
         displaySkills.forEach((skill: string) => {
-          html += `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">${skill}</span>`;
+          html += `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">${skill}</span>`;
         });
         if (remainingCount > 0) {
           html += `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">+${remainingCount}</span>`;
@@ -73,7 +91,8 @@ export class ClientRequirementsComponent implements OnInit, OnChanges {
       headerName: 'Category',
       field: 'category',
       flex: 1,
-      sortable: true,
+      sortable: false,
+      filter: false,
       cellRenderer: (params: any) => {
         return `<span class="text-sm text-gray-900">${params.value || 'N/A'}</span>`;
       }
@@ -82,7 +101,8 @@ export class ClientRequirementsComponent implements OnInit, OnChanges {
       headerName: 'Experience',
       field: 'experience.minYears',
       flex: 1,
-      sortable: true,
+      sortable: false,
+      filter: false,
       cellRenderer: (params: any) => {
         const experience = params.data.experience || {};
         return `
@@ -96,8 +116,10 @@ export class ClientRequirementsComponent implements OnInit, OnChanges {
     {
       headerName: 'Location',
       field: 'location.city',
-      flex: 1.5,
-      sortable: true,
+      flex: 1,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
+      sortable: false,
+      filter: false,
       cellRenderer: (params: any) => {
         const location = params.data.location;
         if (!location) return '<span class="text-sm text-gray-500">N/A</span>';
@@ -106,11 +128,12 @@ export class ClientRequirementsComponent implements OnInit, OnChanges {
         const state = location.state || 'N/A';
         const remote = location.remote;
         
-        let html = `<div class="flex flex-col"><span class="text-sm text-gray-900">${city}, ${state}</span>`;
+        let html = `<div class="flex flex-col items-start text-left">`;
+        html += `<span class="text-sm text-gray-900">${city}, ${state}</span>`;
         if (remote) {
           html += `<span class="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full w-fit">Remote</span>`;
         }
-        html += '</div>';
+        html += `</div>`;
         return html;
       }
     },
@@ -118,7 +141,9 @@ export class ClientRequirementsComponent implements OnInit, OnChanges {
       headerName: 'Status',
       field: 'status',
       flex: 1,
-      sortable: true,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
+      sortable: false,
+      filter: false,
       cellRenderer: (params: any) => {
         const status = params.data.status || 'unknown';
         const statusClass = this.getStatusClass(status);
@@ -129,16 +154,43 @@ export class ClientRequirementsComponent implements OnInit, OnChanges {
       headerName: 'Posted',
       field: 'createdAt',
       flex: 1,
-      sortable: true,
+      sortable: false,
+      filter: false,
       cellRenderer: (params: any) => {
         const date = new Date(params.value);
         return `<span class="text-sm text-gray-500">${date.toLocaleDateString()}</span>`;
       }
     },
     {
+      headerName: 'Attachment',
+      field: 'attachment',
+      flex: 1,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
+      sortable: false,
+      filter: false,
+      cellRenderer: (params: any) => {
+        const attachment = params.data.attachment;
+        if (!attachment || !attachment.originalName) {
+          return '<span class="text-xs text-gray-500 italic">No file</span>';
+        }
+        
+        return `
+          <div class="flex items-center justify-center">
+            <button 
+              class="download-btn p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
+              id="download-${params.data._id}"
+              title="${attachment.originalName}">
+              <img src="assets/icons/lucide/lucide/file-text.svg" alt="file" class="w-4 h-4" />
+            </button>
+          </div>
+        `;
+      }
+    },
+    {
       headerName: 'Actions',
       field: 'actions',
-      flex: 1.5,
+      flex: 1,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       sortable: false,
       filter: false,
       cellRenderer: (params: any) => {
@@ -167,6 +219,7 @@ export class ClientRequirementsComponent implements OnInit, OnChanges {
         setTimeout(() => {
           const closeBtn = document.getElementById(`close-${requirement._id}`);
           const editBtn = document.getElementById(`edit-${requirement._id}`);
+          const downloadBtn = document.getElementById(`download-${requirement._id}`);
           
           if (closeBtn) {
             closeBtn.addEventListener('click', () => {
@@ -184,6 +237,13 @@ export class ClientRequirementsComponent implements OnInit, OnChanges {
               this.changeDetectorRef.detectChanges();
             });
           }
+          
+          if (downloadBtn && requirement.attachment) {
+            downloadBtn.addEventListener('click', () => {
+              console.log('🔍 DEBUG: Download button clicked for requirement:', requirement._id);
+              this.downloadAttachment(requirement);
+            });
+          }
         });
         
         return html;
@@ -193,25 +253,21 @@ export class ClientRequirementsComponent implements OnInit, OnChanges {
 
   defaultColDef = {
     resizable: true,
-    sortable: true,
-    filter: true,
+    sortable: false,
+    filter: false,
     flex: 1,
     minWidth: 100
   };
 
-  gridOptions = {
-    defaultColDef: {
-      flex: 1,
-      minWidth: 100,
-    },
+  gridOptions: any = {
+    pagination: false,
     rowHeight: 60,
     tooltipShowDelay: 500,
-    onSortChanged: (event: SortChangedEvent) => {
-      this.onSortChanged(event);
-    }
+    suppressRowClickSelection: true,
+    suppressCellFocus: true
   };
 
-  constructor(private changeDetectorRef: ChangeDetectorRef) {}
+  constructor(private changeDetectorRef: ChangeDetectorRef, private clientService: ClientService) {}
 
   ngOnInit(): void {
     // Component initialization
@@ -219,8 +275,17 @@ export class ClientRequirementsComponent implements OnInit, OnChanges {
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['requirements'] && !changes['requirements'].firstChange) {
-      // Data will be updated automatically through the input binding
+      // Update pagination state when requirements change
+      this.updatePaginationState();
     }
+  }
+
+  updatePaginationState(): void {
+    // This will be called by parent component when pagination data is available
+  }
+
+  onPageChange(page: number): void {
+    this.pageChange.emit(page);
   }
 
   onSortChanged(event: SortChangedEvent): void {
@@ -228,7 +293,22 @@ export class ClientRequirementsComponent implements OnInit, OnChanges {
     if (sortModel && sortModel.length > 0) {
       const sort = sortModel[0];
       console.log('Sort changed:', sort);
-      // You can emit sort changes to parent component if needed
+      
+      // Map AG Grid field names to backend field names
+      const fieldMapping: { [key: string]: string } = {
+        'title': 'title',
+        'skills': 'skills',
+        'category': 'category',
+        'experience.minYears': 'experience.minYears',
+        'location.city': 'location.city',
+        'status': 'status',
+        'createdAt': 'createdAt'
+      };
+      
+      const sortBy = fieldMapping[sort.colId] || sort.colId;
+      const sortOrder = sort.sort as 'asc' | 'desc';
+      
+      this.sortChange.emit({ sortBy, sortOrder });
     }
   }
 
@@ -266,7 +346,29 @@ export class ClientRequirementsComponent implements OnInit, OnChanges {
 
   onOpenEditRequirementModal(requirement: Requirement): void {
     this.openEditRequirementModal.emit(requirement);
-    // Force change detection to ensure modal opens immediately
-    this.changeDetectorRef.detectChanges();
+  }
+
+  downloadAttachment(requirement: Requirement): void {
+    if (!requirement.attachment || !requirement.attachment.fileId) {
+      console.error('No attachment found for requirement:', requirement._id);
+      return;
+    }
+
+    // Create a download link
+    const link = document.createElement('a');
+    link.href = `/api/files/${requirement.attachment.fileId}/download`;
+    link.download = requirement.attachment.originalName;
+    link.target = '_blank';
+    
+    // Add authorization header if needed
+    const token = sessionStorage.getItem('authToken');
+    if (token) {
+      link.setAttribute('data-token', token);
+    }
+    
+    // Trigger download
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   }
 } 

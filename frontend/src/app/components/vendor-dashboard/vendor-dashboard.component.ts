@@ -929,4 +929,15 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
   trackByStatTitle(index: number, item: any): any {
     return item?.title || index;
   }
+
+  // Resource Modal handlers
+  onOpenResourceModal(): void {
+    this.showResourceModal = true;
+  }
+
+  onCloseResourceModal(): void {
+    this.showResourceModal = false;
+    // Refresh resources data after modal is closed
+    this.loadVendorResources(this.resourcesPaginationState.currentPage);
+  }
 }

@@ -89,7 +89,14 @@ const createRequirement = asyncHandler(async (req, res, next) => {
   // Add user to req.body from JWT token
   req.body.createdBy = req.user.id;
 
+  console.log('🔧 Backend: Creating requirement with body:', JSON.stringify(req.body, null, 2));
+  console.log('🔧 Backend: Budget field:', req.body.budget);
+  console.log('🔧 Backend: Budget charge value:', req.body.budget?.charge);
+
   const requirement = await Requirement.create(req.body);
+
+  console.log('🔧 Backend: Created requirement:', JSON.stringify(requirement, null, 2));
+  console.log('🔧 Backend: Saved budget field:', requirement.budget);
 
   res.status(201).json(
     ApiResponse.success(requirement, 'Requirement created successfully')

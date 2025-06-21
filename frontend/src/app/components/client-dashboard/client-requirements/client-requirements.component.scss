@@ -4,7 +4,6 @@
 }
 
 .ag-grid-container {
-  height: 600px;
   width: 100%;
 }
 
@@ -47,10 +46,6 @@
 
 /* Responsive AG Grid */
 @media (max-width: 768px) {
-  .ag-grid-container {
-    height: 400px;
-  }
-  
   .ag-theme-alpine {
     --ag-header-height: 40px;
     --ag-font-size: 12px;

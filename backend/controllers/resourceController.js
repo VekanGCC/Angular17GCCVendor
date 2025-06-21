@@ -84,7 +84,12 @@ const createResource = asyncHandler(async (req, res, next) => {
   // Add user to req.body from JWT token
   req.body.createdBy = req.user.id;
 
+  console.log('🔧 ResourceController: Creating resource with data:', JSON.stringify(req.body, null, 2));
+  console.log('🔧 ResourceController: Attachment data:', req.body.attachment);
+
   const resource = await Resource.create(req.body);
+
+  console.log('🔧 ResourceController: Created resource:', JSON.stringify(resource, null, 2));
 
   res.status(201).json(
     ApiResponse.success(resource, 'Resource created successfully')

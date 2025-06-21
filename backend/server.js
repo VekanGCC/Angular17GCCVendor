@@ -66,8 +66,8 @@ app.use('/api/auth/register', limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Static files
-app.use('/uploads', express.static('uploads'));
+// Static files - temporarily disabled to test file download issue
+// app.use('/uploads', express.static('uploads'));
 
 // Routes
 app.use('/api/auth', require('./routes/auth'));

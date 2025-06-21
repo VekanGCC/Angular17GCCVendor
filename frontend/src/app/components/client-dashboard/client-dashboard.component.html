@@ -55,27 +55,6 @@
 
     <!-- Main Content -->
     <div class="flex-1 flex flex-col overflow-hidden">
-      <!-- Content Header -->
-      <div class="bg-blue-50 border-b border-blue-200 py-4">
-        <div class="flex items-center justify-between px-6">
-          <h2 class="text-xl font-semibold text-gray-900">
-            {{activeTab === 'overview' ? 'Dashboard Overview' :
-              activeTab === 'requirements' ? 'My Requirements' :
-              activeTab === 'resources' ? 'Browse Resources' :
-              activeTab === 'applications' ? 'Applications' :
-              'Profile'}}
-          </h2>
-          <div class="flex items-center space-x-4">
-            <button class="text-gray-600 hover:text-gray-900">
-              <img src="assets/icons/lucide/lucide/bell.svg" class="w-5 h-5" alt="Bell">
-            </button>
-            <button class="text-gray-600 hover:text-gray-900">
-              <img src="assets/icons/lucide/lucide/settings.svg" class="w-5 h-5" alt="Settings">
-            </button>
-          </div>
-        </div>
-      </div>
-
       <!-- Main Content Area -->
       <div class="flex-1 overflow-y-auto">
         <!-- Overview Tab -->
@@ -92,18 +71,13 @@
           *ngIf="activeTab === 'requirements'"
           [requirements]="clientRequirements"
           [isLoading]="requirementsPaginationState.isLoading"
+          [paginationState]="requirementsPaginationState"
           (openRequirementModal)="openRequirementModal()"
           (openCloseRequirementModal)="openCloseRequirementModal($event)"
-          (openEditRequirementModal)="openEditRequirementModal($event)">
+          (openEditRequirementModal)="openEditRequirementModal($event)"
+          (pageChange)="onRequirementsPageChange($event)"
+          (sortChange)="onRequirementsSortChange($event)">
         </app-client-requirements>
-        
-        <!-- Requirements Pagination -->
-        <div *ngIf="activeTab === 'requirements' && clientRequirements.length > 0" class="p-6 border-t border-gray-200">
-          <app-pagination
-            [paginationState]="requirementsPaginationState"
-            (pageChange)="onRequirementsPageChange($event)">
-          </app-pagination>
-        </div>
 
         <!-- Resources Tab -->
         <app-client-resources 
@@ -112,35 +86,22 @@
           [isLoading]="resourcesPaginationState.isLoading"
           [paginationState]="resourcesPaginationState"
           (applyResources)="applyMultipleResources($event)"
-          (pageChange)="onResourcesPageChange($event)"
-          (sortChange)="onResourcesSortChange($event)">
+          (sortChange)="onResourcesSortChange($event)"
+          (pageChange)="onResourcesPageChange($event)">
         </app-client-resources>
-        
-        <!-- Resources Pagination -->
-        <div *ngIf="activeTab === 'resources' && resources.length > 0" class="p-6 border-t border-gray-200">
-          <app-pagination
-            [paginationState]="resourcesPaginationState"
-            (pageChange)="onResourcesPageChange($event)">
-          </app-pagination>
-        </div>
 
         <!-- Applications Tab -->
         <app-client-applications 
           *ngIf="activeTab === 'applications'"
           [applications]="clientApplications"
+          [isLoading]="applicationsPaginationState.isLoading"
+          [paginationState]="applicationsPaginationState"
           (updateApplicationStatus)="handleUpdateApplicationStatus($event)"
           (viewApplicationHistory)="handleViewApplicationHistory($event)"
-          (viewApplicationDetails)="handleViewApplicationDetails($event)">
+          (viewApplicationDetails)="handleViewApplicationDetails($event)"
+          (pageChange)="onApplicationsPageChange($event)">
         </app-client-applications>
         
-        <!-- Applications Pagination -->
-        <div *ngIf="activeTab === 'applications' && clientApplications.length > 0" class="p-6 border-t border-gray-200">
-          <app-pagination
-            [paginationState]="applicationsPaginationState"
-            (pageChange)="onApplicationsPageChange($event)">
-          </app-pagination>
-        </div>
-
         <!-- Profile Tab -->
         <app-profile-dashboard 
           *ngIf="activeTab === 'profile'">
@@ -178,13 +139,13 @@
     *ngIf="showEditRequirementModal"
     [requirement]="requirementToEdit"
     [mode]="'edit'"
-    (close)="showEditRequirementModal = false"
+    (close)="closeEditRequirementModal()"
     (confirm)="handleRequirementUpdate($event)">
   </app-requirement-modal>
 
   <!-- Application History Modal -->
   <app-application-history-modal
-    *ngIf="showHistoryModal"
+    [hidden]="!showHistoryModal"
     [applicationId]="selectedApplicationId"
     [isVisible]="showHistoryModal"
     [isLoading]="isLoadingHistory"

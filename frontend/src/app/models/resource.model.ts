@@ -29,4 +29,12 @@ export interface Resource {
   createdBy: string;
   createdAt: string;
   updatedAt: string;
+  attachment?: {
+    originalName: string;
+    fileSize: number;
+    fileType: string;
+    fileId?: string;
+    filename?: string;
+    path?: string;
+  };
 }

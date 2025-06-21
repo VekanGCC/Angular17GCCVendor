@@ -59,8 +59,8 @@
             <div>
               <span class="text-gray-600">Budget:</span>
               <span class="ml-1 text-gray-900">
-                <span *ngIf="requirement.budget?.hourly">${{ requirement.budget.hourly }}/hr</span>
-                <span *ngIf="!requirement.budget?.hourly">Not specified</span>
+                <span *ngIf="requirement.budget?.charge">${{ requirement.budget.charge }}/hr</span>
+                <span *ngIf="!requirement.budget?.charge">Not specified</span>
               </span>
             </div>
             <div>

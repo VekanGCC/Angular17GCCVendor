@@ -55,12 +55,9 @@ const requirementSchema = new mongoose.Schema({
   },
   
   budget: {
-    min: {
+    charge: {
       type: Number,
-      min: 0
-    },
-    max: {
-      type: Number,
+      required: [true, 'Budget charge is required'],
       min: 0
     },
     currency: {
@@ -118,6 +115,16 @@ const requirementSchema = new mongoose.Schema({
   assignedTo: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
+  },
+  
+  // File attachment information
+  attachment: {
+    originalName: String,
+    fileSize: Number,
+    fileType: String,
+    fileId: String,      // File ID for download
+    filename: String, // Stored filename in uploads folder
+    path: String     // File path in uploads folder
   }
 }, {
   timestamps: true
@@ -130,5 +137,12 @@ requirementSchema.index({ 'skills': 1 });
 requirementSchema.index({ createdBy: 1 });
 requirementSchema.index({ assignedTo: 1 });
 requirementSchema.index({ createdAt: -1 });
+
+// Pre-save middleware to debug budget field
+requirementSchema.pre('save', function(next) {
+  console.log('🔧 Backend Model: Pre-save budget field:', this.budget);
+  console.log('🔧 Backend Model: Pre-save budget charge:', this.budget?.charge);
+  next();
+});
 
 module.exports = mongoose.model('Requirement', requirementSchema);

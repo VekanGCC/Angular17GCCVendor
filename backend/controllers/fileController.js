@@ -10,14 +10,24 @@ const path = require('path');
 // @route   POST /api/files/upload
 // @access  Private
 const uploadFile = asyncHandler(async (req, res, next) => {
+  console.log('🔧 FileController: Upload request received');
+  console.log('🔧 FileController: Request body:', req.body);
+  console.log('🔧 FileController: Request file:', req.file);
+  console.log('🔧 FileController: Request user:', req.user);
+
   if (!req.file) {
+    console.log('🔧 FileController: No file uploaded');
     return next(new ErrorResponse('No file uploaded', 400));
   }
 
   const { entityType, entityId, category, description, isPublic, tags } = req.body;
 
+  console.log('🔧 FileController: Entity type:', entityType);
+  console.log('🔧 FileController: Entity ID:', entityId);
+
   // Validate required fields
   if (!entityType || !entityId) {
+    console.log('🔧 FileController: Missing entity type or ID');
     return next(new ErrorResponse('Entity type and entity ID are required', 400));
   }
 
@@ -38,10 +48,16 @@ const uploadFile = asyncHandler(async (req, res, next) => {
     tags: tags ? tags.split(',').map(tag => tag.trim()) : []
   };
 
+  console.log('🔧 FileController: File data to create:', fileData);
+
   const file = await File.create(fileData);
+
+  console.log('🔧 FileController: File created successfully:', file);
 
   // Populate uploader info
   await file.populate('uploadedBy', 'firstName lastName email');
+
+  console.log('🔧 FileController: Sending response');
 
   res.status(201).json(
     ApiResponse.success(file, 'File uploaded successfully')
@@ -122,24 +138,58 @@ const getFile = asyncHandler(async (req, res, next) => {
 // @route   GET /api/files/:id/download
 // @access  Private
 const downloadFile = asyncHandler(async (req, res, next) => {
+  console.log('🔧 FileController: Download request received for file ID:', req.params.id);
+  
   const file = await File.findById(req.params.id);
 
   if (!file) {
+    console.log('🔧 FileController: File not found');
     return next(new ErrorResponse('File not found', 404));
   }
+
+  // Convert relative path to absolute path
+  const absolutePath = path.resolve(file.path);
+  
+  console.log('🔧 FileController: File found:', {
+    filename: file.filename,
+    originalName: file.originalName,
+    mimetype: file.mimetype,
+    size: file.size,
+    relativePath: file.path,
+    absolutePath: absolutePath
+  });
 
   // Check permissions
   if (req.user.role !== 'admin' && 
       file.uploadedBy.toString() !== req.user.id && 
       !file.isPublic) {
+    console.log('🔧 FileController: Permission denied for user:', req.user.id);
     return next(new ErrorResponse('Not authorized to download this file', 403));
   }
 
-  // Check if file exists on disk
+  // Check if file exists on disk using absolute path
   try {
-    await fs.access(file.path);
+    await fs.access(absolutePath);
+    console.log('🔧 FileController: File exists on disk at:', absolutePath);
   } catch (error) {
+    console.log('🔧 FileController: File not found on disk:', error.message);
     return next(new ErrorResponse('File not found on server', 404));
+  }
+
+  // Get file stats to verify size
+  try {
+    const stats = await fs.stat(absolutePath);
+    console.log('🔧 FileController: File stats:', {
+      size: stats.size,
+      expectedSize: file.size,
+      match: stats.size === file.size
+    });
+    
+    if (stats.size !== file.size) {
+      console.warn('🔧 FileController: File size mismatch!');
+    }
+  } catch (error) {
+    console.error('🔧 FileController: Error getting file stats:', error);
   }
 
   // Update download count
@@ -147,8 +197,29 @@ const downloadFile = asyncHandler(async (req, res, next) => {
   file.lastDownloadedAt = new Date();
   await file.save();
 
-  // Send file
-  res.download(file.path, file.originalName);
+  console.log('🔧 FileController: Using res.download with absolute path:', absolutePath);
+  console.log('🔧 FileController: Original filename:', file.originalName);
+
+  // Try a different approach - read file and send it manually
+  try {
+    const fs = require('fs');
+    const fileBuffer = await fs.promises.readFile(absolutePath);
+    
+    console.log('🔧 FileController: File read successfully, size:', fileBuffer.length);
+    
+    // Set headers manually
+    res.setHeader('Content-Type', file.mimetype);
+    res.setHeader('Content-Disposition', `attachment; filename="${file.originalName}"`);
+    res.setHeader('Content-Length', fileBuffer.length);
+    
+    // Send the file buffer
+    res.send(fileBuffer);
+    
+    console.log('🔧 FileController: File sent successfully using buffer');
+  } catch (error) {
+    console.error('🔧 FileController: Error reading file:', error);
+    return next(new ErrorResponse('Error reading file', 500));
+  }
 });
 
 // @desc    Update file
