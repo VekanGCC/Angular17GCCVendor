@@ -1,0 +1,198 @@
+<app-layout>
+  <div class="flex h-screen bg-gray-50">
+    <!-- Sidebar -->
+    <div class="w-64 bg-white shadow-sm border-r border-gray-200 flex flex-col">
+      <!-- Header -->
+      <div class="p-6 border-b border-gray-200">
+        <div class="flex items-center justify-between">
+          <div>
+            <h1 class="text-xl font-bold text-gray-900">Client Portal</h1>
+            <p class="text-sm text-gray-600 mt-1">{{currentUser?.firstName}} {{currentUser?.lastName}}</p>
+          </div>
+          <button
+            (click)="openRequirementModal()"
+            class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-2 rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all duration-200">
+            <img src="assets/icons/lucide/lucide/plus.svg" class="w-4 h-4" alt="Plus">
+          </button>
+        </div>
+      </div>
+
+      <!-- Navigation Menu -->
+      <nav class="flex-1 p-4 space-y-2">
+        <button
+          *ngFor="let tab of [
+            { id: 'overview', label: 'Overview', icon: 'home.svg' },
+            { id: 'requirements', label: 'My Requirements', icon: 'briefcase.svg' },
+            { id: 'resources', label: 'Browse Resources', icon: 'users.svg' },
+            { id: 'applications', label: 'Applications', icon: 'trending-up.svg' },
+            { id: 'profile', label: 'Profile', icon: 'user.svg' }
+          ]"
+          (click)="setActiveTab(tab.id)"
+          [class]="'w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ' + 
+            (activeTab === tab.id
+              ? 'bg-purple-50 text-purple-700 border border-purple-200'
+              : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900')">
+          <img [src]="'assets/icons/lucide/lucide/' + tab.icon" class="w-5 h-5 mr-3" [alt]="tab.label">
+          <span class="font-medium">{{tab.label}}</span>
+        </button>
+      </nav>
+
+      <!-- Stats Summary -->
+      <div class="p-4 border-t border-gray-200">
+        <div class="space-y-3">
+          <div *ngFor="let stat of stats" class="flex items-center justify-between">
+            <div class="flex items-center">
+              <div [class]="'p-2 rounded-lg ' + stat.bg">
+                <img [src]="'assets/icons/lucide/lucide/' + stat.icon + '.svg'" [class]="'w-4 h-4 ' + stat.color" [alt]="stat.title">
+              </div>
+              <span class="ml-3 text-sm font-medium text-gray-700">{{stat.title}}</span>
+            </div>
+            <span class="text-lg font-bold text-gray-900">{{stat.value}}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="flex-1 flex flex-col overflow-hidden">
+      <!-- Content Header -->
+      <div class="bg-blue-50 border-b border-blue-200 py-4">
+        <div class="flex items-center justify-between px-6">
+          <h2 class="text-xl font-semibold text-gray-900">
+            {{activeTab === 'overview' ? 'Dashboard Overview' :
+              activeTab === 'requirements' ? 'My Requirements' :
+              activeTab === 'resources' ? 'Browse Resources' :
+              activeTab === 'applications' ? 'Applications' :
+              'Profile'}}
+          </h2>
+          <div class="flex items-center space-x-4">
+            <button class="text-gray-600 hover:text-gray-900">
+              <img src="assets/icons/lucide/lucide/bell.svg" class="w-5 h-5" alt="Bell">
+            </button>
+            <button class="text-gray-600 hover:text-gray-900">
+              <img src="assets/icons/lucide/lucide/settings.svg" class="w-5 h-5" alt="Settings">
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Content Area -->
+      <div class="flex-1 overflow-y-auto">
+        <!-- Overview Tab -->
+        <app-client-overview 
+          *ngIf="activeTab === 'overview'"
+          [resources]="resources"
+          [requirements]="requirements"
+          [applications]="clientApplications"
+          [stats]="stats">
+        </app-client-overview>
+
+        <!-- Requirements Tab -->
+        <app-client-requirements 
+          *ngIf="activeTab === 'requirements'"
+          [requirements]="clientRequirements"
+          [isLoading]="requirementsPaginationState.isLoading"
+          (openRequirementModal)="openRequirementModal()"
+          (openCloseRequirementModal)="openCloseRequirementModal($event)"
+          (openEditRequirementModal)="openEditRequirementModal($event)">
+        </app-client-requirements>
+        
+        <!-- Requirements Pagination -->
+        <div *ngIf="activeTab === 'requirements' && clientRequirements.length > 0" class="p-6 border-t border-gray-200">
+          <app-pagination
+            [paginationState]="requirementsPaginationState"
+            (pageChange)="onRequirementsPageChange($event)">
+          </app-pagination>
+        </div>
+
+        <!-- Resources Tab -->
+        <app-client-resources 
+          *ngIf="activeTab === 'resources'"
+          [resources]="resources"
+          [isLoading]="resourcesPaginationState.isLoading"
+          (applyResources)="applyMultipleResources($event)">
+        </app-client-resources>
+        
+        <!-- Resources Pagination -->
+        <div *ngIf="activeTab === 'resources' && resources.length > 0" class="p-6 border-t border-gray-200">
+          <app-pagination
+            [paginationState]="resourcesPaginationState"
+            (pageChange)="onResourcesPageChange($event)">
+          </app-pagination>
+        </div>
+
+        <!-- Applications Tab -->
+        <app-client-applications 
+          *ngIf="activeTab === 'applications'"
+          [applications]="clientApplications"
+          (updateApplicationStatus)="handleUpdateApplicationStatus($event)"
+          (viewApplicationHistory)="handleViewApplicationHistory($event)"
+          (viewApplicationDetails)="handleViewApplicationDetails($event)">
+        </app-client-applications>
+        
+        <!-- Applications Pagination -->
+        <div *ngIf="activeTab === 'applications' && clientApplications.length > 0" class="p-6 border-t border-gray-200">
+          <app-pagination
+            [paginationState]="applicationsPaginationState"
+            (pageChange)="onApplicationsPageChange($event)">
+          </app-pagination>
+        </div>
+
+        <!-- Profile Tab -->
+        <app-profile-dashboard 
+          *ngIf="activeTab === 'profile'">
+        </app-profile-dashboard>
+      </div>
+    </div>
+  </div>
+
+  <!-- Requirement Modal -->
+  <app-requirement-modal 
+    *ngIf="showRequirementModal" 
+    (close)="showRequirementModal = false">
+  </app-requirement-modal>
+
+  <!-- Apply Resource Modal -->
+  <app-apply-resource-modal 
+    *ngIf="showApplyModal" 
+    [resourceId]="selectedResourceId || ''"
+    [resourceIds]="selectedResourceIds"
+    (close)="closeApplyModal()"
+    (success)="onApplicationSuccess()">
+  </app-apply-resource-modal>
+
+  <!-- Close Requirement Modal -->
+  <app-requirement-modal
+    *ngIf="showCloseRequirementModal"
+    [requirement]="requirementToClose"
+    [mode]="'close'"
+    (close)="closeCloseRequirementModal()"
+    (confirm)="confirmCloseRequirement()">
+  </app-requirement-modal>
+
+  <!-- Edit Requirement Modal -->
+  <app-requirement-modal
+    *ngIf="showEditRequirementModal"
+    [requirement]="requirementToEdit"
+    [mode]="'edit'"
+    (close)="showEditRequirementModal = false"
+    (confirm)="handleRequirementUpdate($event)">
+  </app-requirement-modal>
+
+  <!-- Application History Modal -->
+  <app-application-history-modal
+    *ngIf="showHistoryModal"
+    [applicationId]="selectedApplicationId"
+    [isVisible]="showHistoryModal"
+    [isLoading]="isLoadingHistory"
+    [history]="applicationHistory"
+    (close)="closeHistoryModal()">
+  </app-application-history-modal>
+
+  <!-- Application Details Modal -->
+  <app-application-details-modal
+    *ngIf="showApplicationDetailsModal"
+    [application]="selectedApplication"
+    (closeModal)="closeApplicationDetailsModal()">
+  </app-application-details-modal>
+</app-layout>

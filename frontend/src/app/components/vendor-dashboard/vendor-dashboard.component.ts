@@ -1,0 +1,787 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { Router, NavigationEnd } from '@angular/router';
+import { AuthService } from '../../services/auth.service';
+import { AppService } from '../../services/app.service';
+import { ApiService } from '../../services/api.service';
+import { VendorManagementService } from '../../services/vendor-management.service';
+import { Resource } from '../../models/resource.model';
+import { Requirement } from '../../models/requirement.model';
+import { Application } from '../../models/application.model';
+import { VendorUser } from '../../models/vendor-user.model';
+import { VendorSkill } from '../../models/vendor-skill.model';
+import { User } from '../../models/user.model';
+import { Subscription } from 'rxjs';
+import { filter } from 'rxjs/operators';
+import { VendorService } from '../../services/vendor.service';
+import { VendorOverviewComponent } from './vendor-overview/vendor-overview.component';
+import { VendorResourcesComponent } from './vendor-resources/vendor-resources.component';
+import { VendorRequirementsComponent } from './vendor-requirements/vendor-requirements.component';
+import { VendorApplicationsComponent } from './vendor-applications/vendor-applications.component';
+import { VendorUserManagementComponent } from './vendor-user-management/vendor-user-management.component';
+import { VendorSkillManagementComponent } from './vendor-skill-management/vendor-skill-management.component';
+import { ApplyRequirementModalComponent } from '../modals/apply-requirement-modal/apply-requirement-modal.component';
+import { ApplicationHistoryModalComponent } from '../modals/application-history-modal/application-history-modal.component';
+import { ProfileDashboardComponent } from '../profile/profile-dashboard.component';
+import { ResourceModalComponent } from '../modals/resource-modal/resource-modal.component';
+import { AddUserModalComponent } from '../modals/add-user-modal/add-user-modal.component';
+import { AddSkillModalComponent } from '../modals/add-skill-modal/add-skill-modal.component';
+import { ApplicationDetailsModalComponent } from '../modals/application-details-modal/application-details-modal.component';
+import { LayoutComponent } from '../layout/layout.component';
+import { PaginationState, PaginationParams } from '../../models/pagination.model';
+import { PaginationComponent } from '../pagination/pagination.component';
+
+@Component({
+  selector: 'app-vendor-dashboard',
+  standalone: true,
+  imports: [
+    CommonModule,
+    LayoutComponent,
+    VendorOverviewComponent,
+    VendorResourcesComponent,
+    VendorRequirementsComponent,
+    VendorApplicationsComponent,
+    VendorSkillManagementComponent,
+    VendorUserManagementComponent,
+    ProfileDashboardComponent,
+    ResourceModalComponent,
+    ApplyRequirementModalComponent,
+    ApplicationHistoryModalComponent,
+    AddUserModalComponent,
+    AddSkillModalComponent,
+    PaginationComponent
+  ],
+  templateUrl: './vendor-dashboard.component.html',
+  styleUrls: ['./vendor-dashboard.component.css']
+})
+export class VendorDashboardComponent implements OnInit, OnDestroy {
+  currentUser: User | null = null;
+  isLoading = false;
+  resources: Resource[] = [];
+  requirements: Requirement[] = [];
+  applications: Application[] = [];
+  vendorUsers: VendorUser[] = [];
+  vendorSkills: VendorSkill[] = [];
+  
+  showResourceModal = false;
+  showApplyModal = false;
+  showAddUserModal = false;
+  showAddSkillModal = false;
+  showApplyRequirementModal = false;
+  selectedRequirementId: string | null = null;
+  selectedRequirement: Requirement | null = null;
+  showHistoryModal = false;
+  selectedApplicationId: string = '';
+  isLoadingHistory = false;
+  applicationHistory: any[] = [];
+  activeTab: 'overview' | 'requirements' | 'resources' | 'applications' | 'profile' | 'user-management' | 'skill-management' = 'overview';
+  showVendorManagementDropdown = false;
+
+  vendorResources: Resource[] = [];
+  vendorApplications: Application[] = [];
+  organizationUsers: VendorUser[] = [];
+  organizationSkills: VendorSkill[] = [];
+
+  // Pagination states
+  resourcesPaginationState: PaginationState = {
+    currentPage: 1,
+    pageSize: 10,
+    totalItems: 0,
+    totalPages: 0,
+    isLoading: false,
+    hasNextPage: false,
+    hasPreviousPage: false
+  };
+
+  requirementsPaginationState: PaginationState = {
+    currentPage: 1,
+    pageSize: 10,
+    totalItems: 0,
+    totalPages: 0,
+    isLoading: false,
+    hasNextPage: false,
+    hasPreviousPage: false
+  };
+
+  applicationsPaginationState: PaginationState = {
+    currentPage: 1,
+    pageSize: 10,
+    totalItems: 0,
+    totalPages: 0,
+    isLoading: false,
+    hasNextPage: false,
+    hasPreviousPage: false
+  };
+
+  stats = [
+    {
+      title: 'My Resources',
+      value: 0,
+      icon: 'users',
+      color: 'text-blue-600',
+      bg: 'bg-blue-50'
+    },
+    {
+      title: 'Available Opportunities',
+      value: 0,
+      icon: 'briefcase',
+      color: 'text-green-600',
+      bg: 'bg-green-50'
+    },
+    {
+      title: 'Active Applications',
+      value: 0,
+      icon: 'trending-up',
+      color: 'text-purple-600',
+      bg: 'bg-purple-50'
+    },
+    {
+      title: 'Placements',
+      value: 0,
+      icon: 'check-circle',
+      color: 'text-teal-600',
+      bg: 'bg-teal-50'
+    }
+  ];
+
+  private subscriptions: Subscription[] = [];
+
+  constructor(
+    private authService: AuthService,
+    private appService: AppService,
+    private apiService: ApiService,
+    private vendorManagementService: VendorManagementService,
+    private router: Router,
+    private vendorService: VendorService
+  ) {}
+
+  async ngOnInit(): Promise<void> {
+    console.log('🔄 VendorDashboard: Initializing...');
+    
+    // Check authentication state immediately
+    const user = this.authService.getCurrentUser();
+    if (!user) {
+      console.log('Vendor Dashboard: No user found, redirecting to login');
+      this.router.navigate(['/login']);
+      return;
+    }
+
+    // Check if user is vendor
+    if (user.userType !== 'vendor') {
+      console.log('Vendor Dashboard: User is not vendor, redirecting to home');
+      this.router.navigate(['/']);
+      return;
+    }
+
+    // Set current user and load data
+    this.currentUser = user;
+    await this.loadVendorData();
+
+    // Check for profile fragment in URL
+    const fragment = this.router.url.split('#')[1];
+    if (fragment === 'profile') {
+      this.activeTab = 'profile';
+    }
+
+    // Subscribe to user changes
+    this.subscriptions.push(
+      this.authService.user$.subscribe(user => {
+        console.log('Vendor Dashboard: User state changed:', user);
+        if (!user) {
+          console.log('Vendor Dashboard: User logged out, redirecting to login');
+          this.router.navigate(['/login']);
+          return;
+        }
+        if (user.userType !== 'vendor') {
+          console.log('Vendor Dashboard: User is not vendor, redirecting to home');
+          this.router.navigate(['/']);
+          return;
+        }
+        this.currentUser = user;
+      })
+    );
+
+    // Subscribe to loading state
+    this.authService.loading$.subscribe(isLoading => {
+      this.isLoading = isLoading;
+    });
+
+    // Subscribe to resources
+    this.subscriptions.push(
+      this.appService.resources$.subscribe(resources => {
+        console.log('📦 VendorDashboard: Resources updated:', resources?.length || 0);
+        this.resources = resources || [];
+        this.updateData();
+      })
+    );
+
+    // Subscribe to requirements
+    this.subscriptions.push(
+      this.appService.requirements$.subscribe(requirements => {
+        console.log('📋 VendorDashboard: Requirements updated:', requirements?.length || 0);
+        this.requirements = requirements || [];
+        this.updateData();
+      })
+    );
+
+    // Subscribe to applications
+    this.subscriptions.push(
+      this.appService.applications$.subscribe(applications => {
+        console.log('📊 VendorDashboard: Applications updated:', applications?.length || 0);
+        this.applications = applications || [];
+        this.updateData();
+      })
+    );
+
+    // Subscribe to vendor users
+    this.subscriptions.push(
+      this.vendorManagementService.vendorUsers$.subscribe(users => {
+        console.log('👥 VendorDashboard: Vendor users updated:', users?.length || 0);
+        this.vendorUsers = users || [];
+        this.updateData();
+      })
+    );
+
+    // Subscribe to vendor skills
+    this.subscriptions.push(
+      this.vendorManagementService.vendorSkills$.subscribe(skills => {
+        console.log('🎯 VendorDashboard: Vendor skills updated:', skills?.length || 0);
+        this.vendorSkills = skills || [];
+        this.updateData();
+      })
+    );
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (event) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.vendor-management-dropdown')) {
+        this.showVendorManagementDropdown = false;
+      }
+    });
+
+    // Subscribe to route changes
+    this.subscriptions.push(
+      this.router.events.pipe(
+        filter((event) => event instanceof NavigationEnd)
+      ).subscribe(() => {
+        console.log('🔄 VendorDashboard: Route changed to:', this.router.url);
+        // Check for profile fragment in URL
+        const fragment = this.router.url.split('#')[1];
+        console.log('🔄 VendorDashboard: URL fragment:', fragment);
+        if (fragment === 'profile') {
+          console.log('🔄 VendorDashboard: Setting activeTab to profile from URL fragment');
+          this.activeTab = 'profile';
+        }
+      })
+    );
+  }
+
+  ngOnDestroy(): void {
+    this.subscriptions.forEach(sub => sub.unsubscribe());
+  }
+
+  private async loadVendorData(): Promise<void> {
+    console.log('Vendor Dashboard: Loading vendor data...');
+    
+    // Load initial data with pagination
+    await Promise.all([
+      this.loadVendorResources(),
+      this.loadVendorApplications(),
+      this.loadVendorRequirements()
+    ]);
+  }
+
+  private async loadVendorResources(page: number = 1): Promise<void> {
+    try {
+      this.resourcesPaginationState.isLoading = true;
+      const params: PaginationParams = {
+        page,
+        limit: this.resourcesPaginationState.pageSize,
+        sortBy: 'createdAt',
+        sortOrder: 'desc'
+      };
+      
+      console.log('🔧 VendorDashboard: Loading vendor resources with params:', params);
+      const response = await this.vendorService.getResources(params).toPromise();
+      console.log('🔧 VendorDashboard: Resources response:', response);
+      
+      if (response && response.success && response.data) {
+        this.vendorResources = response.data;
+        console.log('🔧 VendorDashboard: Updated vendorResources:', this.vendorResources);
+        
+        // Check for pagination data in both 'meta' and 'pagination' fields
+        const paginationData = response.meta || response.pagination;
+        if (paginationData) {
+          console.log('🔧 VendorDashboard: Pagination data:', paginationData);
+          this.updateResourcesPagination(paginationData);
+          console.log('🔧 VendorDashboard: Updated pagination state:', this.resourcesPaginationState);
+        } else {
+          console.log('🔧 VendorDashboard: No pagination data found in response');
+        }
+      } else {
+        console.log('🔧 VendorDashboard: Invalid response structure:', response);
+      }
+    } catch (error) {
+      console.error('Error loading vendor resources:', error);
+    } finally {
+      this.resourcesPaginationState.isLoading = false;
+    }
+  }
+
+  private async loadVendorApplications(page: number = 1): Promise<void> {
+    try {
+      this.applicationsPaginationState.isLoading = true;
+      const params: PaginationParams = {
+        page,
+        limit: this.applicationsPaginationState.pageSize,
+        sortBy: 'createdAt',
+        sortOrder: 'desc'
+      };
+      
+      const response = await this.vendorService.getApplications(params).toPromise();
+      if (response && response.success && response.data) {
+        this.vendorApplications = response.data;
+        const paginationData = response.meta || response.pagination;
+        if (paginationData) {
+          this.updateApplicationsPagination(paginationData);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading vendor applications:', error);
+    } finally {
+      this.applicationsPaginationState.isLoading = false;
+    }
+  }
+
+  private async loadVendorRequirements(page: number = 1): Promise<void> {
+    try {
+      this.requirementsPaginationState.isLoading = true;
+      const params: PaginationParams = {
+        page,
+        limit: this.requirementsPaginationState.pageSize,
+        sortBy: 'createdAt',
+        sortOrder: 'desc'
+      };
+      
+      const response = await this.apiService.getRequirements(params).toPromise();
+      if (response && response.success && response.data) {
+        this.requirements = response.data;
+        const paginationData = response.meta || response.pagination;
+        if (paginationData) {
+          this.updateRequirementsPagination(paginationData);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading vendor requirements:', error);
+    } finally {
+      this.requirementsPaginationState.isLoading = false;
+    }
+  }
+
+  // Pagination update methods
+  private updateResourcesPagination(meta: any): void {
+    this.resourcesPaginationState = {
+      ...this.resourcesPaginationState,
+      currentPage: meta.page,
+      pageSize: meta.limit,
+      totalItems: meta.total,
+      totalPages: meta.pages,
+      hasNextPage: meta.page < meta.pages,
+      hasPreviousPage: meta.page > 1
+    };
+  }
+
+  private updateApplicationsPagination(meta: any): void {
+    this.applicationsPaginationState = {
+      ...this.applicationsPaginationState,
+      currentPage: meta.page,
+      pageSize: meta.limit,
+      totalItems: meta.total,
+      totalPages: meta.pages,
+      hasNextPage: meta.page < meta.pages,
+      hasPreviousPage: meta.page > 1
+    };
+  }
+
+  private updateRequirementsPagination(meta: any): void {
+    this.requirementsPaginationState = {
+      ...this.requirementsPaginationState,
+      currentPage: meta.page,
+      pageSize: meta.limit,
+      totalItems: meta.total,
+      totalPages: meta.pages,
+      hasNextPage: meta.page < meta.pages,
+      hasPreviousPage: meta.page > 1
+    };
+  }
+
+  // Pagination event handlers
+  onResourcesPageChange(page: number): void {
+    this.loadVendorResources(page);
+  }
+
+  onApplicationsPageChange(page: number): void {
+    this.loadVendorApplications(page);
+  }
+
+  onRequirementsPageChange(page: number): void {
+    this.loadVendorRequirements(page);
+  }
+
+  private updateData(): void {
+    if (!this.currentUser) {
+      console.log('⚠️ VendorDashboard: No user found');
+      // Reset arrays to empty when no user
+      this.vendorResources = [];
+      this.vendorApplications = [];
+      this.organizationUsers = [];
+      this.organizationSkills = [];
+      return;
+    }
+
+    console.log('🔄 VendorDashboard: Updating data for user:', `${this.currentUser.firstName} ${this.currentUser.lastName}`);
+    
+    const vendorId = this.currentUser._id;
+    
+    // Use safe filtering with null checks
+    this.vendorResources = (this.resources || []).filter(r => r && r.vendorId === vendorId);
+    // Use vendorApplications that are loaded from vendor-specific endpoint
+    // this.vendorApplications is already set by loadVendorApplications()
+    this.organizationUsers = (this.vendorUsers || []).filter(u => u && u.vendorId === vendorId);
+    this.organizationSkills = (this.vendorSkills || []).filter(s => s && s.vendorId === vendorId);
+    
+    console.log('📊 VendorDashboard: Filtered data:', {
+      vendorResources: this.vendorResources.length,
+      vendorApplications: this.vendorApplications.length,
+      organizationUsers: this.organizationUsers.length,
+      organizationSkills: this.organizationSkills.length,
+      totalRequirements: (this.requirements || []).length
+    });
+    
+    // Update stats with safe values
+    this.stats[0].value = this.vendorResources.length;
+    this.stats[1].value = (this.requirements || []).length;
+    this.stats[2].value = this.vendorApplications.filter(a => a && !['rejected', 'withdrawn'].includes(a.status)).length;
+    this.stats[3].value = this.vendorApplications.filter(a => a && a.status === 'accepted').length;
+  }
+
+  setActiveTab(tabId: string): void {
+    console.log('🔄 VendorDashboard: setActiveTab method called with tabId:', tabId);
+    console.log('🔄 VendorDashboard: Setting active tab to:', tabId);
+    console.log('🔄 VendorDashboard: Current activeTab before change:', this.activeTab);
+    
+    this.activeTab = tabId as 'overview' | 'requirements' | 'resources' | 'applications' | 'profile' | 'user-management' | 'skill-management';
+    
+    console.log('🔄 VendorDashboard: New activeTab after change:', this.activeTab);
+    console.log('🔄 VendorDashboard: Is profile tab?', tabId === 'profile');
+    
+    this.showVendorManagementDropdown = false;
+    
+    // Reload data when specific tabs are selected
+    if (tabId === 'applications') {
+      this.loadVendorApplications();
+    } else if (tabId === 'requirements') {
+      this.loadVendorRequirements();
+    } else if (tabId === 'resources') {
+      this.loadVendorResources();
+    }
+  }
+
+  toggleVendorManagementDropdown(): void {
+    this.showVendorManagementDropdown = !this.showVendorManagementDropdown;
+  }
+
+  getResourceName(resourceId: string): string {
+    const resource = (this.resources || []).find(r => r && r._id === resourceId);
+    return resource?.name || 'Unknown Resource';
+  }
+
+  getRequirementTitle(requirementId: string): string {
+    if (!requirementId) return 'Unknown Requirement';
+    const requirement = (this.requirements || []).find(r => r && r._id === requirementId);
+    return requirement?.title || 'Unknown Requirement';
+  }
+
+  getApplicationResourceName(app: Application): string {
+    if (typeof app.resource === 'object' && app.resource) {
+      return app.resource.name || 'Unknown Resource';
+    } else if (typeof app.resource === 'string') {
+      return this.getResourceName(app.resource);
+    }
+    return 'Unknown Resource';
+  }
+
+  getApplicationRequirementTitle(app: Application): string {
+    if (typeof app.requirement === 'object' && app.requirement) {
+      return app.requirement.title || 'Unknown Requirement';
+    } else if (typeof app.requirement === 'string') {
+      return this.getRequirementTitle(app.requirement);
+    }
+    return 'Unknown Requirement';
+  }
+
+  getFirstThreeSkills(skills: string[]): string[] {
+    if (!skills || !Array.isArray(skills)) return [];
+    return skills.slice(0, 3);
+  }
+
+  getAvailabilityClass(status: string): string {
+    switch (status) {
+      case 'available':
+        return 'bg-green-100 text-green-800';
+      case 'partially_available':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'unavailable':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  }
+
+  getAvailabilityIcon(status: string): string {
+    switch (status) {
+      case 'available':
+        return 'check-circle';
+      case 'partially_available':
+        return 'clock';
+      case 'unavailable':
+        return 'x-circle';
+      default:
+        return 'help-circle';
+    }
+  }
+
+  formatAvailability(status: string): string {
+    switch (status) {
+      case 'available':
+        return 'Available';
+      case 'partially_available':
+        return 'Partially Available';
+      case 'unavailable':
+        return 'Unavailable';
+      default:
+        return 'Unknown';
+    }
+  }
+
+  getUserRoleClass(role: string): string {
+    switch (role) {
+      case 'admin':
+        return 'bg-purple-100 text-purple-800';
+      case 'manager':
+        return 'bg-blue-100 text-blue-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  }
+
+  getUserStatusClass(status: string): string {
+    return status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
+  }
+
+  getSkillStatusClass(status: string): string {
+    switch (status) {
+      case 'approved':
+        return 'bg-green-100 text-green-800';
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'rejected':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  }
+
+  getProficiencyClass(level: string): string {
+    switch (level) {
+      case 'expert':
+        return 'bg-purple-100 text-purple-800';
+      case 'advanced':
+        return 'bg-blue-100 text-blue-800';
+      case 'intermediate':
+        return 'bg-green-100 text-green-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  }
+
+  getStatusBadge(status: string): { color: string; icon: string } {
+    const statusConfig: { [key: string]: { color: string; icon: string } } = {
+      pending: { color: 'bg-yellow-100 text-yellow-800', icon: 'clock' },
+      shortlisted: { color: 'bg-blue-100 text-blue-800', icon: 'eye' },
+      accepted: { color: 'bg-green-100 text-green-800', icon: 'check-circle' },
+      rejected: { color: 'bg-red-100 text-red-800', icon: 'x-circle' },
+      withdrawn: { color: 'bg-gray-100 text-gray-800', icon: 'x-circle' }
+    };
+    
+    return statusConfig[status] || statusConfig['pending'];
+  }
+
+  handleApplyResources(requirementId: string): void {
+    // Handle applying resources to a requirement
+    console.log('🔄 VendorDashboard: handleApplyResources called with requirementId:', requirementId);
+    console.log('🔄 VendorDashboard: Current showApplyRequirementModal state:', this.showApplyRequirementModal);
+    console.log('🔄 VendorDashboard: Current selectedRequirementId:', this.selectedRequirementId);
+    
+    this.selectedRequirementId = requirementId;
+    this.showApplyRequirementModal = true;
+    
+    console.log('🔄 VendorDashboard: After setting - showApplyRequirementModal:', this.showApplyRequirementModal);
+    console.log('🔄 VendorDashboard: After setting - selectedRequirementId:', this.selectedRequirementId);
+  }
+
+  handleEditResource(resource: Resource): void {
+    // Handle editing a resource
+    console.log('Editing resource:', resource);
+    // TODO: Implement resource editing logic
+  }
+
+  handleToggleResourceStatus(data: {resourceId: string, currentStatus: 'active' | 'inactive'}): void {
+    // Handle toggling resource status
+    console.log('Toggling resource status:', data);
+    
+    // Find the resource in the local array
+    const resourceIndex = this.vendorResources.findIndex(r => r._id === data.resourceId);
+    if (resourceIndex !== -1) {
+      // Show loading state
+      this.isLoading = true;
+      
+      // Make API call to update resource status
+      this.vendorService.updateResourceStatus(data.resourceId, data.currentStatus).subscribe({
+        next: (response) => {
+          console.log('Resource status updated successfully:', response);
+          
+          // Update the local resource status
+          this.vendorResources[resourceIndex].status = data.currentStatus;
+          
+          // Refresh the resources data to ensure consistency
+          this.appService.reloadResources();
+          
+          this.isLoading = false;
+        },
+        error: (error) => {
+          console.error('Error updating resource status:', error);
+          
+          // Revert the local change if API call failed
+          if (resourceIndex !== -1) {
+            const originalStatus = data.currentStatus === 'active' ? 'inactive' : 'active';
+            this.vendorResources[resourceIndex].status = originalStatus;
+          }
+          
+          this.isLoading = false;
+          
+          // TODO: Show error message to user
+          // You can add a toast notification service here
+        }
+      });
+    }
+  }
+
+  handleToggleUserStatus(data: {id: string, status: string}): void {
+    console.log('🔄 VendorDashboard: Toggling user status:', data);
+    const status: 'active' | 'inactive' = data.status === 'active' ? 'active' : 'inactive';
+    this.vendorManagementService.toggleUserStatus(data.id, status);
+  }
+
+  // Application status management for vendors
+  handleUpdateApplicationStatus(data: {applicationId: string, status: string, notes?: string}): void {
+    console.log('🔄 VendorDashboard: Updating application status:', data);
+    
+    // Update local state immediately for responsive UI
+    const applicationIndex = this.vendorApplications.findIndex(app => app._id === data.applicationId);
+    if (applicationIndex !== -1) {
+      this.vendorApplications[applicationIndex].status = data.status as any;
+    }
+
+    // Make API call to update status
+    this.vendorService.updateApplicationStatus(data.applicationId, data.status, data.notes).subscribe({
+      next: (response) => {
+        console.log('✅ VendorDashboard: Application status updated successfully:', response);
+        // Refresh applications to ensure consistency
+        this.loadVendorApplications();
+      },
+      error: (error) => {
+        console.error('❌ VendorDashboard: Error updating application status:', error);
+        // Revert local change if API call failed
+        if (applicationIndex !== -1) {
+          this.vendorApplications[applicationIndex].status = this.applications.find(app => app._id === data.applicationId)?.status || 'applied';
+        }
+      }
+    });
+  }
+
+  // Application history management for vendors
+  handleViewApplicationHistory(applicationId: string): void {
+    console.log('🔄 VendorDashboard: Viewing application history for:', applicationId);
+    this.selectedApplicationId = applicationId;
+    this.showHistoryModal = true;
+    this.loadApplicationHistory(applicationId);
+  }
+
+  private loadApplicationHistory(applicationId: string): void {
+    this.isLoadingHistory = true;
+    this.vendorService.getApplicationHistory(applicationId).subscribe({
+      next: (response: any) => {
+        console.log('Application history loaded:', response);
+        if (response.success && response.data) {
+          this.applicationHistory = response.data;
+        } else {
+          this.applicationHistory = [];
+        }
+        this.isLoadingHistory = false;
+      },
+      error: (error: any) => {
+        console.error('Error loading application history:', error);
+        this.applicationHistory = [];
+        this.isLoadingHistory = false;
+      }
+    });
+  }
+
+  closeHistoryModal(): void {
+    this.showHistoryModal = false;
+    this.selectedApplicationId = '';
+    this.applicationHistory = [];
+  }
+
+  closeApplyModal(): void {
+    this.showApplyModal = false;
+    this.selectedRequirementId = null;
+  }
+
+  closeApplyRequirementModal(): void {
+    this.showApplyRequirementModal = false;
+    this.selectedRequirementId = null;
+  }
+
+  onApplicationSuccess(): void {
+    this.closeApplyRequirementModal();
+    // Refresh applications after successful creation
+    this.loadVendorApplications();
+    console.log('Application created successfully');
+  }
+
+  toggleUserStatus(userId: string, currentStatus: string): void {
+    if (!userId) return;
+    const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+    this.vendorManagementService.updateUserStatus(userId, newStatus as VendorUser['status']);
+  }
+
+  formatStatus(status: string): string {
+    if (!status) return 'Unknown';
+    return status.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase());
+  }
+
+  // Track by functions for *ngFor loops
+  trackByTitle(index: number, item: any): any {
+    return item?.title || index;
+  }
+
+  trackById(index: number, item: any): any {
+    return item?._id || index;
+  }
+
+  trackByStatTitle(index: number, item: any): any {
+    return item?.title || index;
+  }
+}

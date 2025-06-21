@@ -1,0 +1,486 @@
+<div class="flex h-screen bg-gray-50">
+  <!-- Sidebar -->
+  <div class="w-64 bg-white shadow-sm border-r border-gray-200 flex flex-col">
+    <!-- Header -->
+    <div class="p-6 border-b border-gray-200">
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-xl font-bold text-gray-900">Admin Portal</h1>
+          <p class="text-sm text-gray-600 mt-1">{{currentUser?.firstName}} {{currentUser?.lastName}}</p>
+        </div>
+        <div class="bg-gradient-to-r from-red-600 to-pink-600 text-white p-2 rounded-lg">
+          <img src="assets/icons/lucide/lucide/shield.svg" alt="shield" class="w-4 h-4" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Navigation Menu -->
+    <nav class="flex-1 p-4 space-y-2">
+      <!-- Main Navigation Tabs -->
+      <button
+        (click)="setActiveTab('overview')"
+        [class]="'w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ' + 
+          (activeTab === 'overview'
+            ? 'bg-red-50 text-red-700 border border-red-200'
+            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900')">
+        <img src="assets/icons/lucide/lucide/home.svg" alt="home" class="w-5 h-5 mr-3" />
+        <span class="font-medium">Overview</span>
+      </button>
+
+      <button
+        (click)="setActiveTab('user-approvals')"
+        [class]="'w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ' + 
+          (activeTab === 'user-approvals'
+            ? 'bg-red-50 text-red-700 border border-red-200'
+            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900')">
+        <img src="assets/icons/lucide/lucide/user-check.svg" alt="user-check" class="w-5 h-5 mr-3" />
+        <span class="font-medium">User Approvals</span>
+        <span *ngIf="pendingUserApprovalsCount > 0" 
+              class="ml-auto bg-red-100 text-red-700 px-2 py-0.5 rounded-full text-xs">
+          {{pendingUserApprovalsCount}}
+        </span>
+      </button>
+
+      <button
+        (click)="setActiveTab('skill-approvals')"
+        [class]="'w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ' + 
+          (activeTab === 'skill-approvals'
+            ? 'bg-red-50 text-red-700 border border-red-200'
+            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900')">
+        <img src="assets/icons/lucide/lucide/circle-check.svg" alt="check-circle" class="w-5 h-5 mr-3" />
+        <span class="font-medium">Skill Approvals</span>
+        <span *ngIf="pendingSkillApprovalsCount > 0" 
+              class="ml-auto bg-red-100 text-red-700 px-2 py-0.5 rounded-full text-xs">
+          {{pendingSkillApprovalsCount}}
+        </span>
+      </button>
+
+      <button
+        (click)="setActiveTab('skills')"
+        [class]="'w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ' + 
+          (activeTab === 'skills'
+            ? 'bg-red-50 text-red-700 border border-red-200'
+            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900')">
+        <img src="assets/icons/lucide/lucide/list.svg" alt="list" class="w-5 h-5 mr-3" />
+        <span class="font-medium">Skills</span>
+      </button>
+
+      <button
+        (click)="setActiveTab('applications')"
+        [class]="'w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ' + 
+          (activeTab === 'applications'
+            ? 'bg-red-50 text-red-700 border border-red-200'
+            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900')">
+        <img src="assets/icons/lucide/lucide/file-text.svg" alt="file-text" class="w-5 h-5 mr-3" />
+        <span class="font-medium">Applications</span>
+      </button>
+
+      <button
+        (click)="setActiveTab('users')"
+        [class]="'w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ' + 
+          (activeTab === 'users'
+            ? 'bg-red-50 text-red-700 border border-red-200'
+            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900')">
+        <img src="assets/icons/lucide/lucide/users.svg" alt="users" class="w-5 h-5 mr-3" />
+        <span class="font-medium">Users</span>
+      </button>
+    </nav>
+
+    <!-- Stats Summary -->
+    <div class="p-4 border-t border-gray-200">
+      <div class="space-y-3">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center">
+            <div class="p-2 rounded-lg bg-blue-50">
+              <img src="assets/icons/lucide/lucide/users.svg" alt="users" class="w-4 h-4 text-blue-600" />
+            </div>
+            <span class="ml-3 text-sm font-medium text-gray-700">Total Users</span>
+          </div>
+          <span class="text-2xl font-bold text-gray-900">{{platformStats.totalUsers || 0}}</span>
+        </div>
+        
+        <div class="flex items-center justify-between">
+          <div class="flex items-center">
+            <div class="p-2 rounded-lg bg-green-50">
+              <img src="assets/icons/lucide/lucide/trending-up.svg" alt="trending-up" class="w-4 h-4 text-green-600" />
+            </div>
+            <span class="ml-3 text-sm font-medium text-gray-700">Total Applications</span>
+          </div>
+          <span class="text-2xl font-bold text-gray-900">{{platformStats.totalApplications || 0}}</span>
+        </div>
+
+        <div class="flex items-center justify-between">
+          <div class="flex items-center">
+            <div class="p-2 rounded-lg bg-purple-50">
+              <img src="assets/icons/lucide/lucide/briefcase.svg" alt="briefcase" class="w-4 h-4 text-purple-600" />
+            </div>
+            <span class="ml-3 text-sm font-medium text-gray-700">Total Resources</span>
+          </div>
+          <span class="text-lg font-bold text-gray-900">{{platformStats.totalResources}}</span>
+        </div>
+
+        <div class="flex items-center justify-between">
+          <div class="flex items-center">
+            <div class="p-2 rounded-lg bg-yellow-50">
+              <img src="assets/icons/lucide/lucide/file-text.svg" alt="file-text" class="w-4 h-4 text-yellow-600" />
+            </div>
+            <span class="ml-3 text-sm font-medium text-gray-700">Total Requirements</span>
+          </div>
+          <span class="text-lg font-bold text-gray-900">{{platformStats.totalRequirements}}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <div class="flex-1 flex flex-col overflow-hidden">
+    <!-- Content Header -->
+    <div class="bg-white border-b border-gray-200 px-6 py-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-2xl font-bold text-gray-900">
+            {{activeTab === 'overview' ? 'Platform Overview' :
+              activeTab === 'user-approvals' ? 'Pending Approvals' :
+              activeTab === 'skill-approvals' ? 'Vendor Skill Approvals' :
+              activeTab === 'skills' ? 'Skill Management' :
+              activeTab === 'applications' ? 'All Applications' :
+              'User Management'}}
+          </h2>
+          <p class="text-gray-600 mt-1">
+            {{activeTab === 'overview' ? 'Monitor platform performance and key metrics' :
+              activeTab === 'user-approvals' ? 'Review and approve pending registrations and skills' :
+              activeTab === 'skill-approvals' ? 'Review and approve vendor skill submissions' :
+              activeTab === 'skills' ? 'Manage platform skills and categories' :
+              activeTab === 'applications' ? 'View all applications from vendors and clients' :
+              'Manage all platform users and permissions'}}
+          </p>
+        </div>
+        <button
+          *ngIf="activeTab === 'skills'"
+          (click)="showAddSkillModal = true"
+          class="bg-gradient-to-r from-red-600 to-pink-600 text-white px-4 py-2 rounded-lg hover:from-red-700 hover:to-pink-700 transition-all duration-200 flex items-center">
+          <img src="assets/icons/lucide/lucide/plus.svg" alt="plus" class="w-4 h-4 mr-2" />
+          Add Skill
+        </button>
+      </div>
+    </div>
+
+    <!-- Content Area -->
+    <div class="flex-1 overflow-y-auto p-6">
+      <div [ngSwitch]="activeTab">
+        <!-- Overview Tab -->
+        <div *ngSwitchCase="'overview'" class="space-y-6">
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Recent User Approvals -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+              <div class="p-6 border-b border-gray-100">
+                <h3 class="text-lg font-semibold text-gray-900">Recent User Approvals</h3>
+              </div>
+              <div class="p-6">
+                <div *ngFor="let approval of userApprovals.slice(0, 5)" 
+                     class="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
+                  <div>
+                    <p class="font-medium text-gray-900">{{approval.firstName}} {{approval.lastName}}</p>
+                    <p class="text-sm text-gray-600">{{approval.email}}</p>
+                  </div>
+                  <span [class]="'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ' + 
+                    (approval.approvalStatus === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                     approval.approvalStatus === 'approved' ? 'bg-green-100 text-green-800' :
+                     'bg-red-100 text-red-800')">
+                    {{approval.approvalStatus}}
+                  </span>
+                </div>
+                <p *ngIf="userApprovals.length === 0" class="text-gray-500 text-center py-8">No pending user approvals</p>
+              </div>
+            </div>
+
+            <!-- Recent Skill Approvals -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+              <div class="p-6 border-b border-gray-100">
+                <h3 class="text-lg font-semibold text-gray-900">Recent Skill Approvals</h3>
+              </div>
+              <div class="p-6">
+                <div *ngFor="let approval of skillApprovals.slice(0, 5)" 
+                     class="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
+                  <div>
+                    <p class="font-medium text-gray-900">{{approval.skill.skillName}}</p>
+                    <p class="text-sm text-gray-600">{{approval.skill.category}}</p>
+                  </div>
+                  <span [class]="'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ' + 
+                    (approval.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                     approval.status === 'approved' ? 'bg-green-100 text-green-800' :
+                     'bg-red-100 text-red-800')">
+                    {{approval.status}}
+                  </span>
+                </div>
+                <p *ngIf="skillApprovals.length === 0" class="text-gray-500 text-center py-8">No pending skill approvals</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Actions -->
+          <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <button
+                (click)="setActiveTab('user-approvals')"
+                class="p-4 border border-gray-200 rounded-lg hover:border-red-300 hover:bg-red-50 transition-colors text-left">
+                <img src="assets/icons/lucide/lucide/user-check.svg" alt="user-check" class="w-6 h-6 text-red-600 mb-2" />
+                <h4 class="font-medium text-gray-900">Review Approvals</h4>
+                <p class="text-sm text-gray-600 mt-1">Review and manage pending user approvals</p>
+              </button>
+              
+              <button
+                (click)="setActiveTab('skills')"
+                class="p-4 border border-gray-200 rounded-lg hover:border-green-300 hover:bg-green-50 transition-colors text-left">
+                <img src="assets/icons/lucide/lucide/list.svg" alt="list" class="w-6 h-6 text-green-600 mb-2" />
+                <h4 class="font-medium text-gray-900">Manage Skills</h4>
+                <p class="text-sm text-gray-600 mt-1">Manage platform skills and categories</p>
+              </button>
+              
+              <button
+                (click)="setActiveTab('users')"
+                class="p-4 border border-gray-200 rounded-lg hover:border-purple-300 hover:bg-purple-50 transition-colors text-left">
+                <img src="assets/icons/lucide/lucide/users.svg" alt="users" class="w-6 h-6 text-purple-600 mb-2" />
+                <h4 class="font-medium text-gray-900">User Management</h4>
+                <p class="text-sm text-gray-600 mt-1">Manage platform users and permissions</p>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- User Approvals Tab -->
+        <div *ngSwitchCase="'user-approvals'" class="bg-white rounded-xl shadow-sm border border-gray-100">
+          <div class="p-6 border-b border-gray-100">
+            <div class="flex items-center justify-between">
+              <h3 class="text-lg font-semibold text-gray-900">User Approvals</h3>
+              <select [(ngModel)]="approvalFilter" (change)="onFilterChange()"
+                      class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500">
+                <option value="all">All Approvals</option>
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+              </select>
+            </div>
+          </div>
+          <div class="p-6">
+            <div *ngFor="let approval of filteredUserApprovals" 
+                 class="flex items-center justify-between py-4 border-b border-gray-100 last:border-0">
+              <div>
+                <p class="font-medium text-gray-900">{{approval.firstName}} {{approval.lastName}}</p>
+                <p class="text-sm text-gray-600">{{approval.email}}</p>
+                <p class="text-sm text-gray-500">Role: {{approval.role}}</p>
+              </div>
+              <div class="flex items-center gap-3">
+                <span [class]="'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ' + 
+                  (approval.approvalStatus === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                   approval.approvalStatus === 'approved' ? 'bg-green-100 text-green-800' :
+                   'bg-red-100 text-red-800')">
+                  {{approval.approvalStatus}}
+                </span>
+                <div class="flex gap-2" *ngIf="approval.approvalStatus === 'pending'">
+                  <button (click)="approveUser(approval.userId)"
+                          class="px-3 py-1 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors">
+                    Approve
+                  </button>
+                  <button (click)="rejectUser(approval.userId, '')"
+                          class="px-3 py-1 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors">
+                    Reject
+                  </button>
+                </div>
+              </div>
+            </div>
+            <p *ngIf="userApprovals.length === 0" class="text-gray-500 text-center py-8">No user approvals found</p>
+          </div>
+          <div class="px-6 py-4 border-t border-gray-100">
+            <div class="flex items-center justify-between">
+              <button [disabled]="currentPage === 1" 
+                      (click)="onPageChange(currentPage - 1)"
+                      class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                Previous
+              </button>
+              <span class="text-sm text-gray-600">Page {{ currentPage }} of {{ totalPages }}</span>
+              <button [disabled]="currentPage === totalPages" 
+                      (click)="onPageChange(currentPage + 1)"
+                      class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                Next
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Skill Approvals Tab -->
+        <div *ngSwitchCase="'skill-approvals'" class="bg-white rounded-xl shadow-sm border border-gray-100">
+          <div class="p-6 border-b border-gray-100">
+            <div class="flex items-center justify-between">
+              <h3 class="text-lg font-semibold text-gray-900">Skill Approvals</h3>
+              <select [(ngModel)]="skillApprovalFilter" (change)="onFilterChange()"
+                      class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500">
+                <option value="all">All Approvals</option>
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+              </select>
+            </div>
+          </div>
+          <div class="p-6">
+            <div *ngFor="let approval of filteredSkillApprovals" 
+                 class="flex items-center justify-between py-4 border-b border-gray-100 last:border-0">
+              <div>
+                <p class="font-medium text-gray-900">{{approval.skill.skillName}}</p>
+                <p class="text-sm text-gray-600">{{approval.skill.category}}</p>
+                <p class="text-sm text-gray-500">{{approval.skill.description}}</p>
+              </div>
+              <div class="flex items-center gap-3">
+                <span [class]="'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ' + 
+                  (approval.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                   approval.status === 'approved' ? 'bg-green-100 text-green-800' :
+                   'bg-red-100 text-red-800')">
+                  {{approval.status}}
+                </span>
+                <div class="flex gap-2" *ngIf="approval.status === 'pending'">
+                  <button (click)="approveSkill(approval.id)"
+                          class="px-3 py-1 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors">
+                    Approve
+                  </button>
+                  <button (click)="rejectSkill(approval.id, '')"
+                          class="px-3 py-1 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors">
+                    Reject
+                  </button>
+                </div>
+              </div>
+            </div>
+            <p *ngIf="skillApprovals.length === 0" class="text-gray-500 text-center py-8">No skill approvals found</p>
+          </div>
+          
+          <!-- Pagination -->
+          <app-pagination
+            *ngIf="!skillApprovalsPaginationState.isLoading && skillApprovals.length > 0"
+            [paginationState]="skillApprovalsPaginationState"
+            (pageChange)="onSkillApprovalsPageChange($event)">
+          </app-pagination>
+        </div>
+
+        <!-- Skills Tab -->
+        <div *ngSwitchCase="'skills'" class="bg-white rounded-xl shadow-sm border border-gray-100">
+          <div class="p-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div *ngFor="let skill of adminSkills" 
+                   class="p-6 border border-gray-200 rounded-lg hover:border-red-200 hover:bg-red-50 transition-colors">
+                <div class="flex items-start justify-between">
+                  <div>
+                    <h4 class="font-medium text-gray-900">{{skill.name}}</h4>
+                    <p class="text-sm text-gray-600 mt-1">{{skill.category}}</p>
+                    <p class="text-sm text-gray-500 mt-2">{{skill.description}}</p>
+                  </div>
+                  <span [class]="'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ' + 
+                    (skill.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800')">
+                    {{skill.isActive ? 'Active' : 'Inactive'}}
+                  </span>
+                </div>
+                <div class="flex gap-2 mt-4">
+                  <button (click)="editSkill(skill)"
+                          class="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors">
+                    Edit
+                  </button>
+                  <button (click)="deleteSkill(skill.id)"
+                          class="px-3 py-1 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors">
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+            <p *ngIf="adminSkills.length === 0" class="text-gray-500 text-center py-8">No skills found</p>
+          </div>
+        </div>
+
+        <!-- Applications Tab -->
+        <div *ngSwitchCase="'applications'" class="bg-white rounded-xl shadow-sm border border-gray-100">
+          <div class="p-6">
+            <div class="space-y-4">
+              <div *ngFor="let application of allApplications" 
+                   class="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                <div>
+                  <p class="font-medium text-gray-900">
+                    {{ getApplicationTitle(application) }}
+                  </p>
+                  <p class="text-sm text-gray-600">
+                    {{ getApplicationCreator(application) }}
+                  </p>
+                  <p class="text-sm text-gray-500 mt-1">Status: {{application.status}}</p>
+                </div>
+                <div class="flex items-center gap-3">
+                  <span [class]="'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ' + 
+                    (application.status === 'accepted' ? 'bg-green-100 text-green-800' :
+                     application.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                     application.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                     application.status === 'applied' ? 'bg-blue-100 text-blue-800' :
+                     'bg-gray-100 text-gray-800')">
+                    {{application.status}}
+                  </span>
+                  <span class="text-sm text-gray-500">
+                    {{application.createdAt | date:'medium'}}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <p *ngIf="allApplications.length === 0" class="text-gray-500 text-center py-8">No applications found</p>
+            
+            <!-- Pagination -->
+            <app-pagination
+              *ngIf="!applicationsPaginationState.isLoading && allApplications.length > 0"
+              [paginationState]="applicationsPaginationState"
+              (pageChange)="onApplicationsPageChange($event)">
+            </app-pagination>
+          </div>
+        </div>
+
+        <!-- Users Tab -->
+        <div *ngSwitchCase="'users'" class="bg-white rounded-xl shadow-sm border border-gray-100">
+          <div class="p-6">
+            <div class="space-y-4">
+              <div *ngFor="let user of allUsers" 
+                   class="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                <div>
+                  <p class="font-medium text-gray-900">{{user.firstName}} {{user.lastName}}</p>
+                  <p class="text-sm text-gray-600">{{user.email}}</p>
+                  <p class="text-sm text-gray-500">Role: {{user.role}}</p>
+                </div>
+                <div class="flex items-center gap-3">
+                  <span [class]="'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ' + 
+                    (user.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800')">
+                    {{user.isActive ? 'Active' : 'Inactive'}}
+                  </span>
+                  <div class="flex gap-2">
+                    <button (click)="editUser(user)"
+                            class="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors">
+                      Edit
+                    </button>
+                    <button (click)="toggleUserStatus(user)"
+                            class="px-3 py-1 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors">
+                      {{user.isActive ? 'Deactivate' : 'Activate'}}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Pagination -->
+            <app-pagination
+              *ngIf="!usersPaginationState.isLoading && allUsers.length > 0"
+              [paginationState]="usersPaginationState"
+              (pageChange)="onUsersPageChange($event)">
+            </app-pagination>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Skill Modal -->
+  <app-add-admin-skill-modal 
+    *ngIf="showAddSkillModal" 
+    (close)="showAddSkillModal = false"
+    (skillAdded)="onSkillAdded($event)">
+  </app-add-admin-skill-modal>
+</div>

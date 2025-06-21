@@ -1,0 +1,94 @@
+<div class="p-6 space-y-6">
+  <!-- Applications Table -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Application
+            </th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Resource
+            </th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Requirement
+            </th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Status
+            </th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Applied Date
+            </th>
+            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Actions
+            </th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+          <tr *ngFor="let app of applications; trackBy: trackById" class="hover:bg-gray-50">
+            <td class="px-6 py-4 whitespace-nowrap">
+              <div class="text-sm font-medium text-gray-900">#{{app._id.slice(-6) || 'N/A'}}</div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+              <div class="text-sm text-gray-900">
+                {{getResourceName(app)}}
+              </div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+              <div class="text-sm text-gray-900">
+                {{getRequirementTitle(app)}}
+              </div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+              <span [class]="'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ' + getStatusClass(app.status)">
+                {{formatStatus(app.status)}}
+              </span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+              {{app.createdAt | date:'shortDate'}}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+              <div class="flex items-center justify-end space-x-2">
+                <!-- Status Dropdown -->
+                <div class="relative">
+                  <select 
+                    (change)="onStatusChange(app._id, $any($event.target).value)"
+                    [value]="app.status"
+                    class="text-xs border border-gray-300 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option [value]="app.status" disabled>{{formatStatus(app.status)}}</option>
+                    <option 
+                      *ngFor="let status of getAvailableStatuses(app.status)" 
+                      [value]="status.value"
+                      class="text-sm">
+                      {{status.label}}
+                    </option>
+                  </select>
+                </div>
+                
+                <!-- History Button -->
+                <button 
+                  (click)="onViewHistory(app._id)"
+                  class="text-gray-600 hover:text-gray-900 p-1 rounded hover:bg-gray-100">
+                  <img src="assets/icons/lucide/lucide/history.svg" class="w-4 h-4" alt="History">
+                </button>
+                
+                <!-- View Button -->
+                <button 
+                  (click)="onViewDetails(app)"
+                  class="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50">
+                  <img src="assets/icons/lucide/lucide/eye.svg" class="w-4 h-4" alt="Eye">
+                </button>
+              </div>
+            </td>
+          </tr>
+          <tr *ngIf="applications.length === 0">
+            <td colspan="6" class="px-6 py-4 text-center text-gray-500">
+              No applications found.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div> 

@@ -1,0 +1,136 @@
+const VendorSkill = require('../models/VendorSkill');
+const asyncHandler = require('../middleware/async');
+const ErrorResponse = require('../utils/errorResponse');
+
+// @desc    Get all vendor skills
+// @route   GET /api/vendor/niche-skills
+// @access  Private
+exports.getVendorSkills = asyncHandler(async (req, res, next) => {
+  let query;
+
+  // If user is vendor, only show their skills
+  if (req.user.userType === 'vendor') {
+    query = VendorSkill.find({ vendor: req.user.id });
+  } else {
+    // For admin, show all skills
+    query = VendorSkill.find();
+  }
+
+  // Add filters
+  if (req.query.status) {
+    query = query.find({ status: req.query.status });
+  }
+
+  if (req.query.category) {
+    query = query.find({ category: req.query.category });
+  }
+
+  // Populate vendor details
+  query = query.populate({
+    path: 'vendor',
+    select: 'firstName lastName email companyName'
+  });
+
+  const skills = await query.sort('-createdAt');
+
+  res.status(200).json({
+    success: true,
+    count: skills.length,
+    data: skills
+  });
+});
+
+// @desc    Get single vendor skill
+// @route   GET /api/vendor/niche-skills/:id
+// @access  Private
+exports.getVendorSkill = asyncHandler(async (req, res, next) => {
+  const skill = await VendorSkill.findById(req.params.id)
+    .populate({
+      path: 'vendor',
+      select: 'firstName lastName email companyName'
+    });
+
+  if (!skill) {
+    return next(new ErrorResponse(`Skill not found with id of ${req.params.id}`, 404));
+  }
+
+  // Check if user is authorized to view this skill
+  if (req.user.userType === 'vendor' && skill.vendor._id.toString() !== req.user.id) {
+    return next(new ErrorResponse('Not authorized to access this skill', 403));
+  }
+
+  res.status(200).json({
+    success: true,
+    data: skill
+  });
+});
+
+// @desc    Create vendor skill
+// @route   POST /api/vendor/niche-skills
+// @access  Private/Vendor
+exports.createVendorSkill = asyncHandler(async (req, res, next) => {
+  // Add vendor to req.body
+  req.body.vendor = req.user.id;
+
+  const skill = await VendorSkill.create(req.body);
+
+  res.status(201).json({
+    success: true,
+    data: skill
+  });
+});
+
+// @desc    Update vendor skill status
+// @route   PATCH /api/vendor/niche-skills/:id/status
+// @access  Private/Admin
+exports.updateVendorSkillStatus = asyncHandler(async (req, res, next) => {
+  const { status, reviewNotes } = req.body;
+
+  if (!status || !['approved', 'rejected'].includes(status)) {
+    return next(new ErrorResponse('Please provide a valid status (approved/rejected)', 400));
+  }
+
+  const skill = await VendorSkill.findById(req.params.id);
+
+  if (!skill) {
+    return next(new ErrorResponse(`Skill not found with id of ${req.params.id}`, 404));
+  }
+
+  // Update skill status
+  skill.status = status;
+  skill.reviewNotes = reviewNotes;
+  skill.reviewedBy = req.user.id;
+  skill.reviewedAt = Date.now();
+
+  await skill.save();
+
+  res.status(200).json({
+    success: true,
+    data: skill
+  });
+});
+
+// @desc    Delete vendor skill
+// @route   DELETE /api/vendor/niche-skills/:id
+// @access  Private/Vendor
+exports.deleteVendorSkill = asyncHandler(async (req, res, next) => {
+  const skill = await VendorSkill.findById(req.params.id);
+
+  if (!skill) {
+    return next(new ErrorResponse(`Skill not found with id of ${req.params.id}`, 404));
+  }
+
+  // Check if user is authorized to delete this skill
+  if (skill.vendor.toString() !== req.user.id) {
+    return next(new ErrorResponse('Not authorized to delete this skill', 403));
+  }
+
+  // Soft delete by setting isActive to false
+  skill.isActive = false;
+  await skill.save();
+
+  res.status(200).json({
+    success: true,
+    data: {}
+  });
+}); 
