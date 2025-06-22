@@ -5,28 +5,52 @@ import { AllCommunityModule } from 'ag-grid-community';
 ModuleRegistry.registerModules([AllCommunityModule]);
 
 // Angular
-import { Component, Input, Output, EventEmitter, OnInit } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit, OnChanges, SimpleChanges, ChangeDetectorRef, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { LucideAngularModule } from 'lucide-angular';
 import { AgGridModule } from 'ag-grid-angular';
 import { ColDef, ValueGetterParams, SortChangedEvent } from 'ag-grid-community';
 import { Requirement } from '../../../models/requirement.model';
 import { PaginationState } from '../../../models/pagination.model';
 import { PaginationComponent } from '../../pagination/pagination.component';
+import { ApiService } from '../../../services/api.service';
+import { AdminSkill } from '../../../models/admin-skill.model';
 
 @Component({
   selector: 'app-vendor-requirements',
   standalone: true,
-  imports: [CommonModule, AgGridModule, PaginationComponent],
+  imports: [CommonModule, FormsModule, LucideAngularModule, AgGridModule, PaginationComponent],
   templateUrl: './vendor-requirements.component.html',
   styleUrls: ['./vendor-requirements.component.scss']
 })
-export class VendorRequirementsComponent implements OnInit {
+export class VendorRequirementsComponent implements OnInit, OnChanges, OnDestroy {
   @Input() requirements: Requirement[] = [];
   @Input() isLoading = false;
   @Input() paginationState!: PaginationState;
   @Output() applyResources = new EventEmitter<string>();
   @Output() pageChange = new EventEmitter<number>();
   @Output() sortChange = new EventEmitter<{sortBy: string, sortOrder: 'asc' | 'desc'}>();
+
+  icons = {
+    search: 'assets/icons/lucide/lucide/search.svg',
+    filter: 'assets/icons/lucide/lucide/filter.svg',
+    x: 'assets/icons/lucide/lucide/x.svg',
+    chevronDown: 'assets/icons/lucide/lucide/chevron-down.svg'
+  };
+
+  showFilters = false;
+  showSkillsDropdown = false;
+  availableSkills: AdminSkill[] = [];
+
+  // Search and filter properties
+  searchTerm = '';
+  selectedSkills: string[] = [];
+  skillLogic: 'AND' | 'OR' = 'OR';
+  minBudget = '';
+  maxBudget = '';
+  minDuration = '';
+  maxDuration = '';
 
   // AG Grid properties
   columnDefs: ColDef[] = [
@@ -188,107 +212,236 @@ export class VendorRequirementsComponent implements OnInit {
     }
   };
 
-  constructor() {
+  constructor(
+    private changeDetectorRef: ChangeDetectorRef,
+    private apiService: ApiService
+  ) {
     console.log('🔧 VendorRequirementsComponent: Constructor called');
   }
 
   ngOnInit(): void {
     console.log('🔧 VendorRequirementsComponent: ngOnInit called');
     console.log('🔧 VendorRequirementsComponent: Requirements data:', this.requirements);
+    this.loadAvailableSkills();
+    this.setupClickOutsideHandler();
   }
 
-  ngOnChanges(): void {
-    console.log('🔧 VendorRequirementsComponent: ngOnChanges called');
-    console.log('🔧 VendorRequirementsComponent: Requirements updated:', this.requirements);
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['requirements']) {
+      console.log('🔧 VendorRequirementsComponent: Requirements changed:', this.requirements);
+    }
+  }
+
+  ngOnDestroy(): void {
+    document.removeEventListener('click', this.handleClickOutside);
+  }
+
+  private handleClickOutside = (event: Event) => {
+    const target = event.target as HTMLElement;
+    if (!target.closest('.skills-dropdown-container')) {
+      this.showSkillsDropdown = false;
+      this.changeDetectorRef.detectChanges();
+    }
+  };
+
+  private setupClickOutsideHandler(): void {
+    document.addEventListener('click', this.handleClickOutside);
+  }
+
+  private loadAvailableSkills(): void {
+    this.apiService.getActiveSkills().subscribe({
+      next: (response) => {
+        if (response.success && response.data) {
+          this.availableSkills = response.data;
+          console.log('🔧 VendorRequirementsComponent: Loaded skills:', this.availableSkills);
+        }
+      },
+      error: (error) => {
+        console.error('Error loading skills:', error);
+      }
+    });
+  }
+
+  onSearchChange(): void {
+    this.emitSearchChange();
+  }
+
+  onSkillsChange(): void {
+    this.emitSearchChange();
+  }
+
+  onBudgetChange(): void {
+    this.emitSearchChange();
+  }
+
+  onDurationChange(): void {
+    this.emitSearchChange();
+  }
+
+  toggleFilters(): void {
+    this.showFilters = !this.showFilters;
+    this.changeDetectorRef.detectChanges();
+  }
+
+  toggleSkillsDropdown(): void {
+    this.showSkillsDropdown = !this.showSkillsDropdown;
+    this.changeDetectorRef.detectChanges();
+  }
+
+  toggleSkill(skillName: string): void {
+    const index = this.selectedSkills.indexOf(skillName);
+    if (index > -1) {
+      this.selectedSkills.splice(index, 1);
+    } else {
+      this.selectedSkills.push(skillName);
+    }
+    this.onSkillsChange();
+    this.changeDetectorRef.detectChanges();
+  }
+
+  isSkillSelected(skillName: string): boolean {
+    return this.selectedSkills.includes(skillName);
+  }
+
+  isAllSkillsSelected(): boolean {
+    return this.availableSkills.length > 0 && this.selectedSkills.length === this.availableSkills.length;
+  }
+
+  toggleAllSkills(): void {
+    if (this.isAllSkillsSelected()) {
+      this.selectedSkills = [];
+    } else {
+      this.selectedSkills = this.availableSkills.map(skill => skill.name);
+    }
+    this.onSkillsChange();
+    this.changeDetectorRef.detectChanges();
+  }
+
+  clearFilters(): void {
+    this.searchTerm = '';
+    this.selectedSkills = [];
+    this.minBudget = '';
+    this.maxBudget = '';
+    this.minDuration = '';
+    this.maxDuration = '';
+    this.emitSearchChange();
+    this.changeDetectorRef.detectChanges();
+  }
+
+  removeSearchTerm(): void {
+    this.searchTerm = '';
+    this.emitSearchChange();
+  }
+
+  removeSkill(skill: string): void {
+    this.selectedSkills = this.selectedSkills.filter(s => s !== skill);
+    this.emitSearchChange();
+  }
+
+  removeBudgetFilter(): void {
+    this.minBudget = '';
+    this.maxBudget = '';
+    this.emitSearchChange();
+  }
+
+  removeDurationFilter(): void {
+    this.minDuration = '';
+    this.maxDuration = '';
+    this.emitSearchChange();
+  }
+
+  private emitSearchChange(): void {
+    const searchParams: any = {};
+
+    if (this.searchTerm.trim()) {
+      searchParams.search = this.searchTerm.trim();
+    }
+
+    if (this.selectedSkills.length > 0) {
+      searchParams.skills = this.selectedSkills;
+      searchParams.skillLogic = this.skillLogic;
+    }
+
+    if (this.minBudget || this.maxBudget) {
+      searchParams.minBudget = this.minBudget;
+      searchParams.maxBudget = this.maxBudget;
+    }
+
+    if (this.minDuration || this.maxDuration) {
+      searchParams.minDuration = this.minDuration;
+      searchParams.maxDuration = this.maxDuration;
+    }
+
+    console.log('🔧 VendorRequirementsComponent: Emitting search change:', searchParams);
+    // Note: We'll need to implement the search functionality in the parent component
+    // For now, we'll just log the search parameters
+  }
+
+  hasActiveFilters(): boolean {
+    return !!(
+      this.searchTerm.trim() ||
+      this.selectedSkills.length > 0 ||
+      this.minBudget ||
+      this.maxBudget ||
+      this.minDuration ||
+      this.maxDuration
+    );
   }
 
   onSortChanged(event: SortChangedEvent): void {
     const sortModel = event.api.getColumnState().filter(col => col.sort);
-    if (sortModel && sortModel.length > 0) {
+    if (sortModel.length > 0) {
       const sort = sortModel[0];
-      console.log('🔧 VendorRequirementsComponent: Sort changed:', sort);
-      
-      // Map AG Grid field names to backend field names
-      const fieldMapping: { [key: string]: string } = {
-        'title': 'title',
-        'skills': 'skills',
-        'budget.charge': 'budget.charge',
-        'duration': 'duration',
-        'location.city': 'location.city',
-        'status': 'status',
-        'createdAt': 'createdAt',
-        'updatedAt': 'updatedAt'
-      };
-      
-      const sortBy = fieldMapping[sort.colId] || sort.colId;
-      const sortOrder = sort.sort as 'asc' | 'desc';
-      
-      this.sortChange.emit({ sortBy, sortOrder });
+      this.sortChange.emit({
+        sortBy: sort.colId,
+        sortOrder: sort.sort || 'asc'
+      });
     }
   }
 
   getBudgetDisplay(req: Requirement): string {
-    if (!req?.budget) return 'Not specified';
+    if (!req.budget) return 'N/A';
     
-    // Handle different budget formats
-    if (typeof req.budget === 'number') {
-      return `$${req.budget}/hr`;
+    const charge = req.budget.charge || 0;
+    const currency = req.budget.currency || 'USD';
+    const type = req.budget.type || 'hourly';
+    
+    if (type === 'hourly') {
+      return `${currency}${charge}/hr`;
+    } else if (type === 'fixed') {
+      return `${currency}${charge}`;
+    } else {
+      return `${currency}${charge}/${type}`;
     }
-    
-    if (typeof req.budget === 'object') {
-      const budget = req.budget as any;
-      const amount = budget.charge || budget.amount || budget.hourly || budget.value || 0;
-      const currency = budget.currency || 'USD';
-      const type = budget.type || 'hourly';
-      return `${currency}${amount}/${type}`;
-    }
-    
-    return 'Not specified';
   }
 
   getDurationDisplay(req: Requirement): string {
-    if (!req?.duration) return 'Not specified';
-    
-    if (typeof req.duration === 'number') {
-      return `${req.duration} months`;
-    }
-    
-    if (typeof req.duration === 'string') {
-      return req.duration;
-    }
-    
-    return 'Not specified';
+    if (!req.duration) return 'N/A';
+    return req.duration;
   }
 
   getLocationDisplay(req: Requirement): string {
-    if (!req?.location) return 'Not specified';
+    if (!req.location) return 'N/A';
     
-    if (typeof req.location === 'string') {
-      return req.location;
+    const city = req.location.city || '';
+    const state = req.location.state || '';
+    const country = req.location.country || '';
+    
+    if (city && state) {
+      return `${city}, ${state}`;
+    } else if (city) {
+      return city;
+    } else if (state) {
+      return state;
+    } else if (country) {
+      return country;
     }
     
-    if (typeof req.location === 'object') {
-      const location = req.location as any;
-      const city = location.city || '';
-      const state = location.state || '';
-      const country = location.country || '';
-      
-      if (location.remote) {
-        return 'Remote';
-      }
-      
-      const parts = [city, state, country].filter(part => part && part.trim());
-      return parts.length > 0 ? parts.join(', ') : 'Not specified';
-    }
-    
-    return 'Not specified';
+    return 'N/A';
   }
 
   onApplyResources(requirementId: string): void {
-    console.log('🔧 VendorRequirementsComponent: Apply button clicked for requirement:', requirementId);
-    console.log('🔧 VendorRequirementsComponent: Emitting applyResources event with ID:', requirementId);
     this.applyResources.emit(requirementId);
-    console.log('🔧 VendorRequirementsComponent: Event emitted successfully');
   }
 
   onPageChange(page: number): void {
@@ -296,10 +449,10 @@ export class VendorRequirementsComponent implements OnInit {
   }
 
   trackById(index: number, item: Requirement): string {
-    return item._id || `requirement-${index}`;
+    return item._id;
   }
 
   trackBySkill(index: number, skill: string): string {
-    return skill || `skill-${index}`;
+    return skill;
   }
 } 

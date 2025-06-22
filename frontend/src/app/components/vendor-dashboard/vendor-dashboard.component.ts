@@ -30,6 +30,7 @@ import { ApplicationDetailsModalComponent } from '../modals/application-details-
 import { LayoutComponent } from '../layout/layout.component';
 import { PaginationState, PaginationParams } from '../../models/pagination.model';
 import { PaginationComponent } from '../pagination/pagination.component';
+import { BrowseRequirementsPageComponent } from './browse-requirements-page/browse-requirements-page.component';
 
 @Component({
   selector: 'app-vendor-dashboard',
@@ -49,7 +50,8 @@ import { PaginationComponent } from '../pagination/pagination.component';
     ApplicationHistoryModalComponent,
     AddUserModalComponent,
     AddSkillModalComponent,
-    PaginationComponent
+    PaginationComponent,
+    BrowseRequirementsPageComponent
   ],
   templateUrl: './vendor-dashboard.component.html',
   styleUrls: ['./vendor-dashboard.component.css']
@@ -68,7 +70,7 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
   showAddUserModal = false;
   showAddSkillModal = false;
   showApplyRequirementModal = false;
-  selectedRequirementId: string | null = null;
+  selectedRequirementId: string = '';
   selectedRequirement: Requirement | null = null;
   showHistoryModal = false;
   selectedApplicationId: string = '';
@@ -146,6 +148,9 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
   ];
 
   private subscriptions: Subscription[] = [];
+
+  // Browse requirements page properties
+  showBrowseRequirementsPage = false;
 
   constructor(
     private authService: AuthService,
@@ -731,16 +736,10 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
   }
 
   handleApplyResources(requirementId: string): void {
-    // Handle applying resources to a requirement
-    console.log('🔄 VendorDashboard: handleApplyResources called with requirementId:', requirementId);
-    console.log('🔄 VendorDashboard: Current showApplyRequirementModal state:', this.showApplyRequirementModal);
-    console.log('🔄 VendorDashboard: Current selectedRequirementId:', this.selectedRequirementId);
-    
+    console.log('🔄 VendorDashboard: Applying resources to requirement:', requirementId);
     this.selectedRequirementId = requirementId;
-    this.showApplyRequirementModal = true;
-    
-    console.log('🔄 VendorDashboard: After setting - showApplyRequirementModal:', this.showApplyRequirementModal);
-    console.log('🔄 VendorDashboard: After setting - selectedRequirementId:', this.selectedRequirementId);
+    this.showBrowseRequirementsPage = true;
+    this.changeDetectorRef.detectChanges();
   }
 
   handleEditResource(resource: Resource): void {
@@ -929,12 +928,12 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
 
   closeApplyModal(): void {
     this.showApplyModal = false;
-    this.selectedRequirementId = null;
+    this.selectedRequirementId = '';
   }
 
   closeApplyRequirementModal(): void {
     this.showApplyRequirementModal = false;
-    this.selectedRequirementId = null;
+    this.selectedRequirementId = '';
   }
 
   onApplicationSuccess(): void {
@@ -977,5 +976,12 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
     this.showResourceModal = false;
     // Refresh resources data after modal is closed
     this.loadVendorResources(this.resourcesPaginationState.currentPage);
+  }
+
+  onBrowseRequirementsBack(): void {
+    console.log('🔧 VendorDashboard: Navigating back from browse requirements');
+    this.showBrowseRequirementsPage = false;
+    this.selectedRequirementId = '';
+    this.changeDetectorRef.detectChanges();
   }
 }

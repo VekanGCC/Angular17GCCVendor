@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, ActivatedRoute } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
@@ -10,7 +10,6 @@ import { Requirement } from '../../models/requirement.model';
 import { Application } from '../../models/application.model';
 import { LayoutComponent } from '../layout/layout.component';
 import { RequirementModalComponent } from '../modals/requirement-modal/requirement-modal.component';
-import { ApplyResourceModalComponent } from '../modals/apply-resource-modal/apply-resource-modal.component';
 import { ClientOverviewComponent } from './client-overview/client-overview.component';
 import { ClientRequirementsComponent } from './client-requirements/client-requirements.component';
 import { ClientResourcesComponent } from './client-resources/client-resources.component';
@@ -21,6 +20,14 @@ import { Subscription } from 'rxjs';
 import { ProfileDashboardComponent } from '../profile/profile-dashboard.component';
 import { ApiService } from '../../services/api.service';
 import { PaginationState } from '../../models/pagination.model';
+import { VendorSkillManagementComponent } from '../vendor-dashboard/vendor-skill-management/vendor-skill-management.component';
+import { VendorUserManagementComponent } from '../vendor-dashboard/vendor-user-management/vendor-user-management.component';
+import { ResourceModalComponent } from '../modals/resource-modal/resource-modal.component';
+import { ApplyRequirementModalComponent } from '../modals/apply-requirement-modal/apply-requirement-modal.component';
+import { AddUserModalComponent } from '../modals/add-user-modal/add-user-modal.component';
+import { AddSkillModalComponent } from '../modals/add-skill-modal/add-skill-modal.component';
+import { PaginationComponent } from '../pagination/pagination.component';
+import { ApplyResourcesPageComponent } from './apply-resources-page/apply-resources-page.component';
 
 @Component({
   selector: 'app-client-dashboard',
@@ -29,14 +36,21 @@ import { PaginationState } from '../../models/pagination.model';
     CommonModule, 
     LayoutComponent, 
     RequirementModalComponent,
-    ApplyResourceModalComponent,
     ClientOverviewComponent,
     ClientRequirementsComponent,
     ClientResourcesComponent,
     ClientApplicationsComponent,
     ApplicationHistoryModalComponent,
     ApplicationDetailsModalComponent,
-    ProfileDashboardComponent
+    ProfileDashboardComponent,
+    VendorSkillManagementComponent,
+    VendorUserManagementComponent,
+    ResourceModalComponent,
+    ApplyRequirementModalComponent,
+    AddUserModalComponent,
+    AddSkillModalComponent,
+    PaginationComponent,
+    ApplyResourcesPageComponent
   ],
   templateUrl: './client-dashboard.component.html',
   styleUrls: ['./client-dashboard.component.css']
@@ -51,11 +65,8 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
   clientApplications: Application[] = [];
   activeTab = 'overview';
   showRequirementModal = false;
-  showApplyModal = false;
   showCloseRequirementModal = false;
   showEditRequirementModal = false;
-  selectedResourceId: string | null = null;
-  selectedResourceIds: string[] = [];
   requirementToClose: Requirement | null = null;
   requirementToEdit: Requirement | null = null;
   showHistoryModal = false;
@@ -99,6 +110,8 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
   // Store current search parameters
   currentSearchParams: any = {};
 
+  selectedResourceIds: string[] = [];
+
   stats = [
     { 
       title: 'Requirements', 
@@ -139,7 +152,8 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
     private route: ActivatedRoute,
     private clientService: ClientService,
     private apiService: ApiService,
-    private changeDetectorRef: ChangeDetectorRef
+    private changeDetectorRef: ChangeDetectorRef,
+    private ngZone: NgZone
   ) {}
 
   ngOnInit(): void {
@@ -169,6 +183,14 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
     if (fragment === 'profile') {
       this.activeTab = 'profile';
     }
+
+    // Check for tab query parameter (for returning from apply resources page)
+    this.route.queryParams.subscribe(params => {
+      if (params['tab'] && ['overview', 'requirements', 'resources', 'applications', 'profile'].includes(params['tab'])) {
+        this.activeTab = params['tab'];
+        console.log('Set active tab from query params:', this.activeTab);
+      }
+    });
 
     // Subscribe to user changes
     this.subscriptions.push(this.authService.user$.subscribe((user: User | null) => {
@@ -489,39 +511,6 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
     });
   }
 
-  closeApplyModal(): void {
-    this.showApplyModal = false;
-    this.selectedResourceId = null;
-    this.selectedResourceIds = [];
-  }
-
-  onApplicationSuccess(): void {
-    this.closeApplyModal();
-    // Refresh applications after successful creation but stay on applications tab
-    if (this.activeTab === 'applications') {
-      this.loadApplications(this.applicationsPaginationState.currentPage);
-    } else {
-      // If not on applications tab, switch to it and load data
-      this.activeTab = 'applications';
-      this.loadApplications();
-    }
-    console.log('Application created successfully');
-  }
-
-  applyResource(resourceId: string): void {
-    this.selectedResourceId = resourceId;
-    this.showApplyModal = true;
-    this.changeDetectorRef.detectChanges();
-  }
-
-  applyMultipleResources(resourceIds: string[]): void {
-    console.log('🔧 ClientDashboard: applyMultipleResources called with resourceIds:', resourceIds);
-    // Store the selected resource IDs for the modal
-    this.selectedResourceIds = resourceIds;
-    this.showApplyModal = true;
-    this.changeDetectorRef.detectChanges();
-  }
-
   handleRequirementUpdate(requirement: Requirement): void {
     console.log('Handling requirement update:', requirement);
     this.updateRequirement(requirement._id, requirement);
@@ -692,5 +681,33 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
         this.changeDetectorRef.detectChanges();
       }
     });
+  }
+
+  applyResource(resourceId: string): void {
+    // Navigate to apply resources page with single resource
+    this.router.navigate(['/client/apply-resources'], { 
+      queryParams: { resourceId: resourceId } 
+    });
+  }
+
+  applyMultipleResources(resourceIds: string[]): void {
+    console.log('🔧 ClientDashboard: applyMultipleResources called with resourceIds:', resourceIds);
+    console.log('🔧 ClientDashboard: Current route:', this.router.url);
+    
+    // Store the selected resource IDs
+    this.selectedResourceIds = resourceIds;
+    
+    // Set the active tab to apply-resources
+    this.activeTab = 'apply-resources';
+    
+    console.log('🔧 ClientDashboard: Setting active tab to apply-resources with resourceIds:', resourceIds);
+    
+    this.changeDetectorRef.detectChanges();
+  }
+
+  navigateBackToBrowse(): void {
+    console.log('🔧 ClientDashboard: Navigating back to browse resources');
+    this.activeTab = 'resources';
+    this.changeDetectorRef.detectChanges();
   }
 }

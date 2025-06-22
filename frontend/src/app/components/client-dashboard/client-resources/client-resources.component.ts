@@ -48,8 +48,6 @@ export class ClientResourcesComponent implements OnInit, OnChanges, OnDestroy {
     download: 'assets/icons/lucide/lucide/download.svg'
   };
 
-  selectedResources: Set<string> = new Set();
-  showApplyButton = false;
   showFilters = false;
   showSkillsDropdown = false;
   availableSkills: AdminSkill[] = [];
@@ -74,25 +72,6 @@ export class ClientResourcesComponent implements OnInit, OnChanges, OnDestroy {
   ];
 
   columnDefs: ColDef[] = [
-    {
-      headerName: 'Select',
-      field: 'select',
-      flex: 0.5,
-      sortable: false,
-      filter: false,
-      cellRenderer: (params: any) => {
-        const resource = params.data;
-        const isSelected = this.selectedResources.has(resource._id);
-        return `
-          <input 
-            type="checkbox" 
-            class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            ${isSelected ? 'checked' : ''}
-            id="select-${resource._id}"
-          >
-        `;
-      }
-    },
     {
       headerName: 'Resource',
       field: 'name',
@@ -300,9 +279,7 @@ export class ClientResourcesComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['resources']) {
-      this.addEventListeners();
-    }
+    // Handle changes if needed
   }
 
   ngOnDestroy(): void {
@@ -525,36 +502,6 @@ export class ClientResourcesComponent implements OnInit, OnChanges, OnDestroy {
     });
   }
 
-  onApplySelectedResources(): void {
-    // Multi-resource apply
-    const selectedResourceIds = Array.from(this.selectedResources);
-    this.applyResources.emit(selectedResourceIds);
-  }
-
-  toggleResourceSelection(resourceId: string): void {
-    if (this.selectedResources.has(resourceId)) {
-      this.selectedResources.delete(resourceId);
-    } else {
-      this.selectedResources.add(resourceId);
-    }
-    this.showApplyButton = this.selectedResources.size > 0;
-    this.changeDetectorRef.detectChanges();
-  }
-
-  isResourceSelected(resourceId: string): boolean {
-    return this.selectedResources.has(resourceId);
-  }
-
-  getSelectedCount(): number {
-    return this.selectedResources.size;
-  }
-
-  clearSelection(): void {
-    this.selectedResources.clear();
-    this.showApplyButton = false;
-    this.changeDetectorRef.detectChanges();
-  }
-
   getAvailabilityClass(status: string): string {
     switch (status?.toLowerCase()) {
       case 'available':
@@ -574,19 +521,9 @@ export class ClientResourcesComponent implements OnInit, OnChanges, OnDestroy {
 
   onGridReady(params: any): void {
     console.log('🔧 ClientResourcesComponent: Grid ready');
-    // Add event listeners for checkboxes and apply buttons
-    setTimeout(() => {
-      this.addEventListeners();
-    });
   }
 
   onCellClicked(params: any): void {
-    // Handle checkbox clicks
-    if (params.column.colId === 'select') {
-      const resourceId = params.data._id;
-      this.toggleResourceSelection(resourceId);
-    }
-    
     // Handle apply button clicks
     if (params.column.colId === 'actions') {
       const resourceId = params.data._id;
@@ -601,27 +538,6 @@ export class ClientResourcesComponent implements OnInit, OnChanges, OnDestroy {
         this.downloadResourceAttachment(attachment);
       }
     }
-  }
-
-  addEventListeners(): void {
-    // Add event listeners for checkboxes and apply buttons
-    setTimeout(() => {
-      this.selectedResources.forEach(resourceId => {
-        const checkbox = document.getElementById(`select-${resourceId}`) as HTMLInputElement;
-        if (checkbox) {
-          checkbox.addEventListener('change', (event) => {
-            const isChecked = (event.target as HTMLInputElement).checked;
-            if (isChecked) {
-              this.selectedResources.add(resourceId);
-            } else {
-              this.selectedResources.delete(resourceId);
-            }
-            this.showApplyButton = this.selectedResources.size > 0;
-            this.changeDetectorRef.detectChanges();
-          });
-        }
-      });
-    });
   }
 
   onPageChange(page: number): void {

@@ -103,7 +103,7 @@
 
         <!-- Requirements Tab -->
         <app-vendor-requirements 
-          *ngIf="activeTab === 'requirements'"
+          *ngIf="activeTab === 'requirements' && !showBrowseRequirementsPage"
           [requirements]="requirements"
           [isLoading]="requirementsPaginationState.isLoading"
           [paginationState]="requirementsPaginationState"
@@ -111,6 +111,13 @@
           (pageChange)="onRequirementsPageChange($event)"
           (sortChange)="onRequirementsSortChange($event)">
         </app-vendor-requirements>
+
+        <!-- Browse Requirements Page -->
+        <app-browse-requirements-page
+          *ngIf="activeTab === 'requirements' && showBrowseRequirementsPage"
+          [selectedRequirementId]="selectedRequirementId"
+          (navigateBack)="onBrowseRequirementsBack()">
+        </app-browse-requirements-page>
 
         <!-- Applications Tab -->
         <app-vendor-applications 

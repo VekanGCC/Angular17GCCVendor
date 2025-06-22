@@ -102,6 +102,13 @@
           (viewApplicationDetails)="handleViewApplicationDetails($event)"
           (pageChange)="onApplicationsPageChange($event)">
         </app-client-applications>
+
+        <!-- Apply Resources Tab -->
+        <app-apply-resources-page 
+          *ngIf="activeTab === 'apply-resources'"
+          [selectedResourceIds]="selectedResourceIds"
+          (navigateBack)="navigateBackToBrowse()">
+        </app-apply-resources-page>
         
         <!-- Profile Tab -->
         <app-profile-dashboard 
@@ -116,15 +123,6 @@
     *ngIf="showRequirementModal" 
     (close)="showRequirementModal = false">
   </app-requirement-modal>
-
-  <!-- Apply Resource Modal -->
-  <app-apply-resource-modal 
-    *ngIf="showApplyModal" 
-    [resourceId]="selectedResourceId || ''"
-    [resourceIds]="selectedResourceIds"
-    (close)="closeApplyModal()"
-    (success)="onApplicationSuccess()">
-  </app-apply-resource-modal>
 
   <!-- Close Requirement Modal -->
   <app-requirement-modal
