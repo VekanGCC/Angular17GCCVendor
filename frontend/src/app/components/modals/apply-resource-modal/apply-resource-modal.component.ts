@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, Output, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
@@ -35,7 +35,8 @@ export class ApplyResourceModalComponent implements OnInit {
   constructor(
     private authService: AuthService,
     private clientService: ClientService,
-    private appService: AppService
+    private appService: AppService,
+    private changeDetectorRef: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
@@ -53,11 +54,13 @@ export class ApplyResourceModalComponent implements OnInit {
           this.requirements = response.data.filter((req: Requirement) => req.status === 'open');
         }
         this.isLoading = false;
+        this.changeDetectorRef.detectChanges();
       },
       error: (error) => {
         console.error('Error loading requirements:', error);
         this.errorMessage = 'Failed to load requirements';
         this.isLoading = false;
+        this.changeDetectorRef.detectChanges();
       }
     });
   }
@@ -85,6 +88,7 @@ export class ApplyResourceModalComponent implements OnInit {
 
   selectRequirement(requirement: Requirement): void {
     this.selectedRequirement = requirement;
+    this.changeDetectorRef.detectChanges();
   }
 
   isRequirementSelected(requirementId: string): boolean {
@@ -100,6 +104,7 @@ export class ApplyResourceModalComponent implements OnInit {
     this.isLoading = true;
     this.errorMessage = '';
     this.applicationResults = [];
+    this.changeDetectorRef.detectChanges();
 
     // Get the resource IDs to apply
     const resourceIds = this.resourceIds.length > 0 ? this.resourceIds : [this.resourceId];
@@ -148,6 +153,7 @@ export class ApplyResourceModalComponent implements OnInit {
     Promise.all(applicationPromises).then(results => {
       this.applicationResults = results;
       this.isLoading = false;
+      this.changeDetectorRef.detectChanges();
       
       // Check if any applications were successful
       const successfulApplications = results.filter(r => r.success);
@@ -157,6 +163,7 @@ export class ApplyResourceModalComponent implements OnInit {
         // Show success message for successful applications
         if (failedApplications.length > 0) {
           this.errorMessage = `${successfulApplications.length} application(s) created successfully. ${failedApplications.length} application(s) failed.`;
+          this.changeDetectorRef.detectChanges();
         } else {
           // All applications successful
           this.close.emit();
@@ -165,11 +172,13 @@ export class ApplyResourceModalComponent implements OnInit {
       } else {
         // All applications failed
         this.errorMessage = 'All applications failed. Please try again.';
+        this.changeDetectorRef.detectChanges();
       }
     }).catch(error => {
       console.error('Error in batch application:', error);
       this.errorMessage = 'An unexpected error occurred. Please try again.';
       this.isLoading = false;
+      this.changeDetectorRef.detectChanges();
     });
   }
 

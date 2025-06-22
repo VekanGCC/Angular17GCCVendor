@@ -3,11 +3,11 @@ import { AllCommunityModule } from 'ag-grid-community';
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
-import { Component, OnInit, Input, Output, EventEmitter, OnChanges, SimpleChanges, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, Input, Output, EventEmitter, OnChanges, SimpleChanges, ChangeDetectorRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
 import { Application } from '../../../models/application.model';
-import { AgGridModule } from 'ag-grid-angular';
+import { AgGridModule, AgGridAngular } from 'ag-grid-angular';
 import { ColDef, ValueGetterParams, SortChangedEvent, GridReadyEvent } from 'ag-grid-community';
 import { PaginationComponent } from '../../pagination/pagination.component';
 import { PaginationState } from '../../../models/pagination.model';
@@ -37,6 +37,8 @@ export class ClientApplicationsComponent implements OnInit, OnChanges {
   @Output() viewApplicationDetails = new EventEmitter<Application>();
   @Output() sortChange = new EventEmitter<{sortBy: string, sortOrder: 'asc' | 'desc'}>();
   @Output() pageChange = new EventEmitter<number>();
+
+  @ViewChild(AgGridAngular) agGrid!: AgGridAngular;
 
   availableStatuses = [
     { value: 'applied', label: 'Applied', color: 'bg-gray-100 text-gray-800' },
@@ -209,6 +211,20 @@ export class ClientApplicationsComponent implements OnInit, OnChanges {
 
   ngOnChanges(changes: SimpleChanges): void {
     console.log('🔧 ClientApplicationsComponent: ngOnChanges called');
+    
+    // If applications data changed, refresh the grid
+    if (changes['applications'] && this.agGrid && this.agGrid.api) {
+      console.log('🔧 ClientApplicationsComponent: Applications changed, refreshing grid');
+      this.refreshGridData();
+    }
+  }
+
+  private refreshGridData(): void {
+    if (this.agGrid && this.agGrid.api) {
+      // Force AG Grid to refresh all data
+      this.agGrid.api.refreshCells({ force: true });
+      console.log('🔧 ClientApplicationsComponent: Grid data refreshed');
+    }
   }
 
   onSortChanged(event: SortChangedEvent): void {
@@ -232,6 +248,12 @@ export class ClientApplicationsComponent implements OnInit, OnChanges {
       
       this.sortChange.emit({ sortBy, sortOrder });
     }
+  }
+
+  onGridReady(event: any): void {
+    console.log('🔧 ClientApplicationsComponent: Grid ready');
+    // Store reference to grid API for later use
+    this.agGrid = event;
   }
 
   getApplicationResourceName(app: any): string {
@@ -333,7 +355,10 @@ export class ClientApplicationsComponent implements OnInit, OnChanges {
   }
 
   onStatusChange(applicationId: string, newStatus: string): void {
+    console.log('🔧 ClientApplicationsComponent: Status change requested:', applicationId, newStatus);
     this.updateApplicationStatus.emit({ applicationId, status: newStatus });
+    // Force change detection to ensure the event is processed immediately
+    this.changeDetectorRef.detectChanges();
   }
 
   onViewHistory(applicationId: string): void {

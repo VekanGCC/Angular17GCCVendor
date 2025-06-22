@@ -96,7 +96,7 @@ export class VendorService {
     if (notes) {
       payload.notes = notes;
     }
-    return this.http.put(`${this.apiUrl}/applications/${applicationId}/status`, payload, { headers: this.getAuthHeaders() });
+    return this.http.put(`${environment.apiUrl}/applications/${applicationId}/status`, payload, { headers: this.getAuthHeaders() });
   }
 
   // Get application history
@@ -114,21 +114,21 @@ export class VendorService {
 
   // Get vendor analytics
   getAnalytics(): Observable<any> {
-    return this.http.get(`${this.apiUrl}/analytics`, { headers: this.getAuthHeaders() });
+    return this.http.get(`${environment.apiUrl}/vendor/analytics`, { headers: this.getAuthHeaders() });
   }
 
   // Get vendor skills
   getSkills(): Observable<any> {
-    return this.http.get(`${this.apiUrl}/skills`, { headers: this.getAuthHeaders() });
+    return this.http.get(`${environment.apiUrl}/vendor/niche-skills`, { headers: this.getAuthHeaders() });
   }
 
   // Add vendor skill
   addSkill(data: any): Observable<any> {
-    return this.http.post(`${this.apiUrl}/skills`, data, { headers: this.getAuthHeaders() });
+    return this.http.post(`${environment.apiUrl}/vendor/niche-skills`, data, { headers: this.getAuthHeaders() });
   }
 
   // Remove vendor skill
   removeSkill(id: string): Observable<any> {
-    return this.http.delete(`${this.apiUrl}/skills/${id}`, { headers: this.getAuthHeaders() });
+    return this.http.delete(`${environment.apiUrl}/vendor/niche-skills/${id}`, { headers: this.getAuthHeaders() });
   }
 } 

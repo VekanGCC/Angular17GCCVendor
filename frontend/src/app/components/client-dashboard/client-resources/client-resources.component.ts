@@ -196,13 +196,18 @@ export class ClientResourcesComponent implements OnInit, OnChanges {
       filter: false,
       cellRenderer: (params: any) => {
         const resource = params.data;
-        return `
-          <button 
-            class="apply-btn inline-flex items-center px-3 py-1.5 border border-transparent rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
-            id="apply-${resource._id}">
-            Apply
-          </button>
-        `;
+        const button = document.createElement('button');
+        button.className = 'apply-btn inline-flex items-center px-3 py-1.5 border border-transparent rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200';
+        button.textContent = 'Apply';
+        button.id = `apply-${resource._id}`;
+        
+        // Add click event listener
+        button.addEventListener('click', (event) => {
+          event.stopPropagation();
+          this.onApplyResource(resource._id);
+        });
+        
+        return button;
       }
     }
   ];
@@ -262,6 +267,7 @@ export class ClientResourcesComponent implements OnInit, OnChanges {
   }
 
   onApplyResource(resourceId: string): void {
+    console.log('🔧 ClientResourcesComponent: Apply button clicked for resource:', resourceId);
     // Single resource apply (keeping backward compatibility)
     this.applyResources.emit([resourceId]);
   }

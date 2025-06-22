@@ -5,9 +5,9 @@ import { AllCommunityModule } from 'ag-grid-community';
 ModuleRegistry.registerModules([AllCommunityModule]);
 
 // Angular
-import { Component, Input, Output, EventEmitter, OnInit } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit, OnChanges, SimpleChanges, ViewChild, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { AgGridModule } from 'ag-grid-angular';
+import { AgGridModule, AgGridAngular } from 'ag-grid-angular';
 import { ColDef, ValueGetterParams, SortChangedEvent } from 'ag-grid-community';
 import { Application } from '../../../models/application.model';
 import { PaginationState } from '../../../models/pagination.model';
@@ -20,7 +20,7 @@ import { PaginationComponent } from '../../pagination/pagination.component';
   templateUrl: './vendor-applications.component.html',
   styleUrls: ['./vendor-applications.component.scss']
 })
-export class VendorApplicationsComponent implements OnInit {
+export class VendorApplicationsComponent implements OnInit, OnChanges {
   @Input() applications: Application[] = [];
   @Input() isLoading = false;
   @Input() paginationState!: PaginationState;
@@ -28,6 +28,8 @@ export class VendorApplicationsComponent implements OnInit {
   @Output() viewApplicationHistory = new EventEmitter<string>();
   @Output() pageChange = new EventEmitter<number>();
   @Output() sortChange = new EventEmitter<{sortBy: string, sortOrder: 'asc' | 'desc'}>();
+
+  @ViewChild(AgGridAngular) agGrid!: AgGridAngular;
 
   // AG Grid properties
   columnDefs: ColDef[] = [
@@ -193,15 +195,29 @@ export class VendorApplicationsComponent implements OnInit {
     }
   };
 
-  constructor() {}
+  constructor(private changeDetectorRef: ChangeDetectorRef) {}
 
   ngOnInit(): void {
     console.log('🔧 VendorApplicationsComponent: ngOnInit called');
   }
 
-  ngOnChanges(): void {
+  ngOnChanges(changes: SimpleChanges): void {
     console.log('🔧 VendorApplicationsComponent: ngOnChanges called');
     console.log('🔧 VendorApplicationsComponent: Applications updated:', this.applications);
+    
+    // If applications data changed, refresh the grid
+    if (changes['applications'] && this.agGrid && this.agGrid.api) {
+      console.log('🔧 VendorApplicationsComponent: Applications changed, refreshing grid');
+      this.refreshGridData();
+    }
+  }
+
+  private refreshGridData(): void {
+    if (this.agGrid && this.agGrid.api) {
+      // Force AG Grid to refresh all data
+      this.agGrid.api.refreshCells({ force: true });
+      console.log('🔧 VendorApplicationsComponent: Grid data refreshed');
+    }
   }
 
   onSortChanged(event: SortChangedEvent): void {
@@ -225,6 +241,12 @@ export class VendorApplicationsComponent implements OnInit {
       
       this.sortChange.emit({ sortBy, sortOrder });
     }
+  }
+
+  onGridReady(event: any): void {
+    console.log('🔧 VendorApplicationsComponent: Grid ready');
+    // Store reference to grid API for later use
+    this.agGrid = event;
   }
 
   getResourceName(app: Application): string {
@@ -304,7 +326,10 @@ export class VendorApplicationsComponent implements OnInit {
   }
 
   onStatusChange(applicationId: string, newStatus: string): void {
+    console.log('🔧 VendorApplicationsComponent: Status change requested:', applicationId, newStatus);
     this.updateApplicationStatus.emit({ applicationId, status: newStatus });
+    // Force change detection to ensure the event is processed immediately
+    this.changeDetectorRef.detectChanges();
   }
 
   onViewHistory(applicationId: string): void {

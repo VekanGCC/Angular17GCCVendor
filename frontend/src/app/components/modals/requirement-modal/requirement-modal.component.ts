@@ -125,6 +125,7 @@ export class RequirementModalComponent implements OnInit, OnChanges {
 
     console.log('🔧 RequirementModal: Populating form with requirement:', this.requirement);
     console.log('🔧 RequirementModal: Requirement skills:', this.requirement.skills);
+    console.log('🔧 RequirementModal: Requirement attachment:', this.requirement.attachment);
 
     // Clear existing skills FormArray and add the requirement's skills
     while (this.skills.length !== 0) {
@@ -159,6 +160,13 @@ export class RequirementModalComponent implements OnInit, OnChanges {
 
     console.log('🔧 RequirementModal: Patching form with data:', formData);
     this.requirementForm.patchValue(formData);
+
+    // Handle existing attachment if in edit mode
+    if (this.mode === 'edit' && this.requirement.attachment) {
+      console.log('🔧 RequirementModal: Found existing attachment:', this.requirement.attachment);
+      // Note: We can't set selectedFile directly since it's a File object, not attachment data
+      // Instead, we'll show the existing attachment in the template
+    }
 
     // Force change detection to update the form
     this.changeDetectorRef.detectChanges();
@@ -243,9 +251,69 @@ export class RequirementModalComponent implements OnInit, OnChanges {
       console.log('🔧 RequirementModal: Budget charge value:', requirementData.budget.charge);
 
       if (this.mode === 'edit' && this.requirement) {
-        console.log('🔧 RequirementModal: Emitting edit confirmation');
-        this.confirm.emit({ ...this.requirement, ...requirementData });
-        this.close.emit();
+        console.log('🔧 RequirementModal: Handling edit mode with file upload');
+        
+        // If a new file is selected, upload it first
+        if (this.selectedFile) {
+          console.log('🔧 RequirementModal: Uploading new file for requirement:', this.requirement._id);
+          
+          this.apiService.uploadFile(this.selectedFile, 'requirement', this.requirement._id, {
+            category: 'document',
+            description: `Requirement document for: ${requirementData.title}`,
+            isPublic: false
+          }).subscribe({
+            next: (fileResponse: any) => {
+              console.log('🔧 RequirementModal: File upload successful:', fileResponse);
+              
+              if (fileResponse.success && fileResponse.data) {
+                // Update the requirement data with new file information
+                const updatedRequirement: Requirement = {
+                  ...this.requirement!,
+                  ...requirementData,
+                  attachment: {
+                    fileId: fileResponse.data._id,
+                    filename: fileResponse.data.filename,
+                    path: fileResponse.data.path,
+                    originalName: fileResponse.data.originalName,
+                    fileSize: fileResponse.data.size,
+                    fileType: fileResponse.data.mimetype
+                  }
+                };
+                
+                console.log('🔧 RequirementModal: Emitting edit confirmation with new file');
+                this.confirm.emit(updatedRequirement);
+                this.close.emit();
+              } else {
+                console.error('🔧 RequirementModal: File upload failed:', fileResponse);
+                console.error('❌ Failed to upload new file. Please try again.');
+              }
+            },
+            error: (error: any) => {
+              console.error('🔧 RequirementModal: File upload error:', error);
+              console.error('❌ Failed to upload new file. Please try again.');
+            }
+          });
+        } else {
+          // No new file selected, check if existing attachment was removed
+          const updatedRequirement: Requirement = {
+            ...this.requirement!,
+            ...requirementData
+          };
+          
+          // If existing attachment was removed (set to undefined), ensure it's not included
+          if (this.requirement.attachment === undefined) {
+            updatedRequirement.attachment = undefined;
+            console.log('🔧 RequirementModal: Existing attachment will be removed');
+          } else if (this.requirement.attachment) {
+            // Keep existing attachment
+            updatedRequirement.attachment = this.requirement.attachment;
+            console.log('🔧 RequirementModal: Keeping existing attachment');
+          }
+          
+          console.log('🔧 RequirementModal: Emitting edit confirmation without file change');
+          this.confirm.emit(updatedRequirement);
+          this.close.emit();
+        }
       } else if (this.mode === 'create') {
         console.log('🔧 RequirementModal: Creating requirement with apiService.createRequirement');
         
@@ -375,6 +443,42 @@ export class RequirementModalComponent implements OnInit, OnChanges {
     if (fileInput) {
       fileInput.value = '';
     }
+  }
+
+  downloadFile(attachment: any): void {
+    if (!attachment || !attachment.fileId) {
+      console.error('🔧 RequirementModal: No file ID found for download');
+      return;
+    }
+
+    console.log('🔧 RequirementModal: Downloading file:', attachment);
+    
+    // Use the API service to download the file
+    this.apiService.downloadFile(attachment.fileId).subscribe({
+      next: (response: any) => {
+        console.log('🔧 RequirementModal: File download successful');
+        // The download should trigger automatically via the API service
+      },
+      error: (error: any) => {
+        console.error('🔧 RequirementModal: File download error:', error);
+        // Handle download error
+      }
+    });
+  }
+
+  removeExistingFile(): void {
+    if (!this.requirement || !this.requirement.attachment) {
+      return;
+    }
+
+    console.log('🔧 RequirementModal: Removing existing file attachment');
+    
+    // Set a flag to indicate that the existing attachment should be removed
+    // We'll handle this in the onSubmit method
+    this.requirement.attachment = undefined;
+    
+    // Force change detection to update the UI
+    this.changeDetectorRef.detectChanges();
   }
 
   // Helper method to debug form state

@@ -204,10 +204,10 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
 
   private updateUrlFragment(tab: string): void {
     // Update the URL fragment without triggering navigation
-    this.router.navigate([], { 
-      fragment: tab,
-      replaceUrl: true 
-    });
+    // Use location.replaceState to avoid navigation issues
+    const currentUrl = window.location.href.split('#')[0];
+    const newUrl = `${currentUrl}#${tab}`;
+    window.history.replaceState(null, '', newUrl);
   }
 
   private loadClientData(): void {
@@ -251,6 +251,7 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
       },
       complete: () => {
         this.requirementsPaginationState.isLoading = false;
+        this.changeDetectorRef.detectChanges();
       }
     });
   }
@@ -333,6 +334,7 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
       },
       complete: () => {
         this.applicationsPaginationState.isLoading = false;
+        this.changeDetectorRef.detectChanges();
       }
     });
   }
@@ -372,6 +374,7 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
       },
       complete: () => {
         this.resourcesPaginationState.isLoading = false;
+        this.changeDetectorRef.detectChanges();
       }
     });
   }
@@ -379,9 +382,9 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
   private updateStats(): void {
     if (!this.currentUser) return;
 
-    this.stats[0].value = this.clientRequirements.length;
-    this.stats[1].value = this.resources.length;
-    this.stats[2].value = this.clientApplications.filter(a => !['rejected', 'accepted'].includes(a.status)).length;
+    this.stats[0].value = this.requirementsPaginationState.totalItems || this.clientRequirements.length;
+    this.stats[1].value = this.resourcesPaginationState.totalItems || this.resources.length;
+    this.stats[2].value = this.applicationsPaginationState.totalItems || this.clientApplications.length;
     this.stats[3].value = this.clientApplications.filter(a => a.status === 'accepted').length;
   }
 
@@ -401,6 +404,7 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
   // Modal handlers
   openRequirementModal(): void {
     this.showRequirementModal = true;
+    this.changeDetectorRef.detectChanges();
   }
 
   openCloseRequirementModal(requirement: Requirement): void {
@@ -448,10 +452,12 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
             this.changeDetectorRef.detectChanges();
           }
           this.isLoading = false;
+          this.changeDetectorRef.detectChanges();
         },
         error: (error) => {
           console.error('Error closing requirement:', error);
           this.isLoading = false;
+          this.changeDetectorRef.detectChanges();
         }
       });
     }
@@ -470,10 +476,12 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
           this.closeEditRequirementModal();
         }
         this.isLoading = false;
+        this.changeDetectorRef.detectChanges();
       },
       error: (error) => {
         console.error('Error updating requirement:', error);
         this.isLoading = false;
+        this.changeDetectorRef.detectChanges();
       }
     });
   }
@@ -486,20 +494,29 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
 
   onApplicationSuccess(): void {
     this.closeApplyModal();
-    // Refresh applications after successful creation
-    this.loadApplications();
+    // Refresh applications after successful creation but stay on applications tab
+    if (this.activeTab === 'applications') {
+      this.loadApplications(this.applicationsPaginationState.currentPage);
+    } else {
+      // If not on applications tab, switch to it and load data
+      this.activeTab = 'applications';
+      this.loadApplications();
+    }
     console.log('Application created successfully');
   }
 
   applyResource(resourceId: string): void {
     this.selectedResourceId = resourceId;
     this.showApplyModal = true;
+    this.changeDetectorRef.detectChanges();
   }
 
   applyMultipleResources(resourceIds: string[]): void {
+    console.log('🔧 ClientDashboard: applyMultipleResources called with resourceIds:', resourceIds);
     // Store the selected resource IDs for the modal
     this.selectedResourceIds = resourceIds;
     this.showApplyModal = true;
+    this.changeDetectorRef.detectChanges();
   }
 
   handleRequirementUpdate(requirement: Requirement): void {
@@ -511,17 +528,28 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
   handleUpdateApplicationStatus(data: {applicationId: string, status: string, notes?: string}): void {
     console.log('Updating application status:', data);
     
+    // Ensure we stay on applications tab
+    if (this.activeTab !== 'applications') {
+      this.activeTab = 'applications';
+    }
+    
     // Update local state immediately for responsive UI
     const applicationIndex = this.clientApplications.findIndex(app => app._id === data.applicationId);
     if (applicationIndex !== -1) {
+      // Create a new array reference to force change detection
+      this.clientApplications = [...this.clientApplications];
       this.clientApplications[applicationIndex].status = data.status as any;
+      
       // Also update the main applications array
       const mainAppIndex = this.applications.findIndex(app => app._id === data.applicationId);
       if (mainAppIndex !== -1) {
+        this.applications = [...this.applications];
         this.applications[mainAppIndex].status = data.status as any;
       }
       // Update stats without reloading all data
       this.updateStats();
+      // Force change detection to ensure UI updates immediately
+      this.changeDetectorRef.detectChanges();
     }
 
     // Make API call to update status
@@ -530,6 +558,11 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
         console.log('Application status updated successfully:', response);
         // Don't call loadApplications() to avoid tab change
         // The local state is already updated above
+        // Ensure we're still on applications tab
+        if (this.activeTab !== 'applications') {
+          this.activeTab = 'applications';
+          this.changeDetectorRef.detectChanges();
+        }
       },
       error: (error) => {
         console.error('Error updating application status:', error);
@@ -542,6 +575,7 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
             this.applications[mainAppIndex].status = this.clientApplications[applicationIndex].status;
           }
           this.updateStats();
+          this.changeDetectorRef.detectChanges();
         }
       }
     });
@@ -560,6 +594,7 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
     console.log('Viewing application details for:', application);
     this.selectedApplication = application;
     this.showApplicationDetailsModal = true;
+    this.changeDetectorRef.detectChanges();
   }
 
   private loadApplicationHistory(applicationId: string): void {

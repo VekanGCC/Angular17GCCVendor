@@ -1,4 +1,4 @@
-<div class="p-6 space-y-6">
+<div class="space-y-6">
   <!-- Applications Table -->
   <div class="bg-white rounded-lg shadow">
     <div class="p-6">
@@ -21,6 +21,7 @@
       <!-- AG Grid -->
       <div *ngIf="!isLoading && applications.length > 0" class="ag-grid-container">
         <ag-grid-angular 
+          #agGrid
           class="ag-theme-alpine w-full"
           [rowData]="applications" 
           [columnDefs]="columnDefs"
@@ -31,7 +32,9 @@
           [rowSelection]="'single'"
           [animateRows]="true"
           [enableCellTextSelection]="true"
-          [overlayNoRowsTemplate]="'<span>No applications found</span>'">
+          [overlayNoRowsTemplate]="'<span>No applications found</span>'"
+          (gridReady)="onGridReady($event)"
+          (sortChanged)="onSortChanged($event)">
         </ag-grid-angular>
       </div>
 

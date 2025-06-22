@@ -198,6 +198,34 @@
           Attach Document (Optional)
         </label>
         <div class="space-y-3">
+          <!-- Existing File Display (Edit Mode) -->
+          <div *ngIf="mode === 'edit' && requirement?.attachment" class="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div class="flex items-center space-x-3">
+              <img src="assets/icons/lucide/lucide/file-text.svg" alt="file" class="w-5 h-5 text-blue-600" />
+              <div>
+                <p class="text-sm font-medium text-blue-800">{{ requirement?.attachment?.originalName || 'Unknown file' }}</p>
+                <p class="text-xs text-blue-600">{{ (requirement?.attachment?.fileSize || 0) / 1024 / 1024 | number:'1.2-2' }} MB</p>
+                <p class="text-xs text-blue-500">Current attachment</p>
+              </div>
+            </div>
+            <div class="flex items-center space-x-2">
+              <button
+                type="button"
+                (click)="downloadFile(requirement?.attachment)"
+                class="p-1 text-blue-600 hover:text-blue-700 hover:bg-blue-100 rounded transition-colors"
+                title="Download file">
+                <img src="assets/icons/lucide/lucide/download.svg" alt="download" class="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                (click)="removeExistingFile()"
+                class="p-1 text-red-600 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                title="Remove file">
+                <img src="assets/icons/lucide/lucide/x.svg" alt="remove" class="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
           <!-- File Input -->
           <div class="flex items-center justify-center w-full">
             <label 
@@ -209,6 +237,9 @@
                   <span class="font-semibold">Click to upload</span> or drag and drop
                 </p>
                 <p class="text-xs text-gray-500">PDF or DOC files only (Max 5MB)</p>
+                <p *ngIf="mode === 'edit' && requirement?.attachment" class="text-xs text-blue-600 mt-1">
+                  Upload new file to replace current attachment
+                </p>
               </div>
               <input 
                 id="requirement-file-upload" 
@@ -227,6 +258,7 @@
               <div>
                 <p class="text-sm font-medium text-green-800">{{ selectedFile.name }}</p>
                 <p class="text-xs text-green-600">{{ (selectedFile.size / 1024 / 1024).toFixed(2) }} MB</p>
+                <p *ngIf="mode === 'edit' && requirement?.attachment" class="text-xs text-green-500">Will replace current attachment</p>
               </div>
             </div>
             <button

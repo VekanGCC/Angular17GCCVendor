@@ -327,6 +327,7 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
       console.error('Error loading vendor resources:', error);
     } finally {
       this.resourcesPaginationState.isLoading = false;
+      this.changeDetectorRef.detectChanges();
     }
   }
 
@@ -352,6 +353,7 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
       console.error('Error loading vendor applications:', error);
     } finally {
       this.applicationsPaginationState.isLoading = false;
+      this.changeDetectorRef.detectChanges();
     }
   }
 
@@ -377,6 +379,7 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
       console.error('Error loading vendor requirements:', error);
     } finally {
       this.requirementsPaginationState.isLoading = false;
+      this.changeDetectorRef.detectChanges();
     }
   }
 
@@ -480,6 +483,7 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
       console.error('Error loading vendor resources with sort:', error);
     } finally {
       this.resourcesPaginationState.isLoading = false;
+      this.changeDetectorRef.detectChanges();
     }
   }
 
@@ -506,6 +510,7 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
       console.error('Error loading vendor requirements with sort:', error);
     } finally {
       this.requirementsPaginationState.isLoading = false;
+      this.changeDetectorRef.detectChanges();
     }
   }
 
@@ -532,6 +537,7 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
       console.error('Error loading vendor applications with sort:', error);
     } finally {
       this.applicationsPaginationState.isLoading = false;
+      this.changeDetectorRef.detectChanges();
     }
   }
 
@@ -566,9 +572,9 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
     });
     
     // Update stats with safe values
-    this.stats[0].value = this.vendorResources.length;
-    this.stats[1].value = (this.requirements || []).length;
-    this.stats[2].value = this.vendorApplications.filter(a => a && !['rejected', 'withdrawn'].includes(a.status)).length;
+    this.stats[0].value = this.resourcesPaginationState.totalItems || this.vendorResources.length;
+    this.stats[1].value = this.requirementsPaginationState.totalItems || (this.requirements || []).length;
+    this.stats[2].value = this.applicationsPaginationState.totalItems || this.vendorApplications.length;
     this.stats[3].value = this.vendorApplications.filter(a => a && a.status === 'accepted').length;
   }
 
@@ -765,6 +771,7 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
           this.appService.reloadResources();
           
           this.isLoading = false;
+          this.changeDetectorRef.detectChanges();
         },
         error: (error) => {
           console.error('Error updating resource status:', error);
@@ -776,6 +783,7 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
           }
           
           this.isLoading = false;
+          this.changeDetectorRef.detectChanges();
           
           // TODO: Show error message to user
           // You can add a toast notification service here
@@ -794,24 +802,54 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
   handleUpdateApplicationStatus(data: {applicationId: string, status: string, notes?: string}): void {
     console.log('🔄 VendorDashboard: Updating application status:', data);
     
+    // Ensure we stay on applications tab
+    if (this.activeTab !== 'applications') {
+      this.activeTab = 'applications';
+    }
+    
     // Update local state immediately for responsive UI
     const applicationIndex = this.vendorApplications.findIndex(app => app._id === data.applicationId);
     if (applicationIndex !== -1) {
+      // Create a new array reference to force change detection
+      this.vendorApplications = [...this.vendorApplications];
       this.vendorApplications[applicationIndex].status = data.status as any;
+      
+      // Also update the main applications array
+      const mainAppIndex = this.applications.findIndex(app => app._id === data.applicationId);
+      if (mainAppIndex !== -1) {
+        this.applications = [...this.applications];
+        this.applications[mainAppIndex].status = data.status as any;
+      }
+      // Update stats without reloading all data
+      this.updateData();
+      // Force change detection to ensure UI updates immediately
+      this.changeDetectorRef.detectChanges();
     }
 
     // Make API call to update status
     this.vendorService.updateApplicationStatus(data.applicationId, data.status, data.notes).subscribe({
       next: (response) => {
         console.log('✅ VendorDashboard: Application status updated successfully:', response);
-        // Refresh applications to ensure consistency
-        this.loadVendorApplications();
+        // Don't call loadVendorApplications() to avoid tab change
+        // The local state is already updated above
+        // Ensure we're still on applications tab
+        if (this.activeTab !== 'applications') {
+          this.activeTab = 'applications';
+          this.changeDetectorRef.detectChanges();
+        }
       },
       error: (error) => {
         console.error('❌ VendorDashboard: Error updating application status:', error);
         // Revert local change if API call failed
         if (applicationIndex !== -1) {
           this.vendorApplications[applicationIndex].status = this.applications.find(app => app._id === data.applicationId)?.status || 'applied';
+          // Also revert the main applications array
+          const mainAppIndex = this.applications.findIndex(app => app._id === data.applicationId);
+          if (mainAppIndex !== -1) {
+            this.applications[mainAppIndex].status = this.vendorApplications[applicationIndex].status;
+          }
+          this.updateData();
+          this.changeDetectorRef.detectChanges();
         }
       }
     });
