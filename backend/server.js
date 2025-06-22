@@ -43,10 +43,12 @@ app.use(cors({
   maxAge: 86400 // 24 hours
 }));
 
-// Security middleware
+// Security middleware - temporarily simplified for file download testing
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
-  crossOriginOpenerPolicy: { policy: "unsafe-none" }
+  crossOriginOpenerPolicy: { policy: "unsafe-none" },
+  // Disable content security policy for file downloads
+  contentSecurityPolicy: false
 }));
 
 // Rate limiting
@@ -66,8 +68,8 @@ app.use('/api/auth/register', limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Static files - temporarily disabled to test file download issue
-// app.use('/uploads', express.static('uploads'));
+// Static files
+app.use('/uploads', express.static('uploads'));
 
 // Routes
 app.use('/api/auth', require('./routes/auth'));

@@ -12,6 +12,7 @@ import { ColDef, ValueGetterParams, SortChangedEvent, GridReadyEvent } from 'ag-
 import { PaginationComponent } from '../../pagination/pagination.component';
 import { PaginationState } from '../../../models/pagination.model';
 import { ClientService } from '../../../services/client.service';
+import { ApiService } from '../../../services/api.service';
 
 @Component({
   selector: 'app-client-requirements',
@@ -267,7 +268,7 @@ export class ClientRequirementsComponent implements OnInit, OnChanges {
     suppressCellFocus: true
   };
 
-  constructor(private changeDetectorRef: ChangeDetectorRef, private clientService: ClientService) {}
+  constructor(private changeDetectorRef: ChangeDetectorRef, private clientService: ClientService, private apiService: ApiService) {}
 
   ngOnInit(): void {
     // Component initialization
@@ -354,21 +355,21 @@ export class ClientRequirementsComponent implements OnInit, OnChanges {
       return;
     }
 
-    // Create a download link
-    const link = document.createElement('a');
-    link.href = `/api/files/${requirement.attachment.fileId}/download`;
-    link.download = requirement.attachment.originalName;
-    link.target = '_blank';
-    
-    // Add authorization header if needed
-    const token = sessionStorage.getItem('authToken');
-    if (token) {
-      link.setAttribute('data-token', token);
-    }
-    
-    // Trigger download
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    this.apiService.downloadFile(requirement.attachment.fileId).subscribe(
+      (response: Blob) => {
+        const link = document.createElement('a');
+        link.href = window.URL.createObjectURL(response);
+        link.download = requirement.attachment!.originalName;
+        link.target = '_blank';
+        
+        // Trigger download
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      },
+      (error) => {
+        console.error('Error downloading file:', error);
+      }
+    );
   }
 } 

@@ -12,6 +12,8 @@ import { ColDef, ValueGetterParams, SortChangedEvent } from 'ag-grid-community';
 import { Resource } from '../../../models/resource.model';
 import { PaginationState, PaginationParams } from '../../../models/pagination.model';
 import { PaginationComponent } from '../../pagination/pagination.component';
+import { VendorService } from '../../../services/vendor.service';
+import { ApiService } from '../../../services/api.service';
 
 @Component({
   selector: 'app-vendor-resources',
@@ -237,7 +239,7 @@ export class VendorResourcesComponent implements OnInit {
     }
   };
 
-  constructor() {}
+  constructor(private vendorService: VendorService, private apiService: ApiService) {}
 
   ngOnInit(): void {
     console.log('🔧 VendorResourcesComponent: ngOnInit called');
@@ -372,21 +374,21 @@ export class VendorResourcesComponent implements OnInit {
       return;
     }
 
-    // Create a download link
-    const link = document.createElement('a');
-    link.href = `/api/files/${resource.attachment.fileId}/download`;
-    link.download = resource.attachment.originalName;
-    link.target = '_blank';
-    
-    // Add authorization header if needed
-    const token = sessionStorage.getItem('authToken');
-    if (token) {
-      link.setAttribute('data-token', token);
-    }
-    
-    // Trigger download
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    this.apiService.downloadFile(resource.attachment.fileId).subscribe(
+      (response: Blob) => {
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(response);
+        link.download = resource.attachment!.originalName;
+        link.target = '_blank';
+        
+        // Trigger download
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      },
+      (error) => {
+        console.error('Error downloading file:', error);
+      }
+    );
   }
 } 

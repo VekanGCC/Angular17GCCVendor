@@ -10,7 +10,12 @@ const {
   updateFileApproval,
   getMyFiles,
   getPendingApprovals,
-  bulkUpdateApproval
+  bulkUpdateApproval,
+  testFileIntegrity,
+  testDownload,
+  createTestFile,
+  directFileServe,
+  simpleDownload
 } = require('../controllers/fileController');
 const { protect } = require('../middleware/auth');
 const upload = require('../middleware/upload');
@@ -20,6 +25,9 @@ router.use(protect);
 
 // Upload file
 router.post('/upload', upload.single('file'), uploadFile);
+
+// Create test file (for debugging)
+router.get('/test-file', createTestFile);
 
 // Get files by entity
 router.get('/entity/:entityType/:entityId', getFilesByEntity);
@@ -32,6 +40,18 @@ router.get('/:id', getFile);
 
 // Download file
 router.get('/:id/download', downloadFile);
+
+// Simple download (based on working code)
+router.get('/:id/simple-download', simpleDownload);
+
+// Direct file serve test (for debugging)
+router.get('/:id/direct', directFileServe);
+
+// Test download (for debugging)
+router.get('/:id/test-download', testDownload);
+
+// Test file integrity (for debugging)
+router.get('/:id/integrity', testFileIntegrity);
 
 // Update file
 router.put('/:id', updateFile);

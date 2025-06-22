@@ -10,6 +10,35 @@
     </div>
   </div>
 
+  <!-- Test Buttons for Debugging -->
+  <div class="test-section mb-4">
+    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+      <h3 class="text-lg font-semibold text-yellow-800 mb-3">🧪 Download Testing</h3>
+      <div class="flex flex-wrap gap-2">
+        <button 
+          (click)="testBasicDownload()"
+          class="px-3 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 text-sm">
+          Test Basic Download
+        </button>
+        <button 
+          *ngFor="let file of files.slice(0, 2)"
+          (click)="testFileDownload(file)"
+          class="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm">
+          Test Download: {{ file.originalName }}
+        </button>
+        <button 
+          *ngFor="let file of files.slice(0, 2)"
+          (click)="checkFileIntegrity(file)"
+          class="px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm">
+          Check Integrity: {{ file.originalName }}
+        </button>
+      </div>
+      <p class="text-sm text-yellow-700 mt-2">
+        Use these buttons to test different download methods and check file integrity.
+      </p>
+    </div>
+  </div>
+
   <!-- File Upload Component -->
   <div *ngIf="showUpload" class="upload-section mb-4 sm:mb-6">
     <h3 class="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Upload Files</h3>

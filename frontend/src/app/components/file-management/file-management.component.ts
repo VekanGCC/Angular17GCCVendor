@@ -3,6 +3,7 @@ import { Subject, takeUntil } from 'rxjs';
 import { FileService } from '../../services/file.service';
 import { File, FileFilters, FileUpdateRequest } from '../../models/file.model';
 import { PaginatedResponse } from '../../models/pagination.model';
+import { ApiService } from '../../services/api.service';
 
 @Component({
   selector: 'app-file-management',
@@ -58,7 +59,7 @@ export class FileManagementComponent implements OnInit, OnDestroy {
 
   private destroy$ = new Subject<void>();
 
-  constructor(private fileService: FileService) {}
+  constructor(private fileService: FileService, private apiService: ApiService) {}
 
   ngOnInit(): void {
     this.loadFiles();
@@ -265,5 +266,55 @@ export class FileManagementComponent implements OnInit, OnDestroy {
 
   clearError(): void {
     this.error = null;
+  }
+
+  // Test methods for debugging
+  testBasicDownload(): void {
+    this.apiService.testBasicDownload().subscribe({
+      next: (blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'test-file.txt';
+        a.click();
+        window.URL.revokeObjectURL(url);
+        console.log('✅ Basic download test successful');
+      },
+      error: (error) => {
+        console.error('❌ Basic download test failed:', error);
+        this.error = 'Basic download test failed';
+      }
+    });
+  }
+
+  testFileDownload(file: File): void {
+    this.apiService.testFileDownload(file._id).subscribe({
+      next: (blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `test-${file.originalName}`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+        console.log('✅ Test file download successful');
+      },
+      error: (error) => {
+        console.error('❌ Test file download failed:', error);
+        this.error = 'Test file download failed';
+      }
+    });
+  }
+
+  checkFileIntegrity(file: File): void {
+    this.apiService.checkFileIntegrity(file._id).subscribe({
+      next: (response) => {
+        console.log('🔍 File integrity check:', response);
+        alert(`File integrity check completed. Check console for details.`);
+      },
+      error: (error) => {
+        console.error('❌ File integrity check failed:', error);
+        this.error = 'File integrity check failed';
+      }
+    });
   }
 } 

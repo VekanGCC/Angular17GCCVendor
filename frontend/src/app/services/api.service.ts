@@ -760,4 +760,55 @@ export class ApiService {
       })
     );
   }
+
+  // Test methods for debugging file downloads
+  testBasicDownload(): Observable<Blob> {
+    console.log('🧪 API: Testing basic download...');
+    
+    const options = {
+      headers: new HttpHeaders({
+        'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+      }),
+      responseType: 'blob' as 'json'
+    };
+
+    return this.http.get<Blob>(`${this.apiUrl}/files/test-file`, options).pipe(
+      tap(() => console.log('✅ API: Basic download test started')),
+      catchError(error => {
+        console.error('❌ API: Basic download test error:', error);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  testFileDownload(fileId: string): Observable<Blob> {
+    console.log('🧪 API: Testing file download for:', fileId);
+    
+    const options = {
+      headers: new HttpHeaders({
+        'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+      }),
+      responseType: 'blob' as 'json'
+    };
+
+    return this.http.get<Blob>(`${this.apiUrl}/files/${fileId}/test-download`, options).pipe(
+      tap(() => console.log('✅ API: Test file download started')),
+      catchError(error => {
+        console.error('❌ API: Test file download error:', error);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  checkFileIntegrity(fileId: string): Observable<any> {
+    console.log('🧪 API: Checking file integrity for:', fileId);
+    
+    return this.http.get<any>(`${this.apiUrl}/files/${fileId}/integrity`, this.getHttpOptions()).pipe(
+      tap(response => console.log('✅ API: File integrity check completed')),
+      catchError(error => {
+        console.error('❌ API: File integrity check error:', error);
+        return throwError(() => error);
+      })
+    );
+  }
 }
