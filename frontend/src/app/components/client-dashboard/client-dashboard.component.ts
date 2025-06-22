@@ -96,6 +96,9 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
     hasPreviousPage: false
   };
 
+  // Store current search parameters
+  currentSearchParams: any = {};
+
   stats = [
     { 
       title: 'Requirements', 
@@ -308,7 +311,7 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
   }
 
   onResourcesPageChange(page: number): void {
-    this.loadResources(page);
+    this.loadResourcesWithSearch(this.currentSearchParams, page);
   }
 
   private loadApplications(page: number = 1): void {
@@ -391,7 +394,7 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
   setActiveTab(tab: string): void {
     this.activeTab = tab;
     if (tab === 'resources') {
-      this.loadResources();
+      this.loadResourcesWithSearch(this.currentSearchParams);
     } else if (tab === 'applications') {
       this.loadApplications();
     } else if (tab === 'requirements') {
@@ -633,8 +636,61 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
   }
 
   onResourcesSortChange(sortData: {sortBy: string, sortOrder: 'asc' | 'desc'}): void {
-    console.log('🔧 ClientDashboard: Resources sort changed:', sortData);
-    // Reload resources with new sort parameters
     this.loadResources(1, sortData.sortBy, sortData.sortOrder);
+  }
+
+  onResourcesSearchChange(searchParams: any): void {
+    console.log('Search parameters received:', searchParams);
+    this.currentSearchParams = searchParams;
+    this.loadResourcesWithSearch(searchParams);
+  }
+
+  private loadResourcesWithSearch(searchParams: any, page: number = 1): void {
+    this.resourcesPaginationState.isLoading = true;
+    
+    // Combine search parameters with pagination parameters
+    const params = { 
+      page, 
+      limit: this.resourcesPaginationState.pageSize,
+      ...searchParams
+    };
+    
+    console.log('Loading resources with search params:', params);
+    
+    this.apiService.getResources(params).subscribe({
+      next: (response) => {
+        console.log('Resources loaded with search:', response);
+        if (response.success && response.data) {
+          // Process and type the resources
+          this.resources = response.data.map((resource: Resource) => {
+            // Ensure all required fields are present and properly typed
+            return {
+              ...resource,
+              experience: resource.experience || { years: 0, level: 'Not specified' },
+              location: resource.location || { city: 'N/A', state: 'N/A', remote: false },
+              availability: resource.availability || { status: 'Not specified', hours_per_week: 0 },
+              rate: resource.rate || { currency: 'USD', hourly: 0 },
+              skills: resource.skills || []
+            };
+          });
+          console.log('Processed resources:', this.resources);
+          
+          // Update pagination state
+          const paginationData = response.pagination || response.meta;
+          if (paginationData) {
+            this.updateResourcesPagination(paginationData);
+          }
+          
+          this.updateStats();
+        }
+      },
+      error: (error) => {
+        console.error('Error loading resources with search:', error);
+      },
+      complete: () => {
+        this.resourcesPaginationState.isLoading = false;
+        this.changeDetectorRef.detectChanges();
+      }
+    });
   }
 }

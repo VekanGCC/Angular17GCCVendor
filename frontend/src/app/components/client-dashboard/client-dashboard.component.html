@@ -87,7 +87,8 @@
           [paginationState]="resourcesPaginationState"
           (applyResources)="applyMultipleResources($event)"
           (sortChange)="onResourcesSortChange($event)"
-          (pageChange)="onResourcesPageChange($event)">
+          (pageChange)="onResourcesPageChange($event)"
+          (searchChange)="onResourcesSearchChange($event)">
         </app-client-resources>
 
         <!-- Applications Tab -->

@@ -14,8 +14,15 @@ const getResources = asyncHandler(async (req, res, next) => {
     sortOrder = 'desc',
     search,
     status,
-    category
+    category,
+    skills,
+    minExperience,
+    maxExperience,
+    minRate,
+    maxRate
   } = req.query;
+
+  console.log('🔧 ResourceController: Query parameters received:', req.query);
 
   // Build query
   let query = {};
@@ -35,6 +42,49 @@ const getResources = asyncHandler(async (req, res, next) => {
     query.category = category;
   }
 
+  // Search by skills
+  if (skills) {
+    let skillsArray = [];
+    let logic = 'OR';
+    if (skills.includes(':')) {
+      const [skillsStr, logicStr] = skills.split(':');
+      skillsArray = skillsStr.split(',').map(skill => skill.trim());
+      logic = logicStr.toUpperCase() === 'AND' ? 'AND' : 'OR';
+    } else {
+      skillsArray = skills.split(',').map(skill => skill.trim());
+    }
+    console.log('🔧 ResourceController: Skills array:', skillsArray, 'Logic:', logic);
+    if (logic === 'AND') {
+      query.skills = { $all: skillsArray };
+    } else {
+      query.skills = { $in: skillsArray };
+    }
+  }
+
+  // Search by experience range
+  if (minExperience || maxExperience) {
+    query['experience.years'] = {};
+    if (minExperience) {
+      query['experience.years'].$gte = parseInt(minExperience);
+    }
+    if (maxExperience) {
+      query['experience.years'].$lte = parseInt(maxExperience);
+    }
+  }
+
+  // Search by rate range
+  if (minRate || maxRate) {
+    query['rate.hourly'] = {};
+    if (minRate) {
+      query['rate.hourly'].$gte = parseInt(minRate);
+    }
+    if (maxRate) {
+      query['rate.hourly'].$lte = parseInt(maxRate);
+    }
+  }
+
+  console.log('🔧 ResourceController: Final query:', JSON.stringify(query, null, 2));
+
   // Only return resources for the logged-in vendor
   if (req.user && req.user.userType === 'vendor') {
     query.createdBy = req.user.id;
@@ -47,6 +97,8 @@ const getResources = asyncHandler(async (req, res, next) => {
     .skip((page - 1) * limit);
 
   const total = await Resource.countDocuments(query);
+
+  console.log('🔧 ResourceController: Found', resources.length, 'resources out of', total, 'total');
 
   res.status(200).json(
     ApiResponse.success(

@@ -11,6 +11,11 @@ export interface PaginationParams {
   resourceId?: string;
   vendorId?: string;
   clientId?: string;
+  skills?: string;
+  minExperience?: string;
+  maxExperience?: string;
+  minRate?: string;
+  maxRate?: string;
 }
 
 export interface PaginationMeta {

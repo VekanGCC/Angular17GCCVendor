@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnInit, Output, ChangeDetectorRef } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, Output, ChangeDetectorRef, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
@@ -24,13 +24,18 @@ export class ApplyResourceModalComponent implements OnInit {
   @Output() success = new EventEmitter<void>();
 
   currentUser: User | null = null;
-  selectedRequirement: Requirement | null = null;
+  selectedRequirements: Requirement[] = [];
   requirements: Requirement[] = [];
+  filteredRequirements: Requirement[] = [];
   resources: Resource[] = [];
   notes: string = '';
   isLoading = false;
   errorMessage = '';
   applicationResults: { success: boolean; message: string; resourceId: string; requirementId: string }[] = [];
+  
+  // Multi-select dropdown properties
+  isDropdownOpen = false;
+  searchTerm = '';
 
   constructor(
     private authService: AuthService,
@@ -52,6 +57,7 @@ export class ApplyResourceModalComponent implements OnInit {
         if (response.success && response.data) {
           // Only show open requirements
           this.requirements = response.data.filter((req: Requirement) => req.status === 'open');
+          this.filteredRequirements = [...this.requirements];
         }
         this.isLoading = false;
         this.changeDetectorRef.detectChanges();
@@ -86,18 +92,52 @@ export class ApplyResourceModalComponent implements OnInit {
     }
   }
 
-  selectRequirement(requirement: Requirement): void {
-    this.selectedRequirement = requirement;
+  // Multi-select dropdown methods
+  toggleDropdown(): void {
+    this.isDropdownOpen = !this.isDropdownOpen;
+    if (this.isDropdownOpen) {
+      this.filteredRequirements = [...this.requirements];
+      this.searchTerm = '';
+    }
+    this.changeDetectorRef.detectChanges();
+  }
+
+  onSearchChange(): void {
+    if (!this.searchTerm.trim()) {
+      this.filteredRequirements = [...this.requirements];
+    } else {
+      const searchLower = this.searchTerm.toLowerCase();
+      this.filteredRequirements = this.requirements.filter(req => 
+        req.title.toLowerCase().includes(searchLower) ||
+        req.description.toLowerCase().includes(searchLower) ||
+        req.skills.some(skill => skill.toLowerCase().includes(searchLower))
+      );
+    }
+    this.changeDetectorRef.detectChanges();
+  }
+
+  toggleRequirementSelection(requirement: Requirement): void {
+    const index = this.selectedRequirements.findIndex(req => req._id === requirement._id);
+    if (index > -1) {
+      this.selectedRequirements.splice(index, 1);
+    } else {
+      this.selectedRequirements.push(requirement);
+    }
     this.changeDetectorRef.detectChanges();
   }
 
   isRequirementSelected(requirementId: string): boolean {
-    return this.selectedRequirement?._id === requirementId;
+    return this.selectedRequirements.some(req => req._id === requirementId);
+  }
+
+  removeSelectedRequirement(requirementId: string): void {
+    this.selectedRequirements = this.selectedRequirements.filter(req => req._id !== requirementId);
+    this.changeDetectorRef.detectChanges();
   }
 
   onSubmit(): void {
-    if (!this.selectedRequirement || this.resources.length === 0) {
-      this.errorMessage = 'Please select a requirement and ensure resources are loaded';
+    if (this.selectedRequirements.length === 0 || this.resources.length === 0) {
+      this.errorMessage = 'Please select at least one requirement and ensure resources are loaded';
       return;
     }
 
@@ -109,44 +149,50 @@ export class ApplyResourceModalComponent implements OnInit {
     // Get the resource IDs to apply
     const resourceIds = this.resourceIds.length > 0 ? this.resourceIds : [this.resourceId];
     
-    // Apply each resource to the selected requirement
-    const applicationPromises = resourceIds.map(resourceId => {
-      const applicationData = {
-        requirement: this.selectedRequirement!._id,
-        resource: resourceId,
-        notes: this.notes
-      };
+    // Create applications for each resource to each selected requirement
+    const applicationPromises: Promise<{ success: boolean; message: string; resourceId: string; requirementId: string }>[] = [];
+    
+    resourceIds.forEach(resourceId => {
+      this.selectedRequirements.forEach(requirement => {
+        const applicationData = {
+          requirement: requirement._id,
+          resource: resourceId,
+          notes: this.notes
+        };
 
-      return this.clientService.createApplication(applicationData).toPromise().then(
-        (response: any) => {
-          return {
-            success: response.success,
-            message: response.success ? 'Application created successfully' : (response.message || 'Failed to create application'),
-            resourceId,
-            requirementId: this.selectedRequirement!._id
-          };
-        },
-        (error: any) => {
-          let errorMessage = 'Failed to create application';
-          
-          if (error.error && error.error.message) {
-            errorMessage = error.error.message;
-          } else if (error.message) {
-            errorMessage = error.message;
-          } else if (error.status === 409) {
-            errorMessage = 'This resource has already been applied to this requirement';
-          } else if (error.status === 400) {
-            errorMessage = 'Invalid request. Please check your input.';
+        const promise = this.clientService.createApplication(applicationData).toPromise().then(
+          (response: any) => {
+            return {
+              success: response.success,
+              message: response.success ? 'Application created successfully' : (response.message || 'Failed to create application'),
+              resourceId,
+              requirementId: requirement._id
+            };
+          },
+          (error: any) => {
+            let errorMessage = 'Failed to create application';
+            
+            if (error.error && error.error.message) {
+              errorMessage = error.error.message;
+            } else if (error.message) {
+              errorMessage = error.message;
+            } else if (error.status === 409) {
+              errorMessage = 'This resource has already been applied to this requirement';
+            } else if (error.status === 400) {
+              errorMessage = 'Invalid request. Please check your input.';
+            }
+            
+            return {
+              success: false,
+              message: errorMessage,
+              resourceId,
+              requirementId: requirement._id
+            };
           }
-          
-          return {
-            success: false,
-            message: errorMessage,
-            resourceId,
-            requirementId: this.selectedRequirement!._id
-          };
-        }
-      );
+        );
+        
+        applicationPromises.push(promise);
+      });
     });
 
     // Wait for all applications to complete
@@ -184,6 +230,16 @@ export class ApplyResourceModalComponent implements OnInit {
 
   onClose(): void {
     this.close.emit();
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: Event): void {
+    // Close dropdown if clicking outside
+    const target = event.target as HTMLElement;
+    if (!target.closest('.dropdown-container')) {
+      this.isDropdownOpen = false;
+      this.changeDetectorRef.detectChanges();
+    }
   }
 
   getStatusClass(status: string): string {

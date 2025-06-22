@@ -44,6 +44,14 @@ export class ApiService {
     if (params.vendorId) httpParams = httpParams.set('vendorId', params.vendorId);
     if (params.clientId) httpParams = httpParams.set('clientId', params.clientId);
     
+    // New search parameters for resources
+    if (params.skills) httpParams = httpParams.set('skills', params.skills);
+    if (params.minExperience) httpParams = httpParams.set('minExperience', params.minExperience);
+    if (params.maxExperience) httpParams = httpParams.set('maxExperience', params.maxExperience);
+    if (params.minRate) httpParams = httpParams.set('minRate', params.minRate);
+    if (params.maxRate) httpParams = httpParams.set('maxRate', params.maxRate);
+    
+    console.log('🔧 API: Built HTTP params:', httpParams.toString());
     return httpParams;
   }
 
@@ -136,6 +144,7 @@ export class ApiService {
   // Resource APIs with pagination
   getResources(params?: PaginationParams): Observable<PaginatedResponse<any>> {
     console.log('🧑‍💼 API: Fetching resources from:', `${this.apiUrl}/resources`);
+    console.log('🧑‍💼 API: Parameters being sent:', params);
     return this.get<PaginatedResponse<any>>('/resources', params).pipe(
       tap(response => console.log('🧑‍💼 API: Resources response:', response)),
       catchError(error => {

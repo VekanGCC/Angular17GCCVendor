@@ -115,12 +115,50 @@ const getFilesByEntity = asyncHandler(async (req, res, next) => {
     query.approvalStatus = approvalStatus;
   }
 
-  // Check permissions - users can only see their own files or public files
+  // Enhanced permission check for cross-access
   if (req.user.role !== 'admin') {
-    query.$or = [
-      { uploadedBy: req.user.id },
-      { isPublic: true }
-    ];
+    // Build permission query
+    let permissionQuery = { $or: [] };
+
+    // File owner can always see their files
+    permissionQuery.$or.push({ uploadedBy: req.user.id });
+
+    // Public files are visible to everyone
+    permissionQuery.$or.push({ isPublic: true });
+
+    // Cross-access permissions based on user role and entity type
+    if (req.user.userType === 'client') {
+      // Clients can see:
+      // 1. All resource attachments (from any vendor)
+      // 2. Their own requirement attachments
+      if (entityType === 'resource') {
+        permissionQuery.$or.push({ entityType: 'resource' }); // All resource files
+      } else if (entityType === 'requirement') {
+        // Check if the requirement belongs to this client
+        const Requirement = require('../models/Requirement');
+        const requirement = await Requirement.findById(entityId);
+        if (requirement && requirement.clientId.toString() === req.user.id) {
+          permissionQuery.$or.push({ entityType: 'requirement', entityId: entityId }); // Client's own requirement files
+        }
+      }
+    } else if (req.user.userType === 'vendor') {
+      // Vendors can see:
+      // 1. All requirement attachments (from any client)
+      // 2. Their own resource attachments
+      if (entityType === 'requirement') {
+        permissionQuery.$or.push({ entityType: 'requirement' }); // All requirement files
+      } else if (entityType === 'resource') {
+        // Check if the resource belongs to this vendor
+        const Resource = require('../models/Resource');
+        const resource = await Resource.findById(entityId);
+        if (resource && resource.createdBy.toString() === req.user.id) {
+          permissionQuery.$or.push({ entityType: 'resource', entityId: entityId }); // Vendor's own resource files
+        }
+      }
+    }
+
+    // Combine the main query with permission query
+    query = { $and: [query, permissionQuery] };
   }
 
   const files = await File.find(query)
@@ -154,10 +192,55 @@ const getFile = asyncHandler(async (req, res, next) => {
     return next(new ErrorResponse('File not found', 404));
   }
 
-  // Check permissions
-  if (req.user.role !== 'admin' && 
-      file.uploadedBy._id.toString() !== req.user.id && 
-      !file.isPublic) {
+  // Enhanced permission check for cross-access (same as downloadFile)
+  let hasPermission = false;
+
+  // Admin can access everything
+  if (req.user.role === 'admin') {
+    hasPermission = true;
+  }
+  // File owner can always access their files
+  else if (file.uploadedBy._id.toString() === req.user.id) {
+    hasPermission = true;
+  }
+  // Public files are accessible to everyone
+  else if (file.isPublic) {
+    hasPermission = true;
+  }
+  // Cross-access permissions based on user role and entity type
+  else {
+    if (req.user.userType === 'client') {
+      // Clients can access:
+      // 1. All resource attachments (from any vendor)
+      // 2. Their own requirement attachments
+      if (file.entityType === 'resource') {
+        hasPermission = true; // Clients can access all resource attachments
+      } else if (file.entityType === 'requirement') {
+        // Check if the requirement belongs to this client
+        const Requirement = require('../models/Requirement');
+        const requirement = await Requirement.findById(file.entityId);
+        if (requirement && requirement.clientId.toString() === req.user.id) {
+          hasPermission = true; // Client can access their own requirement attachments
+        }
+      }
+    } else if (req.user.userType === 'vendor') {
+      // Vendors can access:
+      // 1. All requirement attachments (from any client)
+      // 2. Their own resource attachments
+      if (file.entityType === 'requirement') {
+        hasPermission = true; // Vendors can access all requirement attachments
+      } else if (file.entityType === 'resource') {
+        // Check if the resource belongs to this vendor
+        const Resource = require('../models/Resource');
+        const resource = await Resource.findById(file.entityId);
+        if (resource && resource.createdBy.toString() === req.user.id) {
+          hasPermission = true; // Vendor can access their own resource attachments
+        }
+      }
+    }
+  }
+
+  if (!hasPermission) {
     return next(new ErrorResponse('Not authorized to access this file', 403));
   }
 
@@ -186,16 +269,66 @@ const downloadFile = asyncHandler(async (req, res, next) => {
     filename: file.filename,
     originalName: file.originalName,
     path: file.path,
-    size: file.size
+    size: file.size,
+    entityType: file.entityType,
+    entityId: file.entityId,
+    uploadedBy: file.uploadedBy
   });
 
-  // Check permissions
-  if (req.user.role !== 'admin' && 
-      file.uploadedBy.toString() !== req.user.id && 
-      !file.isPublic) {
-    console.log('🔧 FileController: Permission denied for user:', req.user.id);
+  // Enhanced permission check for cross-access
+  let hasPermission = false;
+
+  // Admin can access everything
+  if (req.user.role === 'admin') {
+    hasPermission = true;
+  }
+  // File owner can always access their files
+  else if (file.uploadedBy.toString() === req.user.id) {
+    hasPermission = true;
+  }
+  // Public files are accessible to everyone
+  else if (file.isPublic) {
+    hasPermission = true;
+  }
+  // Cross-access permissions based on user role and entity type
+  else {
+    if (req.user.userType === 'client') {
+      // Clients can download:
+      // 1. All resource attachments (from any vendor)
+      // 2. Their own requirement attachments
+      if (file.entityType === 'resource') {
+        hasPermission = true; // Clients can download all resource attachments
+      } else if (file.entityType === 'requirement') {
+        // Check if the requirement belongs to this client
+        const Requirement = require('../models/Requirement');
+        const requirement = await Requirement.findById(file.entityId);
+        if (requirement && requirement.clientId.toString() === req.user.id) {
+          hasPermission = true; // Client can download their own requirement attachments
+        }
+      }
+    } else if (req.user.userType === 'vendor') {
+      // Vendors can download:
+      // 1. All requirement attachments (from any client)
+      // 2. Their own resource attachments
+      if (file.entityType === 'requirement') {
+        hasPermission = true; // Vendors can download all requirement attachments
+      } else if (file.entityType === 'resource') {
+        // Check if the resource belongs to this vendor
+        const Resource = require('../models/Resource');
+        const resource = await Resource.findById(file.entityId);
+        if (resource && resource.createdBy.toString() === req.user.id) {
+          hasPermission = true; // Vendor can download their own resource attachments
+        }
+      }
+    }
+  }
+
+  if (!hasPermission) {
+    console.log('🔧 FileController: Permission denied for user:', req.user.id, 'userType:', req.user.userType);
     return next(new ErrorResponse('Not authorized to download this file', 403));
   }
+
+  console.log('🔧 FileController: Permission granted for user:', req.user.id);
 
   // Build file path using the stored filename from database
   const path = require('path');
@@ -627,13 +760,60 @@ const simpleDownload = asyncHandler(async (req, res, next) => {
     return next(new ErrorResponse('File not found', 404));
   }
 
-  // Check permissions
-  if (req.user.role !== 'admin' && 
-      file.uploadedBy.toString() !== req.user.id && 
-      !file.isPublic) {
-    console.log('🔧 FileController: Permission denied for user:', req.user.id);
+  // Enhanced permission check for cross-access (same as downloadFile)
+  let hasPermission = false;
+
+  // Admin can access everything
+  if (req.user.role === 'admin') {
+    hasPermission = true;
+  }
+  // File owner can always access their files
+  else if (file.uploadedBy.toString() === req.user.id) {
+    hasPermission = true;
+  }
+  // Public files are accessible to everyone
+  else if (file.isPublic) {
+    hasPermission = true;
+  }
+  // Cross-access permissions based on user role and entity type
+  else {
+    if (req.user.userType === 'client') {
+      // Clients can download:
+      // 1. All resource attachments (from any vendor)
+      // 2. Their own requirement attachments
+      if (file.entityType === 'resource') {
+        hasPermission = true; // Clients can download all resource attachments
+      } else if (file.entityType === 'requirement') {
+        // Check if the requirement belongs to this client
+        const Requirement = require('../models/Requirement');
+        const requirement = await Requirement.findById(file.entityId);
+        if (requirement && requirement.clientId.toString() === req.user.id) {
+          hasPermission = true; // Client can download their own requirement attachments
+        }
+      }
+    } else if (req.user.userType === 'vendor') {
+      // Vendors can download:
+      // 1. All requirement attachments (from any client)
+      // 2. Their own resource attachments
+      if (file.entityType === 'requirement') {
+        hasPermission = true; // Vendors can download all requirement attachments
+      } else if (file.entityType === 'resource') {
+        // Check if the resource belongs to this vendor
+        const Resource = require('../models/Resource');
+        const resource = await Resource.findById(file.entityId);
+        if (resource && resource.createdBy.toString() === req.user.id) {
+          hasPermission = true; // Vendor can download their own resource attachments
+        }
+      }
+    }
+  }
+
+  if (!hasPermission) {
+    console.log('🔧 FileController: Permission denied for user:', req.user.id, 'userType:', req.user.userType);
     return next(new ErrorResponse('Not authorized to download this file', 403));
   }
+
+  console.log('🔧 FileController: Permission granted for user:', req.user.id);
 
   // Build file path
   const path = require('path');

@@ -126,6 +126,7 @@ export class RequirementModalComponent implements OnInit, OnChanges {
     console.log('🔧 RequirementModal: Populating form with requirement:', this.requirement);
     console.log('🔧 RequirementModal: Requirement skills:', this.requirement.skills);
     console.log('🔧 RequirementModal: Requirement attachment:', this.requirement.attachment);
+    console.log('🔧 RequirementModal: Requirement experience:', this.requirement.experience);
 
     // Clear existing skills FormArray and add the requirement's skills
     while (this.skills.length !== 0) {
@@ -144,22 +145,25 @@ export class RequirementModalComponent implements OnInit, OnChanges {
       this.skills.push(this.fb.control('', Validators.required));
     }
 
-    // Patch the rest of the form
-    const formData = {
+    // Patch the form with individual values to ensure proper updates
+    this.requirementForm.patchValue({
       title: this.requirement.title,
       category: this.requirement.category,
-      experience: {
-        minYears: this.requirement.experience.minYears,
-        level: this.requirement.experience.level
-      },
       location: this.requirement.location.city,
       duration: parseInt(this.requirement.duration),
-      budget: this.requirement.budget.charge || 50, // Use charge value from new structure
+      budget: this.requirement.budget.charge || 50,
       description: this.requirement.description
-    };
+    });
 
-    console.log('🔧 RequirementModal: Patching form with data:', formData);
-    this.requirementForm.patchValue(formData);
+    // Set experience values separately to ensure proper FormGroup update
+    this.experience.setValue({
+      minYears: this.requirement.experience.minYears,
+      level: this.requirement.experience.level
+    });
+
+    console.log('🔧 RequirementModal: Form patched with data');
+    console.log('🔧 RequirementModal: Experience form group value:', this.experience.value);
+    console.log('🔧 RequirementModal: Full form value after patch:', this.requirementForm.value);
 
     // Handle existing attachment if in edit mode
     if (this.mode === 'edit' && this.requirement.attachment) {
@@ -211,6 +215,9 @@ export class RequirementModalComponent implements OnInit, OnChanges {
       const formValue = this.requirementForm.value;
       console.log('🔧 RequirementModal: Form value:', formValue);
       console.log('🔧 RequirementModal: Budget in formValue:', formValue.budget);
+      console.log('🔧 RequirementModal: Experience in formValue:', formValue.experience);
+      console.log('🔧 RequirementModal: MinYears in formValue:', formValue.experience?.minYears);
+      console.log('🔧 RequirementModal: Level in formValue:', formValue.experience?.level);
       
       const filteredSkills = formValue.skills.filter((skill: string) => skill.trim() !== '');
       console.log('🔧 RequirementModal: Filtered skills:', filteredSkills);
@@ -455,9 +462,22 @@ export class RequirementModalComponent implements OnInit, OnChanges {
     
     // Use the API service to download the file
     this.apiService.downloadFile(attachment.fileId).subscribe({
-      next: (response: any) => {
+      next: (response: Blob) => {
         console.log('🔧 RequirementModal: File download successful');
-        // The download should trigger automatically via the API service
+        
+        // Create download link and trigger download
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(response);
+        link.download = attachment.originalName || 'download';
+        link.target = '_blank';
+        
+        // Trigger download
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Clean up the object URL
+        URL.revokeObjectURL(link.href);
       },
       error: (error: any) => {
         console.error('🔧 RequirementModal: File download error:', error);
@@ -487,5 +507,11 @@ export class RequirementModalComponent implements OnInit, OnChanges {
     console.log('🔧 RequirementModal: Form valid:', this.requirementForm.valid);
     console.log('🔧 RequirementModal: Budget field value:', this.requirementForm.get('budget')?.value);
     console.log('🔧 RequirementModal: Budget field valid:', this.requirementForm.get('budget')?.valid);
+    console.log('🔧 RequirementModal: Experience form group value:', this.experience.value);
+    console.log('🔧 RequirementModal: Experience form group valid:', this.experience.valid);
+    console.log('🔧 RequirementModal: MinYears field value:', this.experience.get('minYears')?.value);
+    console.log('🔧 RequirementModal: Level field value:', this.experience.get('level')?.value);
+    console.log('🔧 RequirementModal: MinYears field valid:', this.experience.get('minYears')?.valid);
+    console.log('🔧 RequirementModal: Level field valid:', this.experience.get('level')?.valid);
   }
 }
