@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { LucideAngularModule } from 'lucide-angular';
 import { firstValueFrom } from 'rxjs';
@@ -22,7 +22,8 @@ export class LoginComponent implements OnInit {
   constructor(
     private fb: FormBuilder,
     private authService: AuthService,
-    private router: Router
+    private router: Router,
+    private route: ActivatedRoute
   ) {
     this.loginForm = this.fb.group({
       email: ['', [Validators.required, Validators.email]],
@@ -31,11 +32,25 @@ export class LoginComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    // Check for error messages in query parameters
+    this.route.queryParams.subscribe(params => {
+      if (params['error']) {
+        this.errorMessage = params['error'];
+      }
+    });
+
     // Check if user is already logged in
     const currentUser = this.authService.getCurrentUser();
     if (currentUser) {
       this.navigateBasedOnRole(currentUser);
     }
+
+    // Clear error message when user starts typing
+    this.loginForm.valueChanges.subscribe(() => {
+      if (this.errorMessage) {
+        this.errorMessage = '';
+      }
+    });
   }
 
   getFieldError(field: string): string {
@@ -86,9 +101,17 @@ export class LoginComponent implements OnInit {
         console.error('LoginComponent: Login failed:', response.message);
         this.errorMessage = response.message || 'Login failed';
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('LoginComponent: Login error:', error);
-      this.errorMessage = 'An error occurred during login';
+      
+      // Handle specific approval status errors
+      if (error.message && error.message.includes('pending approval')) {
+        this.errorMessage = 'Your account is pending approval. Please contact the administrator.';
+      } else if (error.message && error.message.includes('rejected')) {
+        this.errorMessage = 'Your account has been rejected. Please contact the administrator for more information.';
+      } else {
+        this.errorMessage = error.error?.message || error.message || 'An error occurred during login';
+      }
     } finally {
       this.isLoading = false;
     }

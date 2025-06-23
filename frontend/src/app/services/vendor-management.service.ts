@@ -75,7 +75,7 @@ export class VendorManagementService {
     }
   }
 
-  async addVendorSkill(skillData: Omit<VendorSkill, 'id' | 'submittedAt'>): Promise<void> {
+  async addVendorSkill(skillData: Omit<VendorSkill, '_id' | 'createdAt' | 'updatedAt'>): Promise<void> {
     try {
       const response = await this.apiService.createVendorSkill(skillData).toPromise();
       if (response.success) {
@@ -110,12 +110,10 @@ export class VendorManagementService {
       if (response.success) {
         const currentSkills = this.vendorSkillsSubject.value;
         const updatedSkills = currentSkills.map(skill => 
-          skill.id === skillId 
+          skill._id === skillId 
             ? { 
                 ...skill, 
-                status, 
-                reviewNotes: reviewNotes || skill.reviewNotes,
-                reviewedAt: response.data.reviewedAt
+                status
               } 
             : skill
         );

@@ -56,19 +56,13 @@ const fileSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
-  isApproved: {
-    type: Boolean,
-    default: false
-  },
   approvalStatus: {
     type: String,
     enum: ['pending', 'approved', 'rejected'],
     default: 'pending'
   },
   approvalNotes: {
-    type: String,
-    trim: true,
-    maxlength: [1000, 'Approval notes cannot be more than 1000 characters']
+    type: String
   },
   approvedBy: {
     type: mongoose.Schema.Types.ObjectId,
@@ -95,7 +89,6 @@ const fileSchema = new mongoose.Schema({
 fileSchema.index({ uploadedBy: 1 });
 fileSchema.index({ entityType: 1, entityId: 1 });
 fileSchema.index({ category: 1 });
-fileSchema.index({ isApproved: 1 });
 fileSchema.index({ approvalStatus: 1 });
 fileSchema.index({ createdAt: -1 });
 

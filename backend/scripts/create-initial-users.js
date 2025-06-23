@@ -18,7 +18,7 @@ const createInitialUsers = async () => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Admin User
-    const adminUser = new User({
+    const adminUser = await User.create({
       email: 'admin@venkan.com',
       password: hashedPassword,
       firstName: 'Admin',
@@ -28,7 +28,6 @@ const createInitialUsers = async () => {
       phone: '+919999999999',
       isActive: true,
       isEmailVerified: true,
-      isApproved: true,
       approvalStatus: 'approved',
       companyName: 'Venkan Admin',
       contactPerson: 'Admin User',
@@ -85,7 +84,6 @@ const createInitialUsers = async () => {
       phone: '+918888888888',
       isActive: true,
       isEmailVerified: true,
-      isApproved: true,
       approvalStatus: 'approved',
       companyName: 'Client Company',
       contactPerson: 'Client User',
@@ -142,7 +140,6 @@ const createInitialUsers = async () => {
       phone: '+917777777777',
       isActive: true,
       isEmailVerified: true,
-      isApproved: true,
       approvalStatus: 'approved',
       companyName: 'Vendor Company',
       contactPerson: 'Vendor User',

@@ -504,7 +504,6 @@ const updateFileApproval = asyncHandler(async (req, res, next) => {
   }
 
   file.approvalStatus = approvalStatus;
-  file.isApproved = approvalStatus === 'approved';
   file.approvalNotes = approvalNotes || '';
   file.approvedBy = req.user.id;
   file.approvedAt = new Date();
@@ -601,7 +600,6 @@ const bulkUpdateApproval = asyncHandler(async (req, res, next) => {
 
   const updateData = {
     approvalStatus,
-    isApproved: approvalStatus === 'approved',
     approvalNotes: approvalNotes || '',
     approvedBy: req.user.id,
     approvedAt: new Date()

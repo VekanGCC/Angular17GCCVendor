@@ -26,6 +26,7 @@ import { ProfileDashboardComponent } from '../profile/profile-dashboard.componen
 import { ResourceModalComponent } from '../modals/resource-modal/resource-modal.component';
 import { AddUserModalComponent } from '../modals/add-user-modal/add-user-modal.component';
 import { AddSkillModalComponent } from '../modals/add-skill-modal/add-skill-modal.component';
+import { AddVendorSkillModalComponent } from '../modals/add-vendor-skill-modal/add-vendor-skill-modal.component';
 import { ApplicationDetailsModalComponent } from '../modals/application-details-modal/application-details-modal.component';
 import { LayoutComponent } from '../layout/layout.component';
 import { PaginationState, PaginationParams } from '../../models/pagination.model';
@@ -50,6 +51,8 @@ import { BrowseRequirementsPageComponent } from './browse-requirements-page/brow
     ApplicationHistoryModalComponent,
     AddUserModalComponent,
     AddSkillModalComponent,
+    AddVendorSkillModalComponent,
+    ApplicationDetailsModalComponent,
     PaginationComponent,
     BrowseRequirementsPageComponent
   ],
@@ -69,6 +72,7 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
   showApplyModal = false;
   showAddUserModal = false;
   showAddSkillModal = false;
+  showAddVendorSkillModal = false;
   showApplyRequirementModal = false;
   selectedRequirementId: string = '';
   selectedRequirement: Requirement | null = null;
@@ -294,7 +298,8 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
     await Promise.all([
       this.loadVendorResources(),
       this.loadVendorApplications(),
-      this.loadVendorRequirements()
+      this.loadVendorRequirements(),
+      this.loadVendorSkills()
     ]);
   }
 
@@ -386,6 +391,21 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
       this.requirementsPaginationState.isLoading = false;
       this.changeDetectorRef.detectChanges();
     }
+  }
+
+  private async loadVendorSkills(): Promise<void> {
+    this.apiService.getVendorSkills().subscribe({
+      next: (response: any) => {
+        if (response.success && response.data) {
+          this.vendorSkills = response.data;
+          this.organizationSkills = response.data;
+          console.log('🔧 VendorDashboard: Loaded vendor skills:', this.vendorSkills);
+        }
+      },
+      error: (error: any) => {
+        console.error('Error loading vendor skills:', error);
+      }
+    });
   }
 
   // Pagination update methods
@@ -566,7 +586,7 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
     // Use vendorApplications that are loaded from vendor-specific endpoint
     // this.vendorApplications is already set by loadVendorApplications()
     this.organizationUsers = (this.vendorUsers || []).filter(u => u && u.vendorId === vendorId);
-    this.organizationSkills = (this.vendorSkills || []).filter(s => s && s.vendorId === vendorId);
+    this.organizationSkills = (this.vendorSkills || []).filter(s => s && s.vendor._id === vendorId);
     
     console.log('📊 VendorDashboard: Filtered data:', {
       vendorResources: this.vendorResources.length,
@@ -983,5 +1003,27 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
     this.showBrowseRequirementsPage = false;
     this.selectedRequirementId = '';
     this.changeDetectorRef.detectChanges();
+  }
+
+  // Vendor Skill Modal handlers
+  onOpenAddVendorSkillModal(): void {
+    this.showAddVendorSkillModal = true;
+  }
+
+  onCloseAddVendorSkillModal(): void {
+    this.showAddVendorSkillModal = false;
+  }
+
+  onVendorSkillAdded(skill: any): void {
+    console.log('🔧 VendorDashboard: Vendor skill added:', skill);
+    // Refresh vendor skills data
+    this.loadVendorSkills();
+  }
+
+  onVendorSkillDeleted(skillId: string): void {
+    console.log('🔧 VendorDashboard: Vendor skill deleted:', skillId);
+    // Remove from local array
+    this.vendorSkills = this.vendorSkills.filter(skill => skill._id !== skillId);
+    this.organizationSkills = this.organizationSkills.filter(skill => skill._id !== skillId);
   }
 }

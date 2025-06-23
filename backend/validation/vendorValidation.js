@@ -21,23 +21,48 @@ const validateVendorStep2 = [
 ];
 
 const validateVendorStep3 = [
-  body('address.street')
+  body('address.addressLine1')
     .notEmpty()
-    .withMessage('Street address is required'),
+    .withMessage('Address line 1 is required'),
   body('address.city')
     .notEmpty()
     .withMessage('City is required'),
   body('address.state')
     .notEmpty()
     .withMessage('State is required'),
-  body('address.zipCode')
+  body('address.pinCode')
     .notEmpty()
-    .withMessage('Zip code is required')
-    .matches(/^\d{5}(-\d{4})?$/)
-    .withMessage('Please provide a valid zip code'),
+    .withMessage('Pin code is required')
+    .matches(/^\d{6}$/)
+    .withMessage('Please provide a valid 6-digit pin code'),
   body('address.country')
     .notEmpty()
-    .withMessage('Country is required')
+    .withMessage('Country is required'),
+  
+  body('bankDetails.bankAccountNumber')
+    .notEmpty()
+    .withMessage('Bank account number is required')
+    .matches(/^\d{9,18}$/)
+    .withMessage('Bank account number must be 9-18 digits'),
+  body('bankDetails.accountType')
+    .notEmpty()
+    .withMessage('Account type is required')
+    .isIn(['savings', 'current', 'business'])
+    .withMessage('Account type must be savings, current, or business'),
+  body('bankDetails.ifscCode')
+    .notEmpty()
+    .withMessage('IFSC code is required')
+    .matches(/^[A-Z]{4}0[A-Z0-9]{6}$/)
+    .withMessage('Please provide a valid IFSC code'),
+  body('bankDetails.bankName')
+    .notEmpty()
+    .withMessage('Bank name is required'),
+  body('bankDetails.branchName')
+    .notEmpty()
+    .withMessage('Branch name is required'),
+  body('bankDetails.bankCity')
+    .notEmpty()
+    .withMessage('Bank city is required')
 ];
 
 const validateVendorStep4 = [

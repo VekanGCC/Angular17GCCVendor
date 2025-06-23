@@ -14,24 +14,26 @@ async function checkUsers() {
     const vendor = await User.findOne({ email: 'vendor@techcorp.com' }).select('+password');
     const client = await User.findOne({ email: 'client@innovate.com' }).select('+password');
     
-    console.log('\nVendor User:');
+    console.log('Vendor Details:');
     console.log({
+      id: vendor?._id,
       email: vendor?.email,
+      name: `${vendor?.firstName} ${vendor?.lastName}`,
       userType: vendor?.userType,
-      role: vendor?.role,
+      approvalStatus: vendor?.approvalStatus,
       isActive: vendor?.isActive,
-      isApproved: vendor?.isApproved,
-      password: vendor?.password
+      isEmailVerified: vendor?.isEmailVerified
     });
 
-    console.log('\nClient User:');
+    console.log('\nClient Details:');
     console.log({
+      id: client?._id,
       email: client?.email,
+      name: `${client?.firstName} ${client?.lastName}`,
       userType: client?.userType,
-      role: client?.role,
+      approvalStatus: client?.approvalStatus,
       isActive: client?.isActive,
-      isApproved: client?.isApproved,
-      password: client?.password
+      isEmailVerified: client?.isEmailVerified
     });
 
     // Compare the structures

@@ -17,18 +17,6 @@ export interface AdminPermission {
   actions: string[];
 }
 
-export interface UserApproval {
-  id: string;
-  userId: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  role: string;
-  approvalStatus: 'pending' | 'approved' | 'rejected';
-  submittedAt: string;
-  reviewNotes?: string;
-}
-
 export interface SkillApproval {
   id: string;
   skill: VendorSkill;

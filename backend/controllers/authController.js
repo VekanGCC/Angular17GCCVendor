@@ -347,8 +347,7 @@ const getCurrentUser = asyncHandler(async (req, res, next) => {
       registrationStep: user.registrationStep,
       isRegistrationComplete: user.isRegistrationComplete,
       isEmailVerified: user.isEmailVerified,
-      isPhoneVerified: user.isPhoneVerified,
-      isApproved: user.isApproved
+      isPhoneVerified: user.isPhoneVerified
     }
   });
 });

@@ -577,8 +577,7 @@ const getAdminUsers = asyncHandler(async (req, res, next) => {
     sortOrder = 'desc',
     search,
     userType,
-    isActive,
-    isApproved
+    isActive
   } = req.query;
 
   // Build query
@@ -591,10 +590,6 @@ const getAdminUsers = asyncHandler(async (req, res, next) => {
 
   if (isActive !== undefined) {
     query.isActive = isActive === 'true';
-  }
-
-  if (isApproved !== undefined) {
-    query.isApproved = isApproved === 'true';
   }
 
   if (search) {
@@ -654,7 +649,7 @@ const createAdminUser = asyncHandler(async (req, res, next) => {
     permissions,
     isEmailVerified: true, // Auto-verify admin emails
     isActive: true,
-    isApproved: true,
+    approvalStatus: 'approved',
     registrationStep: 5,
     isRegistrationComplete: true
   });

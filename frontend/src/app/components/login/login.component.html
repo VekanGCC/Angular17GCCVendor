@@ -56,8 +56,41 @@
           </button>
         </div>
 
-        <div *ngIf="errorMessage" class="text-red-600 text-sm text-center">
-          {{errorMessage}}
+        <!-- Enhanced error display for approval status -->
+        <div *ngIf="errorMessage && (errorMessage.includes('pending approval') || errorMessage.includes('rejected'))" 
+             class="bg-yellow-50 border border-yellow-200 rounded-md p-4 mb-4">
+          <div class="flex">
+            <div class="flex-shrink-0">
+              <img src="assets/icons/lucide/lucide/alert-triangle.svg" alt="warning" class="w-5 h-5 text-yellow-400" />
+            </div>
+            <div class="ml-3">
+              <h3 class="text-sm font-medium text-yellow-800">
+                {{errorMessage.includes('pending approval') ? 'Account Pending Approval' : 'Account Rejected'}}
+              </h3>
+              <div class="mt-2 text-sm text-yellow-700">
+                <p>{{errorMessage}}</p>
+                <p class="mt-1">
+                  <strong>Contact:</strong> Please reach out to our support team or administrator for assistance.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Regular error display for other errors -->
+        <div *ngIf="errorMessage && !errorMessage.includes('pending approval') && !errorMessage.includes('rejected')" 
+             class="bg-red-50 border border-red-200 rounded-md p-4 mb-4">
+          <div class="flex">
+            <div class="flex-shrink-0">
+              <img src="assets/icons/lucide/lucide/x-circle.svg" alt="error" class="w-5 h-5 text-red-400" />
+            </div>
+            <div class="ml-3">
+              <h3 class="text-sm font-medium text-red-800">Login Error</h3>
+              <div class="mt-2 text-sm text-red-700">
+                <p>{{errorMessage}}</p>
+              </div>
+            </div>
+          </div>
         </div>
       </form>
     </div>

@@ -70,7 +70,7 @@ export class AuthService {
     }
   }
 
-  private clearAuthState(): void {
+  clearAuthState(): void {
     console.log('Auth Service: Clearing auth state');
     
     sessionStorage.removeItem('authToken');
@@ -88,6 +88,18 @@ export class AuthService {
         console.log('Auth Service: Login response:', response);
         if (response.success) {
           const { token, data } = response;
+          
+          // Check approval status before allowing login
+          if (data.approvalStatus === 'pending') {
+            console.log('Auth Service: Login blocked - user approval pending');
+            throw new Error('Your account is pending approval. Please contact the administrator.');
+          }
+          
+          if (data.approvalStatus === 'rejected') {
+            console.log('Auth Service: Login blocked - user approval rejected');
+            throw new Error('Your account has been rejected. Please contact the administrator for more information.');
+          }
+          
           console.log('Auth Service: Storing token and user data');
           sessionStorage.setItem('authToken', token);
           sessionStorage.setItem('user', JSON.stringify(data));
@@ -147,5 +159,15 @@ export class AuthService {
   hasRole(role: string): boolean {
     const user = this.currentUserSubject.value;
     return user?.userType === role;
+  }
+
+  isUserApproved(): boolean {
+    const user = this.currentUserSubject.value;
+    return user?.approvalStatus === 'approved';
+  }
+
+  getUserApprovalStatus(): string | null {
+    const user = this.currentUserSubject.value;
+    return user?.approvalStatus || null;
   }
 }

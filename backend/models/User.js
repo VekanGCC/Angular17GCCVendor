@@ -187,10 +187,6 @@ const userSchema = new mongoose.Schema({
   },
   
   // New fields from the code block
-  isApproved: {
-    type: Boolean,
-    default: false
-  },
   currentStep: {
     type: Number,
     default: 0

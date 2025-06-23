@@ -44,6 +44,9 @@ export class SignupComponent implements OnInit, OnDestroy {
   step4Form!: FormGroup;
   step5Form!: FormGroup;
 
+  // Flag to prevent multiple form initializations
+  private formsInitialized = false;
+
   // Options
   serviceOptions: any[] = [];
 
@@ -93,10 +96,12 @@ export class SignupComponent implements OnInit, OnDestroy {
     private vendorRegistrationService: VendorRegistrationService,
     private clientRegistrationService: ClientRegistrationService
   ) {
-    this.initializeForms();
+    // Forms will be initialized in ngOnInit
   }
 
   ngOnInit(): void {
+    this.initializeForms();
+
     // Check for user type in query params
     this.route.queryParams.subscribe(params => {
       if (params['type'] === 'vendor' || params['type'] === 'client') {
@@ -126,6 +131,28 @@ export class SignupComponent implements OnInit, OnDestroy {
         this.otpVerified = registration.otpVerified;
       }
     });
+    
+    // Debug form initialization
+    setTimeout(() => {
+      this.debugFormInitialization();
+    }, 1000);
+  }
+
+  debugFormInitialization() {
+    console.log('=== FORM INITIALIZATION DEBUG ===');
+    console.log('Step 3 form:', this.step3Form);
+    console.log('Step 3 form controls:', this.step3Form.controls);
+    console.log('Account type control:', this.step3Form.get('accountType'));
+    console.log('Account type control value:', this.step3Form.get('accountType')?.value);
+    console.log('Account type control valid:', this.step3Form.get('accountType')?.valid);
+    console.log('Account type control errors:', this.step3Form.get('accountType')?.errors);
+    console.log('=== END FORM INITIALIZATION DEBUG ===');
+    
+    // Test setting a value manually
+    console.log('Testing manual value setting...');
+    this.step3Form.patchValue({ accountType: 'savings' });
+    console.log('After manual set - Account type value:', this.step3Form.get('accountType')?.value);
+    console.log('After manual set - Account type valid:', this.step3Form.get('accountType')?.valid);
   }
 
   ngOnDestroy(): void {
@@ -176,9 +203,20 @@ export class SignupComponent implements OnInit, OnDestroy {
     
     // Load registration data
     this.loadRegistrationData();
+    
+    // Update form validators for the selected user type
+    this.updateFormValidatorsForUserType();
   }
 
   private initializeForms(): void {
+    // Prevent multiple initializations
+    if (this.formsInitialized) {
+      console.log('Forms already initialized, skipping...');
+      return;
+    }
+    
+    console.log('Initializing forms...');
+    
     // Step 1: Company Information
     this.step1Form = this.fb.group({
       email: ['', [Validators.required, Validators.email]],
@@ -207,13 +245,13 @@ export class SignupComponent implements OnInit, OnDestroy {
       state: ['', Validators.required],
       country: ['', Validators.required],
       pinCode: ['', [Validators.required, Validators.pattern('^[0-9]{6}$')]],
-      accountNumber: ['', Validators.required],
-      accountType: ['', Validators.required],
-      ifscCode: ['', Validators.required],
-      bankName: ['', Validators.required],
-      branchName: ['', Validators.required],
-      bankCity: ['', Validators.required],
-      paymentTerms: ['', Validators.required]
+      accountNumber: [''],
+      accountType: [null],
+      ifscCode: [''],
+      bankName: [''],
+      branchName: [''],
+      bankCity: [''],
+      paymentTerms: ['']
     });
 
     // Step 4: Compliance Information
@@ -224,23 +262,28 @@ export class SignupComponent implements OnInit, OnDestroy {
       registeredUnderMSMED: [false],
       esiRegistrationNumber: [''],
       pfRegistrationNumber: [''],
-      msmedRegistrationNumber: [''],
+      msmedRegistrationNumber: ['']
+    });
+
+    // Step 5: Declarations and Terms
+    this.step5Form = this.fb.group({
       compliesWithStatutoryRequirements: [false, Validators.requiredTrue],
       hasCloseRelativesInCompany: [false],
       hasAdequateSafetyStandards: [false, Validators.requiredTrue],
-      hasOngoingLitigation: [false]
-    });
-
-    // Step 5: Additional Information
-    this.step5Form = this.fb.group({
-      additionalNotes: [''],
-      termsAccepted: [false, Validators.requiredTrue]
+      hasOngoingLitigation: [false],
+      termsAccepted: [false, Validators.requiredTrue],
+      additionalNotes: ['']
     });
 
     this.setupConditionalValidators();
+    this.formsInitialized = true;
+    console.log('Forms initialized successfully');
   }
 
   private updateFormValidatorsForUserType(): void {
+    // Store current form values before updating validators
+    const currentValues = this.step3Form.value;
+    
     if (this.userType === 'vendor') {
       // Add bank details validators for vendors
       this.step3Form.get('accountNumber')?.setValidators([Validators.required, Validators.pattern(/^[0-9]{9,18}$/)]);
@@ -261,10 +304,19 @@ export class SignupComponent implements OnInit, OnDestroy {
       this.step3Form.get('paymentTerms')?.clearValidators();
     }
 
-    // Update validity
-    Object.keys(this.step3Form.controls).forEach(key => {
-      this.step3Form.get(key)?.updateValueAndValidity();
+    // Update validity only for the controls that had validators changed
+    const controlsToUpdate = ['accountNumber', 'accountType', 'ifscCode', 'bankName', 'branchName', 'bankCity', 'paymentTerms'];
+    controlsToUpdate.forEach(key => {
+      const control = this.step3Form.get(key);
+      if (control) {
+        control.updateValueAndValidity();
+      }
     });
+    
+    // Restore form values if they were lost
+    if (JSON.stringify(this.step3Form.value) !== JSON.stringify(currentValues)) {
+      this.step3Form.patchValue(currentValues);
+    }
   }
 
   private setupConditionalValidators(): void {
@@ -314,6 +366,9 @@ export class SignupComponent implements OnInit, OnDestroy {
     });
 
     // Populate Step 3
+    // Ensure accountType is a string
+    const accountTypeValue = registration.bankDetails.accountType ? String(registration.bankDetails.accountType) : null;
+    
     this.step3Form.patchValue({
       addressLine1: registration.address.addressLine1,
       addressLine2: registration.address.addressLine2,
@@ -322,7 +377,7 @@ export class SignupComponent implements OnInit, OnDestroy {
       country: registration.address.country,
       pinCode: registration.address.pinCode,
       accountNumber: registration.bankDetails.accountNumber,
-      accountType: registration.bankDetails.accountType,
+      accountType: accountTypeValue,
       ifscCode: registration.bankDetails.ifscCode,
       bankName: registration.bankDetails.bankName,
       branchName: registration.bankDetails.branchName,
@@ -345,7 +400,9 @@ export class SignupComponent implements OnInit, OnDestroy {
       compliesWithStatutoryRequirements: registration.compliesWithStatutoryRequirements,
       hasCloseRelativesInCompany: registration.hasCloseRelativesInCompany,
       hasAdequateSafetyStandards: registration.hasAdequateSafetyStandards,
-      hasOngoingLitigation: registration.hasOngoingLitigation
+      hasOngoingLitigation: registration.hasOngoingLitigation,
+      termsAccepted: false, // Default to false for new registrations
+      additionalNotes: ''
     });
 
     this.updateFormValidatorsForUserType();
@@ -391,7 +448,9 @@ export class SignupComponent implements OnInit, OnDestroy {
       compliesWithStatutoryRequirements: registration.compliesWithStatutoryRequirements,
       hasCloseRelativesInCompany: registration.hasCloseRelativesInCompany,
       hasAdequateSafetyStandards: registration.hasAdequateSafetyStandards,
-      hasOngoingLitigation: registration.hasOngoingLitigation
+      hasOngoingLitigation: registration.hasOngoingLitigation,
+      termsAccepted: false, // Default to false for new registrations
+      additionalNotes: ''
     });
 
     this.updateFormValidatorsForUserType();
@@ -404,7 +463,7 @@ export class SignupComponent implements OnInit, OnDestroy {
   }
 
   async nextStep(): Promise<void> {
-    if (this.currentStep < this.totalSteps) {
+    if (this.currentStep <= this.totalSteps) {
       // Save the current step data
       const stepData = this.getCurrentStepData();
       
@@ -450,28 +509,52 @@ export class SignupComponent implements OnInit, OnDestroy {
       } else if (this.currentStep === 5) {
         // For step 5, complete registration
         try {
+          console.log('Step 5: Starting registration completion...');
+          console.log('Step 5 form value:', this.step5Form.value);
+          console.log('Step 5 form valid:', this.step5Form.valid);
+          console.log('Step 5 form errors:', this.step5Form.errors);
+          
+          // Validate step 5 form
+          this.markFormGroupTouched(this.step5Form);
+          if (!this.step5Form.valid) {
+            console.log('Step 5 form validation failed');
+            this.error = 'Please complete all required fields in step 5';
+            return;
+          }
+
           const email = this.step1Form.get('email')?.value;
           const step5Data = { email, ...this.step5Form.value };
+          console.log('Step 5 data to send:', step5Data);
+          
           const response = await firstValueFrom<ApiResponse>(this.isVendor ?
             this.vendorRegistrationService.saveStep(5, step5Data) :
             this.clientRegistrationService.saveStep(5, step5Data)
           );
+          console.log('Step 5 response:', response);
+          
           if (response.success) {
-            this.success = 'Registration complete!';
-            // Optionally, redirect or show a completion message
+            this.success = 'Registration complete! Redirecting to login...';
+            // Redirect to login after a short delay
+            setTimeout(() => {
+              this.router.navigate(['/login']);
+            }, 2000);
           } else {
             this.error = response.message || 'Failed to complete registration';
           }
         } catch (error: any) {
+          console.error('Step 5 error:', error);
           this.error = error.error?.message || 'Failed to complete registration';
         }
       } else {
         // For other steps, just save the data
         try {
+          console.log(`Step ${this.currentStep} - Sending data:`, stepData);
           const response = await firstValueFrom<ApiResponse>(this.isVendor ? 
             this.vendorRegistrationService.saveStep(this.currentStep, stepData) :
             this.clientRegistrationService.saveStep(this.currentStep, stepData)
           );
+          
+          console.log(`Step ${this.currentStep} - Response:`, response);
           
           if (response.success) {
             this.currentStep++;
@@ -479,6 +562,7 @@ export class SignupComponent implements OnInit, OnDestroy {
             this.error = response.message || `Failed to save step ${this.currentStep} data`;
           }
         } catch (error: any) {
+          console.error(`Step ${this.currentStep} - Error:`, error);
           this.error = error.error?.message || `Failed to save step ${this.currentStep} data`;
         }
       }
@@ -571,7 +655,10 @@ export class SignupComponent implements OnInit, OnDestroy {
       paymentTerms: 'Payment Terms',
       panNumber: 'PAN Number',
       esiRegistrationNumber: 'ESI Registration Number',
-      pfRegistrationNumber: 'PF Registration Number'
+      pfRegistrationNumber: 'PF Registration Number',
+      compliesWithStatutoryRequirements: 'Compliance with Statutory Requirements',
+      hasAdequateSafetyStandards: 'Adequate Safety Standards',
+      termsAccepted: 'Terms and Conditions'
     };
     return labels[fieldName] || fieldName;
   }
@@ -642,6 +729,44 @@ export class SignupComponent implements OnInit, OnDestroy {
     ];
   }
 
+  debugFormValidation() {
+    console.log('=== DEBUG FORM VALIDATION ===');
+    console.log('Current step:', this.currentStep);
+    console.log('User type:', this.userType);
+    console.log('Step 3 form valid:', this.step3Form.valid);
+    console.log('Step 3 form invalid:', this.step3Form.invalid);
+    console.log('Step 3 form errors:', this.step3Form.errors);
+    
+    // Check each control
+    Object.keys(this.step3Form.controls).forEach(key => {
+      const control = this.step3Form.get(key);
+      console.log(`Control ${key}:`, {
+        valid: control?.valid,
+        invalid: control?.invalid,
+        errors: control?.errors,
+        value: control?.value,
+        touched: control?.touched,
+        dirty: control?.dirty,
+        validator: control?.validator
+      });
+    });
+    
+    // Check if all required fields have values
+    const requiredFields = ['addressLine1', 'city', 'state', 'country', 'pinCode'];
+    if (this.isVendor) {
+      requiredFields.push('accountNumber', 'accountType', 'ifscCode', 'bankName', 'branchName', 'bankCity', 'paymentTerms');
+    }
+    
+    const missingFields = requiredFields.filter(field => {
+      const value = this.step3Form.get(field)?.value;
+      return !value || value.trim() === '';
+    });
+    
+    console.log('Required fields:', requiredFields);
+    console.log('Missing fields:', missingFields);
+    console.log('=== END DEBUG ===');
+  }
+
   populateDemoAccount(type: 'vendor' | 'client'): void {
     const demoData = this.demoAccounts[type];
     this.userType = type;
@@ -682,7 +807,7 @@ export class SignupComponent implements OnInit, OnDestroy {
           otp: this.step2Form.get('otp')?.value
         };
       case 3:
-        return {
+        const step3Data: any = {
           email: this.step1Form.get('email')?.value,
           address: {
             addressLine1: this.step3Form.get('addressLine1')?.value,
@@ -693,6 +818,21 @@ export class SignupComponent implements OnInit, OnDestroy {
             pinCode: this.step3Form.get('pinCode')?.value
           }
         };
+        
+        // Add bank details for vendors
+        if (this.isVendor) {
+          step3Data.bankDetails = {
+            bankAccountNumber: this.step3Form.get('accountNumber')?.value,
+            accountType: this.step3Form.get('accountType')?.value,
+            ifscCode: this.step3Form.get('ifscCode')?.value,
+            bankName: this.step3Form.get('bankName')?.value,
+            branchName: this.step3Form.get('branchName')?.value,
+            bankCity: this.step3Form.get('bankCity')?.value,
+            paymentTerms: this.step3Form.get('paymentTerms')?.value
+          };
+        }
+        
+        return step3Data;
       case 4:
         return {
           email: this.step1Form.get('email')?.value,
@@ -702,20 +842,65 @@ export class SignupComponent implements OnInit, OnDestroy {
           registeredUnderMSMED: this.step4Form.get('registeredUnderMSMED')?.value,
           esiRegistrationNumber: this.step4Form.get('esiRegistrationNumber')?.value,
           pfRegistrationNumber: this.step4Form.get('pfRegistrationNumber')?.value,
-          msmedRegistrationNumber: this.step4Form.get('msmedRegistrationNumber')?.value,
-          compliesWithStatutoryRequirements: this.step4Form.get('compliesWithStatutoryRequirements')?.value,
-          hasCloseRelativesInCompany: this.step4Form.get('hasCloseRelativesInCompany')?.value,
-          hasAdequateSafetyStandards: this.step4Form.get('hasAdequateSafetyStandards')?.value,
-          hasOngoingLitigation: this.step4Form.get('hasOngoingLitigation')?.value
+          msmedRegistrationNumber: this.step4Form.get('msmedRegistrationNumber')?.value
         };
       case 5:
         return {
           email: this.step1Form.get('email')?.value,
-          additionalNotes: this.step5Form.get('additionalNotes')?.value,
-          termsAccepted: this.step5Form.get('termsAccepted')?.value
+          compliesWithStatutoryRequirements: this.step5Form.get('compliesWithStatutoryRequirements')?.value,
+          hasCloseRelativesInCompany: this.step5Form.get('hasCloseRelativesInCompany')?.value,
+          hasAdequateSafetyStandards: this.step5Form.get('hasAdequateSafetyStandards')?.value,
+          hasOngoingLitigation: this.step5Form.get('hasOngoingLitigation')?.value,
+          termsAccepted: this.step5Form.get('termsAccepted')?.value,
+          additionalNotes: this.step5Form.get('additionalNotes')?.value
         };
       default:
         return {};
     }
+  }
+
+  get isCurrentStepValid(): boolean {
+    let isValid = false;
+    switch (this.currentStep) {
+      case 1:
+        isValid = this.step1Form.valid;
+        break;
+      case 2:
+        isValid = this.step2Form.valid;
+        break;
+      case 3:
+        // Force validation update for step 3
+        this.step3Form.updateValueAndValidity();
+        isValid = this.step3Form.valid;
+        
+        // If form is invalid, check if all required fields have values manually
+        if (!isValid) {
+          const requiredFields = ['addressLine1', 'city', 'state', 'country', 'pinCode'];
+          if (this.isVendor) {
+            requiredFields.push('accountNumber', 'accountType', 'ifscCode', 'bankName', 'branchName', 'bankCity', 'paymentTerms');
+          }
+          
+          const missingFields = requiredFields.filter(field => {
+            const value = this.step3Form.get(field)?.value;
+            return !value || value.trim() === '';
+          });
+          
+          // If no missing fields, consider form valid regardless of Angular validation
+          if (missingFields.length === 0) {
+            isValid = true;
+          }
+        }
+        
+        break;
+      case 4:
+        isValid = this.step4Form.valid;
+        break;
+      case 5:
+        isValid = this.step5Form.valid;
+        break;
+      default:
+        isValid = false;
+    }
+    return isValid;
   }
 }

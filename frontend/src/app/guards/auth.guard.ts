@@ -17,6 +17,29 @@ export const AuthGuard = () => {
       console.log('Auth Guard: Is authenticated:', isAuthenticated);
       
       if (user && isAuthenticated) {
+        // Check if user is approved
+        if (user.approvalStatus === 'pending') {
+          console.log('Auth Guard: User approval pending, redirecting to login');
+          authService.clearAuthState();
+          router.navigate(['/login'], { 
+            queryParams: { 
+              error: 'Your account is pending approval. Please contact the administrator.' 
+            } 
+          });
+          return false;
+        }
+        
+        if (user.approvalStatus === 'rejected') {
+          console.log('Auth Guard: User approval rejected, redirecting to login');
+          authService.clearAuthState();
+          router.navigate(['/login'], { 
+            queryParams: { 
+              error: 'Your account has been rejected. Please contact the administrator for more information.' 
+            } 
+          });
+          return false;
+        }
+        
         console.log('Auth Guard: Access granted');
         return true;
       }

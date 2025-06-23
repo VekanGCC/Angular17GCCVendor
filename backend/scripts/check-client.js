@@ -12,18 +12,15 @@ async function checkClientUser() {
     const client = await User.findOne({ email: 'client@enterprise.com' }).select('+password +role');
     
     if (client) {
-      console.log('Client user found:');
+      console.log('Client Details:');
       console.log({
+        id: client._id,
         email: client.email,
+        name: `${client.firstName} ${client.lastName}`,
         userType: client.userType,
-        role: client.role,
-        firstName: client.firstName,
-        lastName: client.lastName,
+        approvalStatus: client.approvalStatus,
         isActive: client.isActive,
-        isApproved: client.isApproved,
-        hasPassword: !!client.password,
-        registrationStep: client.registrationStep,
-        isRegistrationComplete: client.isRegistrationComplete
+        isEmailVerified: client.isEmailVerified
       });
     } else {
       console.log('Client user not found');

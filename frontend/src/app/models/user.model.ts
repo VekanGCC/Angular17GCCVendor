@@ -7,7 +7,6 @@ export interface User {
   userType: 'vendor' | 'client' | 'admin';
   isActive: boolean;
   isEmailVerified: boolean;
-  isApproved: boolean;
   approvalStatus: 'pending' | 'approved' | 'rejected';
   companyName: string;
   contactPerson: string;

@@ -1,7 +1,11 @@
 const User = require('../models/User');
+const UserAddress = require('../models/UserAddress');
+const UserBankDetails = require('../models/UserBankDetails');
+const UserStatutoryCompliance = require('../models/UserStatutoryCompliance');
 const asyncHandler = require('../utils/asyncHandler');
 const ErrorResponse = require('../utils/errorResponse');
 const { validationResult } = require('express-validator');
+const { createNotification } = require('./notificationController');
 
 // @desc    Get all users (with filtering)
 // @route   GET /api/admin/users/all
@@ -10,7 +14,6 @@ const getAllUsers = asyncHandler(async (req, res, next) => {
   const { 
     userType, 
     isActive, 
-    isApproved,
     isEmailVerified,
     registrationComplete,
     page = 1, 
@@ -29,10 +32,6 @@ const getAllUsers = asyncHandler(async (req, res, next) => {
 
   if (isActive !== undefined) {
     query.isActive = isActive === 'true';
-  }
-
-  if (isApproved !== undefined) {
-    query.isApproved = isApproved === 'true';
   }
 
   if (isEmailVerified !== undefined) {
@@ -160,7 +159,7 @@ const approveUser = asyncHandler(async (req, res, next) => {
     return next(new ErrorResponse('User not found', 404));
   }
 
-  user.isApproved = approve;
+  user.approvalStatus = approve ? 'approved' : 'rejected';
   if (!approve && notes) {
     user.rejectionReason = notes;
   } else if (approve) {
@@ -183,7 +182,7 @@ const approveUser = asyncHandler(async (req, res, next) => {
     success: true,
     data: {
       id: user._id,
-      isApproved: user.isApproved,
+      approvalStatus: user.approvalStatus,
       rejectionReason: user.rejectionReason
     },
     message: `User ${approve ? 'approved' : 'rejected'} successfully`
@@ -225,11 +224,49 @@ const resetUserPassword = asyncHandler(async (req, res, next) => {
   });
 });
 
+// @desc    Get user profile with all related data
+// @route   GET /api/admin/users/:id/profile
+// @access  Private (Admin only)
+const getUserProfile = asyncHandler(async (req, res, next) => {
+  const userId = req.params.id;
+
+  // Get user data
+  const user = await User.findById(userId)
+    .select('-password -emailVerificationToken -phoneVerificationCode -passwordResetToken');
+
+  if (!user) {
+    return next(new ErrorResponse('User not found', 404));
+  }
+
+  // Get user addresses
+  const addresses = await UserAddress.find({ userId });
+
+  // Get user bank details (only for vendors)
+  const bankDetails = user.userType === 'vendor' ? await UserBankDetails.find({ userId }) : [];
+
+  // Get user compliance data
+  const compliance = await UserStatutoryCompliance.findOne({ userId });
+
+  // Prepare response data
+  const profileData = {
+    user,
+    addresses,
+    bankDetails,
+    compliance
+  };
+
+  res.status(200).json({
+    success: true,
+    data: profileData
+  });
+});
+
 module.exports = {
   getAllUsers,
   getUserById,
   updateUser,
   toggleUserStatus,
   approveUser,
-  resetUserPassword
+  resetUserPassword,
+  getUserProfile
 };

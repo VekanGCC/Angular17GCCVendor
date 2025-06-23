@@ -9,18 +9,6 @@ import { ApiService } from './api.service';
 import { ApiResponse } from '../models/api-response.model';
 import { PaginatedResponse } from '../models/pagination.model';
 
-interface UserApproval {
-  id: string;
-  userId: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  role: string;
-  approvalStatus: 'pending' | 'approved' | 'rejected';
-  submittedAt: string;
-  reviewNotes?: string;
-}
-
 interface SkillApproval {
   id: string;
   skill: VendorSkill;
@@ -33,12 +21,8 @@ interface SkillApproval {
   providedIn: 'root'
 })
 export class AdminService {
-  private userApprovalsSubject = new BehaviorSubject<ApiResponse<UserApproval[]>>({
-    success: true,
-    data: []
-  });
   private skillApprovalsSubject = new BehaviorSubject<ApiResponse<SkillApproval[]>>({
-    success: true,
+    success: false,
     data: []
   });
   private adminSkillsSubject = new BehaviorSubject<AdminSkill[]>([]);
@@ -60,7 +44,6 @@ export class AdminService {
   private transactionsSubject = new BehaviorSubject<TransactionData[]>([]);
   private applicationsSubject = new BehaviorSubject<any[]>([]);
 
-  userApprovals$ = this.userApprovalsSubject.asObservable();
   skillApprovals$ = this.skillApprovalsSubject.asObservable();
   adminSkills$ = this.adminSkillsSubject.asObservable();
   platformStats$ = this.platformStatsSubject.asObservable();
@@ -97,15 +80,6 @@ export class AdminService {
             totalPages: 0
           }
         });
-      })
-    );
-  }
-
-  getUserApprovals(page: number, limit: number): Observable<ApiResponse<UserApproval[]>> {
-    return this.apiService.get<ApiResponse<UserApproval[]>>(`/admin/user-approvals?page=${page}&limit=${limit}`).pipe(
-      map(response => {
-        this.userApprovalsSubject.next(response);
-        return response;
       })
     );
   }
@@ -187,12 +161,12 @@ export class AdminService {
     );
   }
 
-  approveUser(userId: string): Observable<ApiResponse<UserApproval>> {
-    return this.apiService.post<ApiResponse<UserApproval>>(`/admin/user-approvals/${userId}/approve`, {});
+  approveUser(userId: string): Observable<ApiResponse<any>> {
+    return this.apiService.put<ApiResponse<any>>(`/admin/users/${userId}/approve`, {});
   }
 
-  rejectUser(userId: string, notes: string): Observable<ApiResponse<UserApproval>> {
-    return this.apiService.post<ApiResponse<UserApproval>>(`/admin/user-approvals/${userId}/reject`, { notes });
+  rejectUser(userId: string, notes: string): Observable<ApiResponse<any>> {
+    return this.apiService.put<ApiResponse<any>>(`/admin/users/${userId}/reject`, { notes });
   }
 
   approveSkill(skillId: string): Observable<ApiResponse<SkillApproval>> {
@@ -201,6 +175,14 @@ export class AdminService {
 
   rejectSkill(skillId: string, notes: string): Observable<ApiResponse<SkillApproval>> {
     return this.apiService.post<ApiResponse<SkillApproval>>(`/admin/skill-approvals/${skillId}/reject`, { notes });
+  }
+
+  approveVendorSkill(skillId: string): Observable<ApiResponse<any>> {
+    return this.apiService.updateVendorSkillStatus(skillId, 'approved');
+  }
+
+  rejectVendorSkill(skillId: string, notes: string): Observable<ApiResponse<any>> {
+    return this.apiService.updateVendorSkillStatus(skillId, 'rejected', notes);
   }
 
   updateSkill(skillId: string, skill: Partial<AdminSkill>): Observable<AdminSkill> {
@@ -225,5 +207,9 @@ export class AdminService {
 
   addAdminSkill(skill: Omit<AdminSkill, 'id' | 'createdAt' | 'updatedAt'>): Observable<ApiResponse<AdminSkill>> {
     return this.apiService.post<ApiResponse<AdminSkill>>('/admin/skills', skill);
+  }
+
+  getUserProfile(userId: string): Observable<ApiResponse<any>> {
+    return this.apiService.get<ApiResponse<any>>(`/admin/users/${userId}/profile`);
   }
 }

@@ -136,7 +136,8 @@
           *ngIf="activeTab === 'skill-management'"
           [skills]="organizationSkills"
           [isLoading]="isLoading"
-          (openAddSkillModal)="showAddSkillModal = true">
+          (openAddSkillModal)="onOpenAddVendorSkillModal()"
+          (skillDeleted)="onVendorSkillDeleted($event)">
         </app-vendor-skill-management>
 
         <!-- User Management Tab -->
@@ -170,6 +171,14 @@
 
     <!-- Add Skill Modal -->
     <app-add-skill-modal *ngIf="showAddSkillModal" (close)="showAddSkillModal = false"></app-add-skill-modal>
+
+    <!-- Add Vendor Skill Modal -->
+    <app-add-vendor-skill-modal 
+      *ngIf="showAddVendorSkillModal" 
+      [isOpen]="showAddVendorSkillModal"
+      (closeModal)="onCloseAddVendorSkillModal()"
+      (skillAdded)="onVendorSkillAdded($event)">
+    </app-add-vendor-skill-modal>
 
     <!-- Apply Requirement Modal -->
     <app-apply-requirement-modal

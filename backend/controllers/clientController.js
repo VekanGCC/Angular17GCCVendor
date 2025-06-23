@@ -25,7 +25,6 @@ const getRegistrationStatus = asyncHandler(async (req, res, next) => {
       isRegistrationComplete: user.isRegistrationComplete,
       isEmailVerified: user.isEmailVerified,
       isPhoneVerified: user.isPhoneVerified,
-      isApproved: user.isApproved,
       completedSteps: {
         step1: true,
         step2: !!user.firstName && !!user.lastName && !!user.phone,
@@ -220,7 +219,26 @@ const getClientProfile = asyncHandler(async (req, res, next) => {
 
   res.status(200).json({
     success: true,
-    data: user
+    data: {
+      id: user._id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      userType: user.userType,
+      companyName: user.companyName,
+      contactPerson: user.contactPerson,
+      phone: user.phone,
+      gstNumber: user.gstNumber,
+      serviceType: user.serviceType,
+      numberOfRequirements: user.numberOfRequirements,
+      paymentTerms: user.paymentTerms,
+      businessInfo: user.businessInfo,
+      isActive: user.isActive,
+      isEmailVerified: user.isEmailVerified,
+      approvalStatus: user.approvalStatus,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt
+    }
   });
 });
 

@@ -1,16 +1,18 @@
 export interface VendorSkill {
-  id: string;
-  vendorId: string;
+  _id: string;
+  vendor: {
+    _id: string;
+    email: string;
+    companyName: string;
+    firstName: string;
+    lastName: string;
+  };
   skillName: string;
   category: string;
   description: string;
-  proficiencyLevel: string;
   yearsOfExperience: number;
-  certifications: string[];
+  proficiency: string;
   status: 'pending' | 'approved' | 'rejected';
-  submittedBy: string;
-  submittedAt: string;
-  reviewNotes?: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;

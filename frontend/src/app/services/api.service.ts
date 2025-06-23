@@ -574,6 +574,21 @@ export class ApiService {
     }
   }
 
+  deleteVendorSkill(id: string): Observable<any> {
+    console.log('🗑️ API: Deleting vendor niche skill:', id);
+    
+    if (this.useMockData) {
+      return of({ success: true }).pipe(delay(500));
+    } else {
+      return this.http.delete(`${this.apiUrl}/vendor/niche-skills/${id}`, this.getHttpOptions()).pipe(
+        catchError(error => {
+          console.error('❌ API: Delete vendor niche skill error:', error);
+          return of({ success: false, message: 'Error deleting vendor niche skill' });
+        })
+      );
+    }
+  }
+
   getPendingApprovals(): Observable<any> {
     console.log('⏳ API: Fetching pending approvals...');
     return this.get('/admin/approvals');

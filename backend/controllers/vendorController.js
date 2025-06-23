@@ -26,13 +26,12 @@ const getRegistrationStatus = asyncHandler(async (req, res, next) => {
       isRegistrationComplete: user.isRegistrationComplete,
       isEmailVerified: user.isEmailVerified,
       isPhoneVerified: user.isPhoneVerified,
-      isApproved: user.isApproved,
       completedSteps: {
-        step1: true, // Email, password, basic info
+        step1: true,
         step2: !!user.firstName && !!user.lastName && !!user.phone,
         step3: !!user.address?.street && !!user.address?.city,
-        step4: !!user.businessInfo?.companyName && !!user.businessInfo?.businessType,
-        step5: !!user.documents?.businessCertificate && !!user.documents?.insuranceCertificate
+        step4: !!user.preferences?.categories?.length,
+        step5: !!user.documents?.identificationDocument
       }
     }
   });
@@ -119,16 +118,23 @@ const saveStep = asyncHandler(async (req, res, next) => {
     switch (step) {
       case 3:
         // Address and Bank details
-        await UserAddress.findOneAndUpdate(
+        console.log('Vendor Step 3 - Received data:', data);
+        console.log('Vendor Step 3 - Address data:', data.address);
+        console.log('Vendor Step 3 - Bank data:', data.bankDetails);
+        
+        const addressResult = await UserAddress.findOneAndUpdate(
           { userId: user._id },
           { ...data.address, userId: user._id },
           { upsert: true, new: true }
         );
-        await UserBankDetails.findOneAndUpdate(
+        console.log('Vendor Step 3 - Address saved:', addressResult);
+        
+        const bankResult = await UserBankDetails.findOneAndUpdate(
           { userId: user._id },
           { ...data.bankDetails, userId: user._id },
           { upsert: true, new: true }
         );
+        console.log('Vendor Step 3 - Bank details saved:', bankResult);
         break;
       case 4:
         // Statutory and compliance details

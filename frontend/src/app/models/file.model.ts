@@ -17,7 +17,6 @@ export interface File {
   category: 'profile' | 'document' | 'certificate' | 'contract' | 'invoice' | 'other';
   description: string;
   isPublic: boolean;
-  isApproved: boolean;
   approvalStatus: 'pending' | 'approved' | 'rejected';
   approvalNotes?: string;
   approvedBy?: {

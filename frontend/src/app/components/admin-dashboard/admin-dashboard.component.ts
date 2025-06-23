@@ -8,7 +8,7 @@ import { AuthService } from '../../services/auth.service';
 import { AdminService } from '../../services/admin.service';
 import { AppService } from '../../services/app.service';
 import { VendorManagementService } from '../../services/vendor-management.service';
-import { AdminSkill, PlatformStats, TransactionData, UserApproval, SkillApproval } from '../../models/admin.model';
+import { AdminSkill, PlatformStats, TransactionData, SkillApproval } from '../../models/admin.model';
 import { VendorSkill } from '../../models/vendor-skill.model';
 import { User } from '../../models/user.model';
 import { Resource } from '../../models/resource.model';
@@ -18,6 +18,7 @@ import { Router } from '@angular/router';
 import { Observable, Subscription, firstValueFrom } from 'rxjs';
 import { PaginationComponent } from '../pagination/pagination.component';
 import { PaginationState } from '../../models/pagination.model';
+import { ApiService } from '../../services/api.service';
 
 interface ApiResponse<T> {
   success: boolean;
@@ -55,10 +56,9 @@ interface NavigationTab {
 export class AdminDashboardComponent implements OnInit, OnDestroy {
   currentUser: User | null = null;
   isLoading = false;
-  activeTab: 'overview' | 'user-approvals' | 'skill-approvals' | 'skills' | 'applications' | 'users' = 'overview';
+  activeTab: 'overview' | 'skill-approvals' | 'skills' | 'applications' | 'users' | 'user-profile' = 'overview';
   
   // Data
-  userApprovals: UserApproval[] = [];
   skillApprovals: SkillApproval[] = [];
   adminSkills: AdminSkill[] = [];
   platformStats: PlatformStats = {
@@ -88,17 +88,18 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
 
   // Modals
   showAddSkillModal = false;
-  showApprovalModal = false;
-  showRejectModal = false;
   showSkillApprovalModal = false;
   showSkillRejectModal = false;
-  selectedEntity: User | null = null;
   selectedVendorSkill: VendorSkill | null = null;
-  rejectNotes = '';
+  selectedUserForProfile: User | null = null;
+  selectedUserProfileData: any = null;
+  isProfileLoading = false;
+  activeProfileTab: 'personal' | 'addresses' | 'bank' | 'compliance' = 'personal';
   skillRejectNotes = '';
+  showProfileRejectModal = false;
+  profileRejectNotes = '';
 
   // Filters
-  approvalFilter = 'all';
   transactionFilter = 'all';
   skillFilter = 'all';
   skillApprovalFilter = 'all';
@@ -111,7 +112,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
 
   // Loading states
   loadingStates = {
-    userApprovals: false,
     skillApprovals: false,
     skills: false,
     stats: false,
@@ -123,11 +123,18 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   // Navigation
   navigationTabs: NavigationTab[] = [
     { id: 'overview', label: 'Overview', icon: 'home' },
-    { id: 'user-approvals', label: 'User Approvals', icon: 'user-check', badge: 0 },
-    { id: 'skill-approvals', label: 'Skill Approvals', icon: 'check-circle', badge: 0 },
+    { id: 'skill-approvals', label: 'Vendor Skill', icon: 'check-circle', badge: 0 },
     { id: 'skills', label: 'Skills', icon: 'list' },
     { id: 'applications', label: 'Applications', icon: 'file-text' },
     { id: 'users', label: 'Users', icon: 'users' }
+  ];
+
+  // Profile tab list
+  profileTabList: { value: 'personal' | 'addresses' | 'bank' | 'compliance', label: string }[] = [
+    { value: 'personal', label: 'Personal' },
+    { value: 'addresses', label: 'Addresses' },
+    { value: 'bank', label: 'Bank' },
+    { value: 'compliance', label: 'Compliance' }
   ];
 
   // Pagination states
@@ -168,7 +175,8 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     private adminService: AdminService,
     private appService: AppService,
     private vendorManagementService: VendorManagementService,
-    private router: Router
+    private router: Router,
+    private apiService: ApiService
   ) {}
 
   async ngOnInit(): Promise<void> {
@@ -182,33 +190,14 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
 
     // Check if user is admin
     if (user.userType !== 'admin') {
-      console.log('Admin Dashboard: User is not admin, redirecting to home');
-      this.router.navigate(['/']);
+      console.log('Admin Dashboard: User is not admin, redirecting to dashboard');
+      this.router.navigate(['/dashboard']);
       return;
     }
 
-    // Set current user and load data
     this.currentUser = user;
-    await this.loadDashboardData();
-
-    // Subscribe to auth state changes
-    this.authService.user$.subscribe(user => {
-      if (!user) {
-        this.router.navigate(['/login']);
-      } else if (user.userType !== 'admin') {
-        this.router.navigate(['/']);
-      } else {
-        this.currentUser = user;
-        this.loadDashboardData();
-      }
-    });
-
-    // Subscribe to loading state
-    this.authService.loading$.subscribe(isLoading => {
-      this.isLoading = isLoading;
-    });
-
     this.setupSubscriptions();
+    await this.loadDashboardData();
   }
 
   ngOnDestroy(): void {
@@ -216,49 +205,19 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   }
 
   private setupSubscriptions(): void {
-    // Subscribe to user approvals
-    this.subscriptions.push(
-      this.adminService.userApprovals$.subscribe(response => {
-        if (response.success) {
-          this.userApprovals = response.data;
-          this.totalPages = response.pagination?.totalPages || 1;
-        }
-      })
-    );
-
-    // Subscribe to skill approvals
-    this.subscriptions.push(
-      this.adminService.skillApprovals$.subscribe(response => {
-        if (response.success) {
-          this.skillApprovals = response.data;
-          this.totalPages = response.pagination?.totalPages || 1;
-        }
-      })
-    );
-
-    // Subscribe to admin skills
-    this.subscriptions.push(
-      this.adminService.adminSkills$.subscribe(skills => {
-        this.adminSkills = skills;
-      })
-    );
-
-    // Subscribe to platform stats
+    // Subscribe to real-time updates if needed
     this.subscriptions.push(
       this.adminService.platformStats$.subscribe(stats => {
         this.platformStats = stats;
-        console.log('Platform stats updated:', stats);
       })
     );
 
-    // Subscribe to transactions
     this.subscriptions.push(
       this.adminService.transactions$.subscribe(transactions => {
         this.transactions = transactions;
       })
     );
 
-    // Subscribe to applications
     this.subscriptions.push(
       this.adminService.applications$.subscribe(applications => {
         this.allApplications = applications;
@@ -267,60 +226,45 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   }
 
   private async loadDashboardData(): Promise<void> {
-    this.isLoading = true;
     try {
       await Promise.all([
-        this.loadUserApprovals(),
         this.loadSkillApprovals(),
         this.loadAdminSkills(),
         this.loadPlatformStats(),
+        this.loadTransactions(),
         this.loadApplications(),
         this.loadUsers()
       ]);
     } catch (error) {
       console.error('Error loading dashboard data:', error);
-    } finally {
-      this.isLoading = false;
-    }
-  }
-
-  private async loadUserApprovals(): Promise<void> {
-    this.loadingStates.userApprovals = true;
-    try {
-      const response = await firstValueFrom(
-        this.adminService.getUserApprovals(this.currentPage, this.itemsPerPage)
-      );
-      this.userApprovals = response.data;
-      if (response.pagination) {
-        this.totalItems = response.pagination.total;
-        this.totalPages = response.pagination.totalPages;
-      }
-      this.navigationTabs.find(tab => tab.id === 'user-approvals')!.badge = 
-        this.userApprovals.filter(a => a.approvalStatus === 'pending').length;
-    } catch (error) {
-      console.error('Error loading user approvals:', error);
-    } finally {
-      this.loadingStates.userApprovals = false;
     }
   }
 
   private async loadSkillApprovals(): Promise<void> {
     this.skillApprovalsPaginationState.isLoading = true;
     try {
+      // Load vendor skills instead of skill approvals
       const response = await firstValueFrom(
-        this.adminService.getSkillApprovals(this.skillApprovalsPaginationState.currentPage, this.skillApprovalsPaginationState.pageSize)
+        this.apiService.getVendorSkills()
       );
       if (response.success) {
-        this.skillApprovals = response.data;
-        console.log('Admin Dashboard: Skill approvals data length:', this.skillApprovals.length);
+        // Convert vendor skills to the format expected by the UI
+        this.skillApprovals = response.data.map((vendorSkill: VendorSkill) => ({
+          id: vendorSkill._id,
+          skill: vendorSkill,
+          status: vendorSkill.status,
+          submittedAt: vendorSkill.createdAt,
+          reviewNotes: ''
+        }));
+        console.log('Admin Dashboard: Vendor skills data length:', this.skillApprovals.length);
         
         // Check for pagination data
         const paginationData = response.pagination;
         if (paginationData) {
-          console.log('Admin Dashboard: Skill approvals pagination data:', paginationData);
+          console.log('Admin Dashboard: Vendor skills pagination data:', paginationData);
           this.updateSkillApprovalsPagination(paginationData);
         } else {
-          console.warn('Admin Dashboard: No pagination data in skill approvals response');
+          console.warn('Admin Dashboard: No pagination data in vendor skills response');
           // Fallback: calculate from data length
           this.updateSkillApprovalsPagination({
             page: this.skillApprovalsPaginationState.currentPage,
@@ -330,10 +274,10 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
           });
         }
       } else {
-        console.error('Admin Dashboard: Failed to load skill approvals:', response.message);
+        console.error('Admin Dashboard: Failed to load vendor skills:', response.message);
       }
     } catch (error) {
-      console.error('Admin Dashboard: Error loading skill approvals:', error);
+      console.error('Admin Dashboard: Error loading vendor skills:', error);
     } finally {
       this.skillApprovalsPaginationState.isLoading = false;
     }
@@ -457,7 +401,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     }
   }
 
-  setActiveTab(tab: 'overview' | 'user-approvals' | 'skill-approvals' | 'skills' | 'applications' | 'users'): void {
+  setActiveTab(tab: 'overview' | 'skill-approvals' | 'skills' | 'applications' | 'users' | 'user-profile'): void {
     this.activeTab = tab;
     
     // Reset pagination states when switching tabs
@@ -470,9 +414,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
 
   loadTabData(): void {
     switch (this.activeTab) {
-      case 'user-approvals':
-        this.loadUserApprovals();
-        break;
       case 'skill-approvals':
         this.loadSkillApprovals();
         break;
@@ -485,56 +426,10 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       case 'users':
         this.loadUsers();
         break;
+      default:
+        // Overview tab - data already loaded
+        break;
     }
-  }
-
-  // Approval Management
-  openApprovalModal(entity: User): void {
-    this.selectedEntity = entity;
-    this.showApprovalModal = true;
-  }
-
-  closeApprovalModal(): void {
-    this.showApprovalModal = false;
-    this.selectedEntity = null;
-  }
-
-  openRejectModal(entity: User): void {
-    this.selectedEntity = entity;
-    this.showRejectModal = true;
-    this.rejectNotes = '';
-  }
-
-  closeRejectModal(): void {
-    this.showRejectModal = false;
-    this.selectedEntity = null;
-    this.rejectNotes = '';
-  }
-
-  approveUser(userId: string): void {
-    const sub = this.adminService.approveUser(userId).subscribe({
-      next: () => {
-        this.loadUserApprovals();
-        this.loadPlatformStats();
-      },
-      error: (error) => {
-        console.error('Error approving user:', error);
-      }
-    });
-    this.subscriptions.push(sub);
-  }
-
-  rejectUser(userId: string, notes: string): void {
-    const sub = this.adminService.rejectUser(userId, notes).subscribe({
-      next: () => {
-        this.loadUserApprovals();
-        this.loadPlatformStats();
-      },
-      error: (error) => {
-        console.error('Error rejecting user:', error);
-      }
-    });
-    this.subscriptions.push(sub);
   }
 
   // Vendor Skill Approval Management
@@ -561,29 +456,54 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   }
 
   approveSkill(skillId: string): void {
-    const sub = this.adminService.approveSkill(skillId).subscribe({
-      next: () => {
-        this.loadSkillApprovals();
-        this.loadPlatformStats();
+    if (!this.selectedVendorSkill) return;
+    
+    this.adminService.approveVendorSkill(skillId).subscribe({
+      next: (response: any) => {
+        if (response.success) {
+          console.log('Vendor skill approved successfully:', response);
+          // Update local state
+          const skillIndex = this.skillApprovals.findIndex(s => s.id === skillId);
+          if (skillIndex !== -1) {
+            this.skillApprovals[skillIndex].status = 'approved';
+          }
+          this.closeSkillApprovalModal();
+          // Reload data
+          this.loadSkillApprovals();
+        } else {
+          console.error('Failed to approve vendor skill:', response.message);
+        }
       },
-      error: (error) => {
-        console.error('Error approving skill:', error);
+      error: (error: any) => {
+        console.error('Error approving vendor skill:', error);
       }
     });
-    this.subscriptions.push(sub);
   }
 
   rejectSkill(skillId: string, notes: string): void {
-    const sub = this.adminService.rejectSkill(skillId, notes).subscribe({
-      next: () => {
-        this.loadSkillApprovals();
-        this.loadPlatformStats();
+    if (!this.selectedVendorSkill) return;
+    
+    this.adminService.rejectVendorSkill(skillId, notes).subscribe({
+      next: (response: any) => {
+        if (response.success) {
+          console.log('Vendor skill rejected successfully:', response);
+          // Update local state
+          const skillIndex = this.skillApprovals.findIndex(s => s.id === skillId);
+          if (skillIndex !== -1) {
+            this.skillApprovals[skillIndex].status = 'rejected';
+            this.skillApprovals[skillIndex].reviewNotes = notes;
+          }
+          this.closeSkillRejectModal();
+          // Reload data
+          this.loadSkillApprovals();
+        } else {
+          console.error('Failed to reject vendor skill:', response.message);
+        }
       },
-      error: (error) => {
-        console.error('Error rejecting skill:', error);
+      error: (error: any) => {
+        console.error('Error rejecting vendor skill:', error);
       }
     });
-    this.subscriptions.push(sub);
   }
 
   // Skill Management
@@ -652,13 +572,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     return type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
   }
 
-  getFilteredApprovals(): UserApproval[] {
-    return this.userApprovals.filter(approval => {
-      if (this.approvalFilter === 'all') return true;
-      return approval.approvalStatus === this.approvalFilter;
-    });
-  }
-
   getFilteredTransactions(): TransactionData[] {
     if (this.transactionFilter === 'all') {
       return this.transactions;
@@ -682,7 +595,8 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
 
   getPaginatedItems<T>(items: T[]): T[] {
     const startIndex = (this.currentPage - 1) * this.itemsPerPage;
-    return items.slice(startIndex, startIndex + this.itemsPerPage);
+    const endIndex = startIndex + this.itemsPerPage;
+    return items.slice(startIndex, endIndex);
   }
 
   getTotalPages<T>(items: T[]): number {
@@ -690,32 +604,21 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   }
 
   onPageChange(page: number): void {
-    console.log('Admin Dashboard: Page change requested to:', page);
-    
-    // Validate page number
-    if (page < 1) {
-      console.warn('Admin Dashboard: Invalid page number requested:', page);
-      return;
-    }
-    
     this.currentPage = page;
     this.loadTabData();
   }
 
   onApplicationsPageChange(page: number): void {
-    console.log('Admin Dashboard: Applications page change to:', page);
     this.applicationsPaginationState.currentPage = page;
     this.loadApplications();
   }
 
   onUsersPageChange(page: number): void {
-    console.log('Admin Dashboard: Users page change to:', page);
     this.usersPaginationState.currentPage = page;
     this.loadUsers();
   }
 
   onSkillApprovalsPageChange(page: number): void {
-    console.log('Admin Dashboard: Skill approvals page change to:', page);
     this.skillApprovalsPaginationState.currentPage = page;
     this.loadSkillApprovals();
   }
@@ -725,99 +628,78 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   }
 
   getProficiencyClass(level: string): string {
-    switch (level) {
-      case 'expert':
-        return 'bg-purple-100 text-purple-800';
-      case 'advanced':
-        return 'bg-blue-100 text-blue-800';
-      case 'intermediate':
-        return 'bg-green-100 text-green-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
+    const classes: { [key: string]: string } = {
+      beginner: 'text-green-600 bg-green-100',
+      intermediate: 'text-yellow-600 bg-yellow-100',
+      advanced: 'text-blue-600 bg-blue-100',
+      expert: 'text-purple-600 bg-purple-100'
+    };
+    return classes[level] || 'text-gray-600 bg-gray-100';
   }
 
   getVendorName(vendorId: string): string {
-    const user = this.allUsers.find(u => u._id === vendorId);
-    if (!user) return 'Unknown Vendor';
-    return user.businessInfo?.companyName || 'Unknown Vendor';
+    const vendor = this.allUsers.find(user => user._id === vendorId);
+    return vendor ? `${vendor.firstName} ${vendor.lastName}` : 'Unknown Vendor';
   }
 
-  // Helper methods for user management
   getUserResourceCount(user: User): number {
-    return this.allResources.filter(r => r.vendorId === user._id).length;
+    return this.allResources.filter(resource => resource.createdBy === user._id).length;
   }
 
   getUserRequirementCount(user: User): number {
-    return this.allRequirements.filter(r => r.clientId === user._id).length;
+    return this.allRequirements.filter(requirement => requirement.createdBy === user._id).length;
   }
 
   getUserVendorApplicationCount(user: User): number {
-    return this.allApplications.filter(a => a.vendorId === user._id).length;
+    return this.allApplications.filter(app => app.createdBy === user._id && app.appliedBy === 'vendor').length;
   }
 
   getUserClientApplicationCount(user: User): number {
-    return this.allApplications.filter(a => a.clientId === user._id).length;
+    return this.allApplications.filter(app => app.createdBy === user._id && app.appliedBy === 'client').length;
   }
 
-  // Stats calculations
   getGrowthPercentage(current: number, previous: number): number {
-    if (previous === 0) return 0;
-    return ((current - previous) / previous) * 100;
+    if (previous === 0) return current > 0 ? 100 : 0;
+    return Math.round(((current - previous) / previous) * 100);
   }
 
   isGrowthPositive(growth: number): boolean {
-    return growth > 0;
-  }
-
-  // Check if reject notes are valid
-  isRejectNotesValid(): boolean {
-    return this.rejectNotes.trim().length > 0;
+    return growth >= 0;
   }
 
   isSkillRejectNotesValid(): boolean {
-    return this.skillRejectNotes.trim().length > 0;
+    return this.skillRejectNotes.trim().length >= 10;
   }
 
-  // Helper method to get pending vendor skills for template
   getPendingVendorSkills(): VendorSkill[] {
-    return this.skillApprovals.map(a => a.skill).slice(0, 5);
+    return this.skillApprovals.filter(a => a.status === 'pending').map(a => a.skill);
   }
 
-  // Helper method to check if pending vendor skills exist
   hasPendingVendorSkills(): boolean {
-    return this.skillApprovals.length > 0;
+    return this.skillApprovals.some(a => a.status === 'pending');
   }
 
   getUserTypeColor(userType: string): string {
-    switch (userType) {
-      case 'vendor':
-        return 'bg-blue-100 text-blue-600';
-      case 'client':
-        return 'bg-green-100 text-green-600';
-      default:
-        return 'bg-gray-100 text-gray-600';
-    }
+    const colors: { [key: string]: string } = {
+      vendor: 'text-blue-600 bg-blue-100',
+      client: 'text-purple-600 bg-purple-100',
+      admin: 'text-red-600 bg-red-100'
+    };
+    return colors[userType] || 'text-gray-600 bg-gray-100';
   }
 
   getUserTypeIcon(userType: string): string {
-    switch (userType) {
-      case 'vendor':
-        return 'store';
-      case 'client':
-        return 'user';
-      default:
-        return 'user';
-    }
+    const icons: { [key: string]: string } = {
+      vendor: 'package',
+      client: 'target',
+      admin: 'shield'
+    };
+    return icons[userType] || 'user';
   }
 
   onFilterChange(): void {
-    // Reset pagination states when filters change
-    this.applicationsPaginationState.currentPage = 1;
-    this.usersPaginationState.currentPage = 1;
-    this.skillApprovalsPaginationState.currentPage = 1;
-    
-    this.loadTabData();
+    // Trigger re-render of filtered data
+    // This is handled by getters in the template
   }
 
   editSkill(skill: AdminSkill): void {
@@ -826,8 +708,35 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   }
 
   editUser(user: User): void {
-    // TODO: Implement user editing
-    console.log('Edit user:', user);
+    this.selectedUserForProfile = user;
+    this.activeTab = 'user-profile';
+    this.loadUserProfileData(user._id);
+  }
+
+  private loadUserProfileData(userId: string): void {
+    this.isProfileLoading = true;
+    this.subscriptions.push(
+      this.adminService.getUserProfile(userId).subscribe({
+        next: (response) => {
+          if (response.success) {
+            this.selectedUserProfileData = response.data;
+          } else {
+            console.error('Failed to load user profile:', response.message);
+          }
+          this.isProfileLoading = false;
+        },
+        error: (error) => {
+          console.error('Error loading user profile:', error);
+          this.isProfileLoading = false;
+        }
+      })
+    );
+  }
+
+  backToUsers(): void {
+    this.selectedUserForProfile = null;
+    this.selectedUserProfileData = null;
+    this.activeTab = 'users';
   }
 
   toggleUserStatus(user: User): void {
@@ -836,17 +745,8 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   }
 
   // Computed properties for template bindings
-  get pendingUserApprovalsCount(): number {
-    return this.userApprovals.filter(a => a.approvalStatus === 'pending').length;
-  }
-
   get pendingSkillApprovalsCount(): number {
     return this.skillApprovals.filter(a => a.status === 'pending').length;
-  }
-
-  get filteredUserApprovals(): UserApproval[] {
-    if (this.approvalFilter === 'all') return this.userApprovals;
-    return this.userApprovals.filter(a => a.approvalStatus === this.approvalFilter);
   }
 
   get filteredSkillApprovals(): SkillApproval[] {
@@ -909,5 +809,81 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     this.skillApprovalsPaginationState.totalPages = paginationData.pages;
     this.skillApprovalsPaginationState.hasNextPage = paginationData.hasNextPage;
     this.skillApprovalsPaginationState.hasPreviousPage = paginationData.hasPreviousPage;
+  }
+
+  setActiveProfileTab(tab: 'personal' | 'addresses' | 'bank' | 'compliance'): void {
+    this.activeProfileTab = tab;
+  }
+
+  isVendorProfile(): boolean {
+    return this.selectedUserForProfile?.userType === 'vendor';
+  }
+
+  getDefaultAddress(): any {
+    return this.selectedUserProfileData?.addresses?.find((addr: any) => addr.isDefault) || null;
+  }
+
+  approveUserFromProfile(user: User): void {
+    if (!user || !user._id) {
+      console.error('Invalid user data');
+      return;
+    }
+
+    this.subscriptions.push(
+      this.adminService.approveUser(user._id).subscribe({
+        next: (response) => {
+          if (response.success) {
+            // Update the user's approval status in the profile
+            if (this.selectedUserForProfile) {
+              this.selectedUserForProfile.approvalStatus = 'approved';
+            }
+            // Refresh the profile data
+            this.loadUserProfileData(user._id);
+            // Show success message (you can add a toast notification here)
+            console.log('User approved successfully');
+          } else {
+            console.error('Failed to approve user:', response.message);
+          }
+        },
+        error: (error) => {
+          console.error('Error approving user:', error);
+        }
+      })
+    );
+  }
+
+  openRejectModalFromProfile(user: User): void {
+    this.showProfileRejectModal = true;
+    this.profileRejectNotes = '';
+  }
+
+  closeRejectModalFromProfile(): void {
+    this.showProfileRejectModal = false;
+    this.profileRejectNotes = '';
+  }
+
+  rejectUserFromProfile(user: User, notes: string): void {
+    if (!user || !user._id || !notes.trim()) {
+      return;
+    }
+    this.subscriptions.push(
+      this.adminService.rejectUser(user._id, notes).subscribe({
+        next: (response) => {
+          if (response.success) {
+            if (this.selectedUserForProfile) {
+              this.selectedUserForProfile.approvalStatus = 'rejected';
+            }
+            this.loadUserProfileData(user._id);
+            this.closeRejectModalFromProfile();
+            console.log('User rejected successfully');
+          } else {
+            console.error('Failed to reject user:', response.message);
+          }
+        },
+        error: (error) => {
+          console.error('Error rejecting user:', error);
+        }
+      })
+    );
   }
 }

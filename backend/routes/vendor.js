@@ -8,6 +8,7 @@ const {
   updateVendorProfile
 } = require('../controllers/vendorController');
 const { protect } = require('../middleware/auth');
+const { validateVendorStep3 } = require('../validation/vendorValidation');
 
 // Registration routes
 router.post('/create', saveStep);

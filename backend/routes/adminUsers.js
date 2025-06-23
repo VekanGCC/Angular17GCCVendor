@@ -6,7 +6,8 @@ const {
   updateUser,
   toggleUserStatus,
   approveUser,
-  resetUserPassword
+  resetUserPassword,
+  getUserProfile
 } = require('../controllers/adminUserController');
 const { protect, authorize } = require('../middleware/auth');
 
@@ -16,6 +17,7 @@ router.use(authorize('admin', 'superadmin'));
 
 // User management routes
 router.get('/all', getAllUsers);
+router.get('/:id/profile', getUserProfile);
 router.get('/all/:id', getUserById);
 router.put('/all/:id', updateUser);
 router.put('/all/:id/toggle-status', toggleUserStatus);

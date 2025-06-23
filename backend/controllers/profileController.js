@@ -36,14 +36,11 @@ const getProfile = asyncHandler(async (req, res, next) => {
 const updateProfile = asyncHandler(async (req, res, next) => {
   const fieldsToUpdate = req.body;
 
-  // Remove sensitive fields that shouldn't be updated through this endpoint
+  // Prevent updating sensitive fields
   delete fieldsToUpdate.password;
+  delete fieldsToUpdate.role;
   delete fieldsToUpdate.email;
-  delete fieldsToUpdate.userType;
-  delete fieldsToUpdate.isEmailVerified;
-  delete fieldsToUpdate.isPhoneVerified;
-  delete fieldsToUpdate.isActive;
-  delete fieldsToUpdate.isApproved;
+  delete fieldsToUpdate.approvalStatus;
 
   const user = await User.findByIdAndUpdate(req.user.id, fieldsToUpdate, {
     new: true,
