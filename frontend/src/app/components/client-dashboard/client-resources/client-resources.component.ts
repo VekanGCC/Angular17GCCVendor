@@ -54,7 +54,7 @@ export class ClientResourcesComponent implements OnInit, OnChanges, OnDestroy {
 
   // Search and filter properties
   searchTerm = '';
-  selectedSkills: string[] = [];
+  selectedSkillIds: string[] = [];
   skillLogic: 'AND' | 'OR' = 'OR';
   minExperience = '';
   maxExperience = '';
@@ -343,36 +343,36 @@ export class ClientResourcesComponent implements OnInit, OnChanges, OnDestroy {
     this.showSkillsDropdown = !this.showSkillsDropdown;
   }
 
-  toggleSkill(skillName: string): void {
-    const index = this.selectedSkills.indexOf(skillName);
+  toggleSkill(skillId: string): void {
+    const index = this.selectedSkillIds.indexOf(skillId);
     if (index > -1) {
-      this.selectedSkills.splice(index, 1);
+      this.selectedSkillIds.splice(index, 1);
     } else {
-      this.selectedSkills.push(skillName);
+      this.selectedSkillIds.push(skillId);
     }
     this.onSkillsChange();
   }
 
-  isSkillSelected(skillName: string): boolean {
-    return this.selectedSkills.includes(skillName);
+  isSkillSelected(skillId: string): boolean {
+    return this.selectedSkillIds.includes(skillId);
   }
 
   isAllSkillsSelected(): boolean {
-    return this.availableSkills.length > 0 && this.selectedSkills.length === this.availableSkills.length;
+    return this.availableSkills.length > 0 && this.selectedSkillIds.length === this.availableSkills.length;
   }
 
   toggleAllSkills(): void {
     if (this.isAllSkillsSelected()) {
-      this.selectedSkills = [];
+      this.selectedSkillIds = [];
     } else {
-      this.selectedSkills = this.availableSkills.map(skill => skill.name);
+      this.selectedSkillIds = this.availableSkills.map(skill => skill._id);
     }
     this.onSkillsChange();
   }
 
   clearFilters(): void {
     this.searchTerm = '';
-    this.selectedSkills = [];
+    this.selectedSkillIds = [];
     this.minExperience = '';
     this.maxExperience = '';
     this.minRate = '';
@@ -386,8 +386,8 @@ export class ClientResourcesComponent implements OnInit, OnChanges, OnDestroy {
     this.onSearchChange();
   }
 
-  removeSkill(skill: string): void {
-    this.selectedSkills = this.selectedSkills.filter(s => s !== skill);
+  removeSkill(skillId: string): void {
+    this.selectedSkillIds = this.selectedSkillIds.filter(s => s !== skillId);
     this.onSkillsChange();
   }
 
@@ -403,19 +403,26 @@ export class ClientResourcesComponent implements OnInit, OnChanges, OnDestroy {
     this.onRateChange();
   }
 
+  // Helper method to get skill name by ID
+  getSkillNameById(skillId: string): string {
+    const skill = this.availableSkills.find(s => s._id === skillId);
+    return skill ? skill.name : skillId;
+  }
+
   private emitSearchChange(): void {
-    let skillsParam: string | undefined = undefined;
-    if (this.selectedSkills.length > 0) {
-      skillsParam = this.selectedSkills.join(',') + ':' + this.skillLogic;
-    }
-    const searchParams: { [key: string]: string | undefined } = {
+    const searchParams: { [key: string]: string | string[] | undefined } = {
       search: this.searchTerm,
-      skills: skillsParam,
       minExperience: this.minExperience || undefined,
       maxExperience: this.maxExperience || undefined,
       minRate: this.minRate || undefined,
       maxRate: this.maxRate || undefined
     };
+
+    // Handle skills parameter - send as array of IDs
+    if (this.selectedSkillIds.length > 0) {
+      searchParams['skills'] = this.selectedSkillIds;
+      searchParams['skillLogic'] = this.skillLogic;
+    }
 
     // Remove undefined values
     Object.keys(searchParams).forEach(key => {
@@ -432,7 +439,7 @@ export class ClientResourcesComponent implements OnInit, OnChanges, OnDestroy {
   hasActiveFilters(): boolean {
     return !!(
       this.searchTerm ||
-      this.selectedSkills.length > 0 ||
+      this.selectedSkillIds.length > 0 ||
       this.minExperience ||
       this.maxExperience ||
       this.minRate ||

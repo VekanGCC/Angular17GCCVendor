@@ -159,6 +159,11 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
   // Resource Modal handlers
   resourceToEdit: Resource | null = null;
 
+  // Search and filter state for requirements
+  requirementsSearchParams: any = {};
+  requirementsSortBy: string = 'createdAt';
+  requirementsSortOrder: 'asc' | 'desc' = 'desc';
+
   constructor(
     private authService: AuthService,
     private appService: AppService,
@@ -371,29 +376,7 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
   }
 
   private async loadVendorRequirements(page: number = 1): Promise<void> {
-    try {
-      this.requirementsPaginationState.isLoading = true;
-      const params: PaginationParams = {
-        page,
-        limit: this.requirementsPaginationState.pageSize,
-        sortBy: 'createdAt',
-        sortOrder: 'desc'
-      };
-      
-      const response = await this.apiService.getRequirements(params).toPromise();
-      if (response && response.success && response.data) {
-        this.requirements = response.data;
-        const paginationData = response.meta || response.pagination;
-        if (paginationData) {
-          this.updateRequirementsPagination(paginationData);
-        }
-      }
-    } catch (error) {
-      console.error('Error loading vendor requirements:', error);
-    } finally {
-      this.requirementsPaginationState.isLoading = false;
-      this.changeDetectorRef.detectChanges();
-    }
+    this.loadVendorRequirementsWithFiltersAndSort(page, this.requirementsSortBy, this.requirementsSortOrder, this.requirementsSearchParams);
   }
 
   private async loadVendorSkills(): Promise<void> {
@@ -458,7 +441,7 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
   }
 
   onRequirementsPageChange(page: number): void {
-    this.loadVendorRequirements(page);
+    this.loadVendorRequirementsWithFiltersAndSort(page, this.requirementsSortBy, this.requirementsSortOrder, this.requirementsSearchParams);
   }
 
   // Sort change event handlers
@@ -469,7 +452,15 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
 
   onRequirementsSortChange(sortData: {sortBy: string, sortOrder: 'asc' | 'desc'}): void {
     console.log('🔧 VendorDashboard: Requirements sort changed:', sortData);
-    this.loadVendorRequirementsWithSort(1, sortData.sortBy, sortData.sortOrder);
+    this.requirementsSortBy = sortData.sortBy;
+    this.requirementsSortOrder = sortData.sortOrder;
+    this.loadVendorRequirementsWithFiltersAndSort(1, sortData.sortBy, sortData.sortOrder, this.requirementsSearchParams);
+  }
+
+  onRequirementsSearchChange(params: any): void {
+    console.log('🔧 VendorDashboard: Requirements search changed:', params);
+    this.requirementsSearchParams = params;
+    this.loadVendorRequirementsWithFiltersAndSort(1, this.requirementsSortBy, this.requirementsSortOrder, params);
   }
 
   onApplicationsSortChange(sortData: {sortBy: string, sortOrder: 'asc' | 'desc'}): void {
@@ -620,7 +611,7 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
     if (tabId === 'applications') {
       this.loadVendorApplications();
     } else if (tabId === 'requirements') {
-      this.loadVendorRequirements();
+      this.loadVendorRequirementsWithFiltersAndSort(1, this.requirementsSortBy, this.requirementsSortOrder, this.requirementsSearchParams);
     } else if (tabId === 'resources') {
       this.loadVendorResources();
     }
@@ -1027,5 +1018,33 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
     // Remove from local array
     this.vendorSkills = this.vendorSkills.filter(skill => skill._id !== skillId);
     this.organizationSkills = this.organizationSkills.filter(skill => skill._id !== skillId);
+  }
+
+  private async loadVendorRequirementsWithFiltersAndSort(page: number, sortBy: string, sortOrder: 'asc' | 'desc', searchParams: any): Promise<void> {
+    try {
+      this.requirementsPaginationState.isLoading = true;
+      const params: PaginationParams = {
+        page,
+        limit: this.requirementsPaginationState.pageSize,
+        sortBy,
+        sortOrder,
+        ...searchParams
+      };
+      
+      console.log('🔧 VendorDashboard: Loading vendor requirements with filters and sort params:', params);
+      const response = await this.apiService.getRequirements(params).toPromise();
+      if (response && response.success && response.data) {
+        this.requirements = response.data;
+        const paginationData = response.meta || response.pagination;
+        if (paginationData) {
+          this.updateRequirementsPagination(paginationData);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading vendor requirements with filters and sort:', error);
+    } finally {
+      this.requirementsPaginationState.isLoading = false;
+      this.changeDetectorRef.detectChanges();
+    }
   }
 }

@@ -56,8 +56,8 @@
                 [class.border-blue-500]="showSkillsDropdown"
                 [class.ring-2]="showSkillsDropdown"
                 [class.ring-blue-500]="showSkillsDropdown">
-                <span class="text-sm" [class.text-gray-500]="selectedSkills.length === 0">
-                  {{ selectedSkills.length === 0 ? 'Select skills' : selectedSkills.length + ' skill(s) selected' }}
+                <span class="text-sm" [class.text-gray-500]="selectedSkillIds.length === 0">
+                  {{ selectedSkillIds.length === 0 ? 'Select skills' : selectedSkillIds.length + ' skill(s) selected' }}
                 </span>
                 <img 
                   [src]="icons.chevronDown" 
@@ -88,12 +88,12 @@
                   <div 
                     *ngFor="let skill of availableSkills" 
                     class="flex items-center px-2 py-1 hover:bg-gray-50 rounded cursor-pointer"
-                    (click)="toggleSkill(skill.name)">
+                    (click)="toggleSkill(skill._id)">
                     <input
                       type="checkbox"
-                      [checked]="isSkillSelected(skill.name)"
+                      [checked]="isSkillSelected(skill._id)"
                       (click)="$event.stopPropagation()"
-                      (change)="toggleSkill(skill.name)"
+                      (change)="toggleSkill(skill._id)"
                       class="rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-2">
                     <span class="text-sm text-gray-900">{{skill.name}}</span>
                   </div>
@@ -184,9 +184,9 @@
                   <img [src]="icons.x" class="w-3 h-3" alt="remove">
                 </button>
               </div>
-              <div *ngFor="let skill of selectedSkills" class="flex items-center justify-between text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
-                <span>Skill: {{skill}}</span>
-                <button (click)="removeSkill(skill)" class="text-green-600 hover:text-green-800">
+              <div *ngFor="let skillId of selectedSkillIds" class="flex items-center justify-between text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                <span>Skill: {{getSkillNameById(skillId)}}</span>
+                <button (click)="removeSkill(skillId)" class="text-green-600 hover:text-green-800">
                   <img [src]="icons.x" class="w-3 h-3" alt="remove">
                 </button>
               </div>

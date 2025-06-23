@@ -45,11 +45,27 @@ export class ApiService {
     if (params.clientId) httpParams = httpParams.set('clientId', params.clientId);
     
     // New search parameters for resources
-    if (params.skills) httpParams = httpParams.set('skills', params.skills);
+    if (params.skills) {
+      // Handle skills as array - add each skill ID as a separate parameter
+      if (Array.isArray(params.skills)) {
+        params.skills.forEach(skillId => {
+          httpParams = httpParams.append('skills', skillId);
+        });
+      } else {
+        httpParams = httpParams.set('skills', params.skills);
+      }
+    }
+    if (params.skillLogic) httpParams = httpParams.set('skillLogic', params.skillLogic);
     if (params.minExperience) httpParams = httpParams.set('minExperience', params.minExperience);
     if (params.maxExperience) httpParams = httpParams.set('maxExperience', params.maxExperience);
     if (params.minRate) httpParams = httpParams.set('minRate', params.minRate);
     if (params.maxRate) httpParams = httpParams.set('maxRate', params.maxRate);
+    
+    // New search parameters for requirements
+    if (params.minBudget) httpParams = httpParams.set('minBudget', params.minBudget);
+    if (params.maxBudget) httpParams = httpParams.set('maxBudget', params.maxBudget);
+    if (params.minDuration) httpParams = httpParams.set('minDuration', params.minDuration);
+    if (params.maxDuration) httpParams = httpParams.set('maxDuration', params.maxDuration);
     
     console.log('🔧 API: Built HTTP params:', httpParams.toString());
     return httpParams;

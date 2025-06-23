@@ -15,8 +15,16 @@ const getRequirements = asyncHandler(async (req, res, next) => {
     search,
     status,
     priority,
-    category
+    category,
+    skills,
+    skillLogic,
+    minBudget,
+    maxBudget,
+    minDuration,
+    maxDuration
   } = req.query;
+
+  console.log('🔧 RequirementController: Query parameters received:', req.query);
 
   // Build query
   let query = {};
@@ -44,6 +52,48 @@ const getRequirements = asyncHandler(async (req, res, next) => {
   if (category) {
     query.category = category;
   }
+
+  if (skills) {
+    // Handle skills as array or single skill
+    const skillsArray = Array.isArray(skills) ? skills : [skills];
+    // Filter out any empty values and ensure we have valid ObjectIds
+    const validSkillIds = skillsArray.filter(skillId => skillId && skillId.trim() !== '');
+    if (validSkillIds.length > 0) {
+      const logic = skillLogic || 'OR';
+      
+      if (logic === 'AND') {
+        // For AND logic, use $all to ensure ALL skills are present
+        query.skills = { $all: validSkillIds };
+      } else {
+        // For OR logic (default), use $in to match ANY of the skills
+        query.skills = { $in: validSkillIds };
+      }
+    }
+  }
+
+  // Search by budget range
+  if (minBudget || maxBudget) {
+    query['budget.charge'] = {};
+    if (minBudget) {
+      query['budget.charge'].$gte = parseInt(minBudget);
+    }
+    if (maxBudget) {
+      query['budget.charge'].$lte = parseInt(maxBudget);
+    }
+  }
+
+  // Search by duration range
+  if (minDuration || maxDuration) {
+    query.duration = {};
+    if (minDuration) {
+      query.duration.$gte = parseInt(minDuration);
+    }
+    if (maxDuration) {
+      query.duration.$lte = parseInt(maxDuration);
+    }
+  }
+
+  console.log('🔧 RequirementController: Final query:', JSON.stringify(query, null, 2));
 
   // Execute query with pagination
   const requirements = await Requirement.find(query)
@@ -90,6 +140,8 @@ const getRequirements = asyncHandler(async (req, res, next) => {
   }
 
   const total = await Requirement.countDocuments(query);
+
+  console.log('🔧 RequirementController: Found', requirements.length, 'requirements out of', total, 'total');
 
   res.status(200).json(
     ApiResponse.success(

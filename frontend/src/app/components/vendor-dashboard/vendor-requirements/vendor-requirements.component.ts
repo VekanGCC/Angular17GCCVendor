@@ -31,6 +31,7 @@ export class VendorRequirementsComponent implements OnInit, OnChanges, OnDestroy
   @Output() applyResources = new EventEmitter<string>();
   @Output() pageChange = new EventEmitter<number>();
   @Output() sortChange = new EventEmitter<{sortBy: string, sortOrder: 'asc' | 'desc'}>();
+  @Output() searchChange = new EventEmitter<any>();
 
   icons = {
     search: 'assets/icons/lucide/lucide/search.svg',
@@ -45,7 +46,7 @@ export class VendorRequirementsComponent implements OnInit, OnChanges, OnDestroy
 
   // Search and filter properties
   searchTerm = '';
-  selectedSkills: string[] = [];
+  selectedSkillIds: string[] = [];
   skillLogic: 'AND' | 'OR' = 'OR';
   minBudget = '';
   maxBudget = '';
@@ -73,68 +74,39 @@ export class VendorRequirementsComponent implements OnInit, OnChanges, OnDestroy
         `;
       }
     },
-   /* { 
+    {
       headerName: 'Skills', 
       field: 'skills', 
       flex: 1,
-      sortable: true,
+      sortable: false,
+      filter: false,
       cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       valueGetter: (params: any) => {
-        // Sort by the first skill in the array
         const skills = params.data.skills || [];
-        return skills.length > 0 ? skills[0] : '';
+        return skills.length > 0 ? skills[0].name : '';
       },
       cellRenderer: (params: any) => {
         const skills = params.data.skills || [];
-        if (skills.length === 0) return '<span class="text-xs text-gray-500 italic">None</span>';
-        
-        const displaySkills = skills.slice(0, 2);
+        if (skills.length === 0) {
+          return '<span class="text-xs text-gray-500 italic">None</span>';
+        }
+
+        const displaySkills = skills.slice(0, 2); // Show only first 2
         const remainingCount = skills.length - 2;
-        
-        let html = '<div class="flex flex-wrap gap-1 justify-start">';
-        displaySkills.forEach((skill: string) => {
-          html += `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">${skill}</span>`;
+
+        let html = '<div class="flex flex-wrap gap-1 items-center">';
+        displaySkills.forEach((skill: any) => {
+          html += `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">${skill.name}</span>`;
         });
+
         if (remainingCount > 0) {
           html += `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">+${remainingCount}</span>`;
         }
+
         html += '</div>';
         return html;
       }
-    },*/ {
-  headerName: 'Skills', 
-  field: 'skills', 
-  flex: 1,
-  sortable: false,
-  filter: false,
-  cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
-  valueGetter: (params: any) => {
-    const skills = params.data.skills || [];
-    return skills.length > 0 ? skills[0].name : '';
-  },
-  cellRenderer: (params: any) => {
-    const skills = params.data.skills || [];
-    if (skills.length === 0) {
-      return '<span class="text-xs text-gray-500 italic">None</span>';
-    }
-
-    const displaySkills = skills.slice(0, 2); // Show only first 2
-    const remainingCount = skills.length - 2;
-
-    let html = '<div class="flex flex-wrap gap-1 items-center">';
-    displaySkills.forEach((skill: any) => {
-      html += `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">${skill.name}</span>`;
-    });
-
-    if (remainingCount > 0) {
-      html += `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">+${remainingCount}</span>`;
-    }
-
-    html += '</div>';
-    return html;
-  }
-}
-,
+    },
     { 
       headerName: 'Budget', 
       field: 'budget.charge', 
@@ -326,54 +298,51 @@ export class VendorRequirementsComponent implements OnInit, OnChanges, OnDestroy
     this.changeDetectorRef.detectChanges();
   }
 
-  toggleSkill(skillName: string): void {
-    const index = this.selectedSkills.indexOf(skillName);
+  toggleSkill(skillId: string): void {
+    const index = this.selectedSkillIds.indexOf(skillId);
     if (index > -1) {
-      this.selectedSkills.splice(index, 1);
+      this.selectedSkillIds.splice(index, 1);
     } else {
-      this.selectedSkills.push(skillName);
+      this.selectedSkillIds.push(skillId);
     }
     this.onSkillsChange();
-    this.changeDetectorRef.detectChanges();
   }
 
-  isSkillSelected(skillName: string): boolean {
-    return this.selectedSkills.includes(skillName);
+  isSkillSelected(skillId: string): boolean {
+    return this.selectedSkillIds.includes(skillId);
   }
 
   isAllSkillsSelected(): boolean {
-    return this.availableSkills.length > 0 && this.selectedSkills.length === this.availableSkills.length;
+    return this.availableSkills.length > 0 && this.selectedSkillIds.length === this.availableSkills.length;
   }
 
   toggleAllSkills(): void {
     if (this.isAllSkillsSelected()) {
-      this.selectedSkills = [];
+      this.selectedSkillIds = [];
     } else {
-      this.selectedSkills = this.availableSkills.map(skill => skill.name);
+      this.selectedSkillIds = this.availableSkills.map(skill => skill._id);
     }
     this.onSkillsChange();
-    this.changeDetectorRef.detectChanges();
   }
 
   clearFilters(): void {
     this.searchTerm = '';
-    this.selectedSkills = [];
+    this.selectedSkillIds = [];
     this.minBudget = '';
     this.maxBudget = '';
     this.minDuration = '';
     this.maxDuration = '';
     this.emitSearchChange();
-    this.changeDetectorRef.detectChanges();
   }
 
   removeSearchTerm(): void {
     this.searchTerm = '';
-    this.emitSearchChange();
+    this.onSearchChange();
   }
 
-  removeSkill(skill: string): void {
-    this.selectedSkills = this.selectedSkills.filter(s => s !== skill);
-    this.emitSearchChange();
+  removeSkill(skillId: string): void {
+    this.selectedSkillIds = this.selectedSkillIds.filter(s => s !== skillId);
+    this.onSkillsChange();
   }
 
   removeBudgetFilter(): void {
@@ -389,36 +358,35 @@ export class VendorRequirementsComponent implements OnInit, OnChanges, OnDestroy
   }
 
   private emitSearchChange(): void {
-    const searchParams: any = {};
+    const searchParams: { [key: string]: string | string[] | undefined } = {
+      search: this.searchTerm,
+      minBudget: this.minBudget || undefined,
+      maxBudget: this.maxBudget || undefined,
+      minDuration: this.minDuration || undefined,
+      maxDuration: this.maxDuration || undefined
+    };
 
-    if (this.searchTerm.trim()) {
-      searchParams.search = this.searchTerm.trim();
+    // Handle skills parameter - send as array of IDs
+    if (this.selectedSkillIds.length > 0) {
+      searchParams['skills'] = this.selectedSkillIds;
+      searchParams['skillLogic'] = this.skillLogic;
     }
 
-    if (this.selectedSkills.length > 0) {
-      searchParams.skills = this.selectedSkills;
-      searchParams.skillLogic = this.skillLogic;
-    }
+    // Remove undefined values
+    Object.keys(searchParams).forEach(key => {
+      if (searchParams[key] === undefined) {
+        delete searchParams[key];
+      }
+    });
 
-    if (this.minBudget || this.maxBudget) {
-      searchParams.minBudget = this.minBudget;
-      searchParams.maxBudget = this.maxBudget;
-    }
-
-    if (this.minDuration || this.maxDuration) {
-      searchParams.minDuration = this.minDuration;
-      searchParams.maxDuration = this.maxDuration;
-    }
-
-    console.log('🔧 VendorRequirementsComponent: Emitting search change:', searchParams);
-    // Note: We'll need to implement the search functionality in the parent component
-    // For now, we'll just log the search parameters
+    console.log('🔧 VendorRequirementsComponent: Emitting search change with params:', searchParams);
+    this.searchChange.emit(searchParams);
   }
 
   hasActiveFilters(): boolean {
     return !!(
-      this.searchTerm.trim() ||
-      this.selectedSkills.length > 0 ||
+      this.searchTerm ||
+      this.selectedSkillIds.length > 0 ||
       this.minBudget ||
       this.maxBudget ||
       this.minDuration ||
@@ -492,5 +460,11 @@ export class VendorRequirementsComponent implements OnInit, OnChanges, OnDestroy
 
   trackBySkill(index: number, skill: string): string {
     return skill;
+  }
+
+  // Helper method to get skill name by ID
+  getSkillNameById(skillId: string): string {
+    const skill = this.availableSkills.find(s => s._id === skillId);
+    return skill ? skill.name : skillId;
   }
 } 

@@ -11,11 +11,16 @@ export interface PaginationParams {
   resourceId?: string;
   vendorId?: string;
   clientId?: string;
-  skills?: string;
+  skills?: string | string[];
+  skillLogic?: 'AND' | 'OR';
   minExperience?: string;
   maxExperience?: string;
   minRate?: string;
   maxRate?: string;
+  minBudget?: string;
+  maxBudget?: string;
+  minDuration?: string;
+  maxDuration?: string;
 }
 
 export interface PaginationMeta {

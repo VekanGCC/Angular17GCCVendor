@@ -45,7 +45,19 @@ const getResources = asyncHandler(async (req, res, next) => {
   if (skills) {
     // Handle skills as array or single skill
     const skillsArray = Array.isArray(skills) ? skills : [skills];
-    query.skills = { $in: skillsArray };
+    // Filter out any empty values and ensure we have valid ObjectIds
+    const validSkillIds = skillsArray.filter(skillId => skillId && skillId.trim() !== '');
+    if (validSkillIds.length > 0) {
+      const skillLogic = req.query.skillLogic || 'OR';
+      
+      if (skillLogic === 'AND') {
+        // For AND logic, use $all to ensure ALL skills are present
+        query.skills = { $all: validSkillIds };
+      } else {
+        // For OR logic (default), use $in to match ANY of the skills
+        query.skills = { $in: validSkillIds };
+      }
+    }
   }
 
   // Search by experience range
