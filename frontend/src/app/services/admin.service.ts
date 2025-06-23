@@ -114,10 +114,31 @@ export class AdminService {
   }
 
   getPlatformStats(): Observable<PlatformStats> {
-    return this.apiService.get<PlatformStats>('/admin/stats').pipe(
-      map(stats => {
+    console.log('Admin Service: Fetching platform stats...');
+    return this.apiService.get<{success: boolean, data: PlatformStats}>('/admin/stats').pipe(
+      map(response => {
+        console.log('Admin Service: Platform stats received:', response);
+        const stats = response.data;
         this.platformStatsSubject.next(stats);
         return stats;
+      }),
+      catchError(error => {
+        console.error('Admin Service: Error fetching platform stats:', error);
+        return of({
+          totalUsers: 0,
+          totalVendors: 0,
+          totalClients: 0,
+          totalResources: 0,
+          totalRequirements: 0,
+          totalApplications: 0,
+          pendingApprovals: 0,
+          activeSkills: 0,
+          monthlyGrowth: {
+            users: 0,
+            applications: 0,
+            placements: 0
+          }
+        });
       })
     );
   }

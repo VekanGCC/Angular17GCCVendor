@@ -51,6 +51,39 @@
 
       <!-- Profile Content -->
       <div *ngIf="!isLoading && profileData" class="min-h-screen bg-gray-50">
+        <!-- Admin Header (only for admin view) -->
+        <div *ngIf="isAdminView && isCurrentUserAdmin()" class="bg-white border-b border-gray-200 px-6 py-4">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-4">
+              <button (click)="onBackToUsers()" 
+                      class="flex items-center text-gray-600 hover:text-gray-900 transition-colors">
+                <img src="assets/icons/lucide/lucide/arrow-left.svg" alt="back" class="w-5 h-5 mr-2" />
+                Back to Users
+              </button>
+              <div class="h-6 w-px bg-gray-300"></div>
+              <div>
+                <h2 class="text-2xl font-bold text-gray-900">{{profileData.user.firstName}} {{profileData.user.lastName}}</h2>
+                <p class="text-gray-600">{{profileData.user.userType | titlecase}} Profile</p>
+              </div>
+            </div>
+            <div class="flex items-center space-x-3">
+              <!-- Approve/Reject Buttons for Pending Users -->
+              <button *ngIf="profileData.user.approvalStatus === 'pending'"
+                      (click)="onApproveUser()"
+                      class="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors">
+                <img src="assets/icons/lucide/lucide/check.svg" class="w-4 h-4 mr-2" alt="Approve" />
+                Approve User
+              </button>
+              <button *ngIf="profileData.user.approvalStatus === 'pending'"
+                      (click)="onOpenRejectModal()"
+                      class="inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors ml-2">
+                <img src="assets/icons/lucide/lucide/x.svg" class="w-4 h-4 mr-2" alt="Reject" />
+                Reject User
+              </button>
+            </div>
+          </div>
+        </div>
+
         <!-- Header -->
         <div class="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6">
           <div class="max-w-7xl mx-auto">
@@ -485,6 +518,22 @@
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reject Modal (Admin Only) -->
+  <div *ngIf="showRejectModal && isAdminView && isCurrentUserAdmin()" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+    <div class="bg-white rounded-lg shadow-lg p-8 w-full max-w-md">
+      <h3 class="text-lg font-semibold mb-4 text-red-700 flex items-center">
+        <img src="assets/icons/lucide/lucide/alert-triangle.svg" class="w-5 h-5 mr-2 text-red-600" alt="Alert" />
+        Reject User
+      </h3>
+      <label class="block text-sm font-medium text-gray-700 mb-2">Rejection Reason</label>
+      <textarea [(ngModel)]="rejectNotes" rows="3" class="w-full border border-gray-300 rounded-lg p-2 mb-4" placeholder="Enter reason for rejection..."></textarea>
+      <div class="flex justify-end space-x-2">
+        <button (click)="onCloseRejectModal()" class="px-4 py-2 rounded bg-gray-200 text-gray-700 hover:bg-gray-300">Cancel</button>
+        <button (click)="onRejectUser()" [disabled]="!rejectNotes.trim()" class="px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700">Reject</button>
       </div>
     </div>
   </div>

@@ -155,135 +155,66 @@ const rejectEntity = asyncHandler(async (req, res, next) => {
 // @route   GET /api/admin/stats
 // @access  Private (Admin only)
 const getPlatformStats = asyncHandler(async (req, res, next) => {
-  // Get current date ranges
-  const now = new Date();
-  const startOfDay = new Date(now.setHours(0, 0, 0, 0));
-  const startOfWeek = new Date(now);
-  startOfWeek.setDate(now.getDate() - now.getDay());
-  startOfWeek.setHours(0, 0, 0, 0);
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const startOfYear = new Date(now.getFullYear(), 0, 1);
-  
-  // User statistics
-  const totalUsers = await User.countDocuments();
-  const totalVendors = await User.countDocuments({ userType: 'vendor' });
-  const totalClients = await User.countDocuments({ userType: 'client' });
-  const newUsersToday = await User.countDocuments({ createdAt: { $gte: startOfDay } });
-  const newUsersThisWeek = await User.countDocuments({ createdAt: { $gte: startOfWeek } });
-  const newUsersThisMonth = await User.countDocuments({ createdAt: { $gte: startOfMonth } });
-  
-  // Service statistics
-  const totalServices = await Service.countDocuments();
-  const activeServices = await Service.countDocuments({ status: 'active' });
-  const pendingServices = await Service.countDocuments({ status: 'pending' });
-  const newServicesThisMonth = await Service.countDocuments({ createdAt: { $gte: startOfMonth } });
-  
-  // Order statistics
-  const totalOrders = await Order.countDocuments();
-  const completedOrders = await Order.countDocuments({ status: 'completed' });
-  const pendingOrders = await Order.countDocuments({ status: 'pending' });
-  const cancelledOrders = await Order.countDocuments({ status: 'cancelled' });
-  const ordersToday = await Order.countDocuments({ createdAt: { $gte: startOfDay } });
-  const ordersThisWeek = await Order.countDocuments({ createdAt: { $gte: startOfWeek } });
-  const ordersThisMonth = await Order.countDocuments({ createdAt: { $gte: startOfMonth } });
-  
-  // Revenue statistics
-  const totalRevenue = await Order.aggregate([
-    { $match: { status: 'completed' } },
-    { $group: { _id: null, total: { $sum: '$totalAmount' } } }
-  ]);
-  
-  const revenueToday = await Order.aggregate([
-    { $match: { status: 'completed', createdAt: { $gte: startOfDay } } },
-    { $group: { _id: null, total: { $sum: '$totalAmount' } } }
-  ]);
-  
-  const revenueThisWeek = await Order.aggregate([
-    { $match: { status: 'completed', createdAt: { $gte: startOfWeek } } },
-    { $group: { _id: null, total: { $sum: '$totalAmount' } } }
-  ]);
-  
-  const revenueThisMonth = await Order.aggregate([
-    { $match: { status: 'completed', createdAt: { $gte: startOfMonth } } },
-    { $group: { _id: null, total: { $sum: '$totalAmount' } } }
-  ]);
-  
-  const revenueThisYear = await Order.aggregate([
-    { $match: { status: 'completed', createdAt: { $gte: startOfYear } } },
-    { $group: { _id: null, total: { $sum: '$totalAmount' } } }
-  ]);
-  
-  // Review statistics
-  const totalReviews = await Review.countDocuments();
-  const averageRating = await Review.aggregate([
-    { $group: { _id: null, avg: { $avg: '$rating' } } }
-  ]);
-  
-  // Pending approvals
-  const pendingApprovals = await PendingApproval.countDocuments({ status: 'pending' });
-  
-  // Monthly revenue trend
-  const monthlyRevenue = await Order.aggregate([
-    { $match: { status: 'completed', createdAt: { $gte: new Date(now.getFullYear() - 1, now.getMonth(), 1) } } },
-    {
-      $group: {
-        _id: { 
-          year: { $year: '$createdAt' },
-          month: { $month: '$createdAt' }
-        },
-        revenue: { $sum: '$totalAmount' },
-        count: { $sum: 1 }
+  try {
+    // Import required models
+    const Resource = require('../models/Resource');
+    const Requirement = require('../models/Requirement');
+    const Application = require('../models/Application');
+    const AdminSkill = require('../models/AdminSkill');
+    
+    // Get current date ranges
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    
+    // User statistics
+    const totalUsers = await User.countDocuments();
+    const totalVendors = await User.countDocuments({ userType: 'vendor' });
+    const totalClients = await User.countDocuments({ userType: 'client' });
+    const newUsersThisMonth = await User.countDocuments({ createdAt: { $gte: startOfMonth } });
+    
+    // Resource and Requirement statistics
+    const totalResources = await Resource.countDocuments();
+    const totalRequirements = await Requirement.countDocuments();
+    const totalApplications = await Application.countDocuments();
+    
+    // Pending approvals
+    const pendingApprovals = await PendingApproval.countDocuments({ status: 'pending' });
+    
+    // Active skills count
+    const activeSkills = await AdminSkill.countDocuments({ isActive: true });
+    
+    // Monthly growth calculations
+    const lastMonthUsers = await User.countDocuments({ createdAt: { $gte: lastMonth, $lt: startOfMonth } });
+    const lastMonthApplications = await Application.countDocuments({ createdAt: { $gte: lastMonth, $lt: startOfMonth } });
+    
+    const monthlyGrowth = {
+      users: lastMonthUsers > 0 ? Math.round(((newUsersThisMonth - lastMonthUsers) / lastMonthUsers) * 100) : newUsersThisMonth > 0 ? 100 : 0,
+      applications: lastMonthApplications > 0 ? Math.round(((totalApplications - lastMonthApplications) / lastMonthApplications) * 100) : totalApplications > 0 ? 100 : 0,
+      placements: 0 // Placements would be calculated based on completed applications/orders
+    };
+    
+    res.status(200).json({
+      success: true,
+      data: {
+        totalUsers,
+        totalVendors,
+        totalClients,
+        totalResources,
+        totalRequirements,
+        totalApplications,
+        pendingApprovals,
+        activeSkills,
+        monthlyGrowth
       }
-    },
-    { $sort: { '_id.year': 1, '_id.month': 1 } }
-  ]);
-  
-  res.status(200).json({
-    success: true,
-    data: {
-      users: {
-        total: totalUsers,
-        vendors: totalVendors,
-        clients: totalClients,
-        newToday: newUsersToday,
-        newThisWeek: newUsersThisWeek,
-        newThisMonth: newUsersThisMonth
-      },
-      services: {
-        total: totalServices,
-        active: activeServices,
-        pending: pendingServices,
-        newThisMonth: newServicesThisMonth
-      },
-      orders: {
-        total: totalOrders,
-        completed: completedOrders,
-        pending: pendingOrders,
-        cancelled: cancelledOrders,
-        today: ordersToday,
-        thisWeek: ordersThisWeek,
-        thisMonth: ordersThisMonth,
-        completionRate: totalOrders > 0 ? (completedOrders / totalOrders * 100).toFixed(1) : 0
-      },
-      revenue: {
-        total: totalRevenue[0]?.total || 0,
-        today: revenueToday[0]?.total || 0,
-        thisWeek: revenueThisWeek[0]?.total || 0,
-        thisMonth: revenueThisMonth[0]?.total || 0,
-        thisYear: revenueThisYear[0]?.total || 0
-      },
-      reviews: {
-        total: totalReviews,
-        averageRating: averageRating[0]?.avg || 0
-      },
-      pendingApprovals,
-      monthlyRevenue: monthlyRevenue.map(item => ({
-        period: `${item._id.year}-${item._id.month.toString().padStart(2, '0')}`,
-        revenue: item.revenue,
-        count: item.count
-      }))
-    }
-  });
+    });
+  } catch (error) {
+    console.error('Error in getPlatformStats:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching platform statistics'
+    });
+  }
 });
 
 // @desc    Get all admin skills

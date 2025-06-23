@@ -1,0 +1,39 @@
+<div class="bg-white rounded-xl shadow-sm border border-gray-100">
+  <div class="p-6">
+    <div class="space-y-4">
+      <div *ngFor="let application of applications; trackBy: trackById" 
+           class="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+        <div>
+          <p class="font-medium text-gray-900">
+            {{ getApplicationTitle(application) }}
+          </p>
+          <p class="text-sm text-gray-600">
+            {{ getApplicationCreator(application) }}
+          </p>
+          <p class="text-sm text-gray-500 mt-1">Status: {{application.status}}</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <span [class]="'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ' + 
+            (application.status === 'accepted' ? 'bg-green-100 text-green-800' :
+             application.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+             application.status === 'rejected' ? 'bg-red-100 text-red-800' :
+             application.status === 'applied' ? 'bg-blue-100 text-blue-800' :
+             'bg-gray-100 text-gray-800')">
+            {{application.status}}
+          </span>
+          <span class="text-sm text-gray-500">
+            {{application.createdAt | date:'medium'}}
+          </span>
+        </div>
+      </div>
+    </div>
+    <p *ngIf="applications.length === 0" class="text-gray-500 text-center py-8">No applications found</p>
+    
+    <!-- Pagination -->
+    <app-pagination
+      *ngIf="!paginationState.isLoading && applications.length > 0"
+      [paginationState]="paginationState"
+      (pageChange)="onPageChange($event)">
+    </app-pagination>
+  </div>
+</div> 

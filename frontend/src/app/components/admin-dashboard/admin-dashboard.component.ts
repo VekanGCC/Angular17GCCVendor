@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
@@ -19,6 +19,14 @@ import { Observable, Subscription, firstValueFrom } from 'rxjs';
 import { PaginationComponent } from '../pagination/pagination.component';
 import { PaginationState } from '../../models/pagination.model';
 import { ApiService } from '../../services/api.service';
+
+// Import new tab components
+import { AdminOverviewComponent } from './admin-overview/admin-overview.component';
+import { SkillApprovalsComponent } from './skill-approvals/skill-approvals.component';
+import { SkillsManagementComponent } from './skills-management/skills-management.component';
+import { ApplicationsViewComponent } from './applications-view/applications-view.component';
+import { UsersManagementComponent } from './users-management/users-management.component';
+import { ProfileDashboardComponent } from '../profile/profile-dashboard.component';
 
 interface ApiResponse<T> {
   success: boolean;
@@ -48,7 +56,14 @@ interface NavigationTab {
     LucideAngularModule, 
     LayoutComponent,
     AddAdminSkillModalComponent,
-    PaginationComponent
+    PaginationComponent,
+    // Import new tab components
+    AdminOverviewComponent,
+    SkillApprovalsComponent,
+    SkillsManagementComponent,
+    ApplicationsViewComponent,
+    UsersManagementComponent,
+    ProfileDashboardComponent
   ],
   templateUrl: './admin-dashboard.component.html',
   styleUrls: ['./admin-dashboard.component.scss']
@@ -92,12 +107,8 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   showSkillRejectModal = false;
   selectedVendorSkill: VendorSkill | null = null;
   selectedUserForProfile: User | null = null;
-  selectedUserProfileData: any = null;
-  isProfileLoading = false;
-  activeProfileTab: 'personal' | 'addresses' | 'bank' | 'compliance' = 'personal';
   skillRejectNotes = '';
-  showProfileRejectModal = false;
-  profileRejectNotes = '';
+  profileRefreshTrigger = 0; // Trigger to refresh profile data
 
   // Filters
   transactionFilter = 'all';
@@ -176,7 +187,8 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     private appService: AppService,
     private vendorManagementService: VendorManagementService,
     private router: Router,
-    private apiService: ApiService
+    private apiService: ApiService,
+    private changeDetectorRef: ChangeDetectorRef
   ) {}
 
   async ngOnInit(): Promise<void> {
@@ -209,6 +221,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     this.subscriptions.push(
       this.adminService.platformStats$.subscribe(stats => {
         this.platformStats = stats;
+        this.changeDetectorRef.detectChanges();
       })
     );
 
@@ -304,14 +317,18 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   }
 
   private async loadPlatformStats(): Promise<void> {
+    console.log('Admin Dashboard: Loading platform stats...');
     this.loadingStates.stats = true;
     try {
       const stats = await firstValueFrom(this.adminService.getPlatformStats());
+      console.log('Admin Dashboard: Platform stats loaded:', stats);
       this.platformStats = stats;
+      this.changeDetectorRef.detectChanges();
     } catch (error) {
-      console.error('Error loading platform stats:', error);
+      console.error('Admin Dashboard: Error loading platform stats:', error);
     } finally {
       this.loadingStates.stats = false;
+      this.changeDetectorRef.detectChanges();
     }
   }
 
@@ -414,6 +431,10 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
 
   loadTabData(): void {
     switch (this.activeTab) {
+      case 'overview':
+        // Reload platform stats when switching to overview tab
+        this.loadPlatformStats();
+        break;
       case 'skill-approvals':
         this.loadSkillApprovals();
         break;
@@ -709,34 +730,66 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
 
   editUser(user: User): void {
     this.selectedUserForProfile = user;
-    this.activeTab = 'user-profile';
-    this.loadUserProfileData(user._id);
+    this.setActiveTab('user-profile');
   }
 
-  private loadUserProfileData(userId: string): void {
-    this.isProfileLoading = true;
+  backToUsers(): void {
+    this.selectedUserForProfile = null;
+    this.setActiveTab('users');
+  }
+
+  approveUserFromProfile(user: User): void {
+    if (!user || !user._id) {
+      console.error('Invalid user data');
+      return;
+    }
+
     this.subscriptions.push(
-      this.adminService.getUserProfile(userId).subscribe({
+      this.adminService.approveUser(user._id).subscribe({
         next: (response) => {
           if (response.success) {
-            this.selectedUserProfileData = response.data;
+            // Update the user's approval status in the profile
+            if (this.selectedUserForProfile) {
+              this.selectedUserForProfile.approvalStatus = 'approved';
+            }
+            // Trigger profile refresh
+            this.profileRefreshTrigger++;
+            // Show success message (you can add a toast notification here)
+            console.log('User approved successfully');
           } else {
-            console.error('Failed to load user profile:', response.message);
+            console.error('Failed to approve user:', response.message);
           }
-          this.isProfileLoading = false;
         },
         error: (error) => {
-          console.error('Error loading user profile:', error);
-          this.isProfileLoading = false;
+          console.error('Error approving user:', error);
         }
       })
     );
   }
 
-  backToUsers(): void {
-    this.selectedUserForProfile = null;
-    this.selectedUserProfileData = null;
-    this.activeTab = 'users';
+  rejectUserFromProfile(user: User, notes: string): void {
+    if (!user || !user._id || !notes.trim()) {
+      return;
+    }
+    this.subscriptions.push(
+      this.adminService.rejectUser(user._id, notes).subscribe({
+        next: (response) => {
+          if (response.success) {
+            if (this.selectedUserForProfile) {
+              this.selectedUserForProfile.approvalStatus = 'rejected';
+            }
+            // Trigger profile refresh
+            this.profileRefreshTrigger++;
+            console.log('User rejected successfully');
+          } else {
+            console.error('Failed to reject user:', response.message);
+          }
+        },
+        error: (error) => {
+          console.error('Error rejecting user:', error);
+        }
+      })
+    );
   }
 
   toggleUserStatus(user: User): void {
@@ -750,8 +803,12 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   }
 
   get filteredSkillApprovals(): SkillApproval[] {
-    if (this.skillApprovalFilter === 'all') return this.skillApprovals;
-    return this.skillApprovals.filter(a => a.status === this.skillApprovalFilter);
+    return this.skillApprovals;
+  }
+
+  get currentPlatformStats(): PlatformStats {
+    console.log('Admin Dashboard: Getting current platform stats:', this.platformStats);
+    return this.platformStats;
   }
 
   onSkillAdded(newSkill: AdminSkill): void {
@@ -811,79 +868,8 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     this.skillApprovalsPaginationState.hasPreviousPage = paginationData.hasPreviousPage;
   }
 
-  setActiveProfileTab(tab: 'personal' | 'addresses' | 'bank' | 'compliance'): void {
-    this.activeProfileTab = tab;
-  }
-
-  isVendorProfile(): boolean {
-    return this.selectedUserForProfile?.userType === 'vendor';
-  }
-
-  getDefaultAddress(): any {
-    return this.selectedUserProfileData?.addresses?.find((addr: any) => addr.isDefault) || null;
-  }
-
-  approveUserFromProfile(user: User): void {
-    if (!user || !user._id) {
-      console.error('Invalid user data');
-      return;
-    }
-
-    this.subscriptions.push(
-      this.adminService.approveUser(user._id).subscribe({
-        next: (response) => {
-          if (response.success) {
-            // Update the user's approval status in the profile
-            if (this.selectedUserForProfile) {
-              this.selectedUserForProfile.approvalStatus = 'approved';
-            }
-            // Refresh the profile data
-            this.loadUserProfileData(user._id);
-            // Show success message (you can add a toast notification here)
-            console.log('User approved successfully');
-          } else {
-            console.error('Failed to approve user:', response.message);
-          }
-        },
-        error: (error) => {
-          console.error('Error approving user:', error);
-        }
-      })
-    );
-  }
-
-  openRejectModalFromProfile(user: User): void {
-    this.showProfileRejectModal = true;
-    this.profileRejectNotes = '';
-  }
-
-  closeRejectModalFromProfile(): void {
-    this.showProfileRejectModal = false;
-    this.profileRejectNotes = '';
-  }
-
-  rejectUserFromProfile(user: User, notes: string): void {
-    if (!user || !user._id || !notes.trim()) {
-      return;
-    }
-    this.subscriptions.push(
-      this.adminService.rejectUser(user._id, notes).subscribe({
-        next: (response) => {
-          if (response.success) {
-            if (this.selectedUserForProfile) {
-              this.selectedUserForProfile.approvalStatus = 'rejected';
-            }
-            this.loadUserProfileData(user._id);
-            this.closeRejectModalFromProfile();
-            console.log('User rejected successfully');
-          } else {
-            console.error('Failed to reject user:', response.message);
-          }
-        },
-        error: (error) => {
-          console.error('Error rejecting user:', error);
-        }
-      })
-    );
+  logout(): void {
+    this.authService.logout();
+    this.router.navigate(['/login']);
   }
 }

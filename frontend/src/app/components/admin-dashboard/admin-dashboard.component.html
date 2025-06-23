@@ -77,42 +77,12 @@
       <div class="space-y-3">
         <div class="flex items-center justify-between">
           <div class="flex items-center">
-            <div class="p-2 rounded-lg bg-blue-50">
-              <img src="assets/icons/lucide/lucide/users.svg" alt="users" class="w-4 h-4 text-blue-600" />
+            <div class="p-2 rounded-lg bg-red-50">
+              <img src="assets/icons/lucide/lucide/alert-circle.svg" alt="pending" class="w-4 h-4 text-red-600" />
             </div>
-            <span class="ml-3 text-sm font-medium text-gray-700">Total Users</span>
+            <span class="ml-3 text-sm font-medium text-gray-700">Pending Approvals</span>
           </div>
-          <span class="text-2xl font-bold text-gray-900">{{platformStats.totalUsers || 0}}</span>
-        </div>
-        
-        <div class="flex items-center justify-between">
-          <div class="flex items-center">
-            <div class="p-2 rounded-lg bg-green-50">
-              <img src="assets/icons/lucide/lucide/trending-up.svg" alt="trending-up" class="w-4 h-4 text-green-600" />
-            </div>
-            <span class="ml-3 text-sm font-medium text-gray-700">Total Applications</span>
-          </div>
-          <span class="text-2xl font-bold text-gray-900">{{platformStats.totalApplications || 0}}</span>
-        </div>
-
-        <div class="flex items-center justify-between">
-          <div class="flex items-center">
-            <div class="p-2 rounded-lg bg-purple-50">
-              <img src="assets/icons/lucide/lucide/briefcase.svg" alt="briefcase" class="w-4 h-4 text-purple-600" />
-            </div>
-            <span class="ml-3 text-sm font-medium text-gray-700">Total Resources</span>
-          </div>
-          <span class="text-lg font-bold text-gray-900">{{platformStats.totalResources}}</span>
-        </div>
-
-        <div class="flex items-center justify-between">
-          <div class="flex items-center">
-            <div class="p-2 rounded-lg bg-yellow-50">
-              <img src="assets/icons/lucide/lucide/file-text.svg" alt="file-text" class="w-4 h-4 text-yellow-600" />
-            </div>
-            <span class="ml-3 text-sm font-medium text-gray-700">Total Requirements</span>
-          </div>
-          <span class="text-lg font-bold text-gray-900">{{platformStats.totalRequirements}}</span>
+          <span class="text-lg font-bold text-gray-900">{{pendingSkillApprovalsCount}}</span>
         </div>
       </div>
     </div>
@@ -139,804 +109,80 @@
               'Manage all platform users and permissions'}}
           </p>
         </div>
-        <button
-          *ngIf="activeTab === 'skills'"
-          (click)="showAddSkillModal = true"
-          class="bg-gradient-to-r from-red-600 to-pink-600 text-white px-4 py-2 rounded-lg hover:from-red-700 hover:to-pink-700 transition-all duration-200 flex items-center">
-          <img src="assets/icons/lucide/lucide/plus.svg" alt="plus" class="w-4 h-4 mr-2" />
-          Add Skill
-        </button>
+        <div class="flex items-center space-x-3">
+          <button
+            *ngIf="activeTab === 'skills'"
+            (click)="showAddSkillModal = true"
+            class="bg-gradient-to-r from-red-600 to-pink-600 text-white px-4 py-2 rounded-lg hover:from-red-700 hover:to-pink-700 transition-all duration-200 flex items-center">
+            <img src="assets/icons/lucide/lucide/plus.svg" alt="plus" class="w-4 h-4 mr-2" />
+            Add Skill
+          </button>
+          <button
+            (click)="logout()"
+            class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-all duration-200 flex items-center">
+            <img src="assets/icons/lucide/lucide/log-out.svg" alt="logout" class="w-4 h-4 mr-2" />
+            Logout
+          </button>
+        </div>
       </div>
     </div>
 
     <!-- Content Area -->
     <div class="flex-1 overflow-y-auto p-6">
-      <div [ngSwitch]="activeTab">
-        <!-- Overview Tab -->
-        <div *ngSwitchCase="'overview'" class="space-y-6">
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <!-- Recent Skill Approvals -->
-            <div class="bg-white rounded-xl shadow-sm border border-gray-100">
-              <div class="p-6 border-b border-gray-100">
-                <h3 class="text-lg font-semibold text-gray-900">Recent Skill Approvals</h3>
-              </div>
-              <div class="p-6">
-                <div *ngFor="let approval of skillApprovals.slice(0, 5)" 
-                     class="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
-                  <div>
-                    <p class="font-medium text-gray-900">{{approval.skill.skillName}}</p>
-                    <p class="text-sm text-gray-600">{{approval.skill.category}}</p>
-                  </div>
-                  <span [class]="'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ' + 
-                    (approval.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                     approval.status === 'approved' ? 'bg-green-100 text-green-800' :
-                     'bg-red-100 text-red-800')">
-                    {{approval.status}}
-                  </span>
-                </div>
-                <p *ngIf="skillApprovals.length === 0" class="text-gray-500 text-center py-8">No pending skill approvals</p>
-              </div>
-            </div>
-          </div>
-        </div>
+      <!-- Overview Tab -->
+      <app-admin-overview 
+        *ngIf="activeTab === 'overview'"
+        [skillApprovals]="skillApprovals"
+        [platformStats]="platformStats">
+      </app-admin-overview>
 
-        <!-- Skill Approvals Tab -->
-        <div *ngSwitchCase="'skill-approvals'" class="bg-white rounded-xl shadow-sm border border-gray-100">
-          <div class="p-6 border-b border-gray-100">
-            <div class="flex items-center justify-between">
-              <h3 class="text-lg font-semibold text-gray-900">Vendor Skill</h3>
-              <select [(ngModel)]="skillApprovalFilter" (change)="onFilterChange()"
-                      class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500">
-                <option value="all">All Approvals</option>
-                <option value="pending">Pending</option>
-                <option value="approved">Approved</option>
-                <option value="rejected">Rejected</option>
-              </select>
-            </div>
-          </div>
-          <div class="p-6">
-            <div *ngFor="let approval of filteredSkillApprovals" 
-                 class="flex items-center justify-between py-4 border-b border-gray-100 last:border-0">
-              <div class="flex-1">
-                <div class="flex items-start justify-between">
-                  <div>
-                    <p class="font-medium text-gray-900">{{approval.skill.skillName}}</p>
-                    <p class="text-sm text-gray-600">{{approval.skill.category}}</p>
-                    <p class="text-sm text-gray-500 mt-1">{{approval.skill.description}}</p>
-                    <div class="flex items-center gap-4 mt-2">
-                      <span class="text-sm text-gray-600">
-                        <strong>Vendor:</strong> {{approval.skill.vendor.firstName}} {{approval.skill.vendor.lastName}} ({{approval.skill.vendor.companyName}})
-                      </span>
-                      <span class="text-sm text-gray-600">
-                        <strong>Experience:</strong> {{approval.skill.yearsOfExperience}} years
-                      </span>
-                      <span [class]="'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ' + getProficiencyClass(approval.skill.proficiency)">
-                        {{approval.skill.proficiency | titlecase}}
-                      </span>
-                    </div>
-                  </div>
-                  <div class="flex items-center gap-3">
-                    <span [class]="'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ' + 
-                      (approval.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                       approval.status === 'approved' ? 'bg-green-100 text-green-800' :
-                       'bg-red-100 text-red-800')">
-                      {{approval.status}}
-                    </span>
-                    <div class="flex gap-2" *ngIf="approval.status === 'pending'">
-                      <button (click)="openSkillApprovalModal(approval.skill)"
-                              class="px-3 py-1 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors">
-                        Approve
-                      </button>
-                      <button (click)="openSkillRejectModal(approval.skill)"
-                              class="px-3 py-1 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors">
-                        Reject
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <p *ngIf="skillApprovals.length === 0" class="text-gray-500 text-center py-8">No vendor skill approvals found</p>
-          </div>
-          
-          <!-- Pagination -->
-          <app-pagination
-            *ngIf="!skillApprovalsPaginationState.isLoading && skillApprovals.length > 0"
-            [paginationState]="skillApprovalsPaginationState"
-            (pageChange)="onSkillApprovalsPageChange($event)">
-          </app-pagination>
-        </div>
+      <!-- Skill Approvals Tab -->
+      <app-skill-approvals 
+        *ngIf="activeTab === 'skill-approvals'"
+        [skillApprovals]="skillApprovals"
+        [skillApprovalFilter]="skillApprovalFilter"
+        [paginationState]="skillApprovalsPaginationState"
+        (filterChange)="onFilterChange()"
+        (pageChange)="onSkillApprovalsPageChange($event)"
+        (openApprovalModal)="openSkillApprovalModal($event)"
+        (openRejectModal)="openSkillRejectModal($event)">
+      </app-skill-approvals>
 
-        <!-- Skills Tab -->
-        <div *ngSwitchCase="'skills'" class="bg-white rounded-xl shadow-sm border border-gray-100">
-          <div class="p-6">
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <div *ngFor="let skill of adminSkills" 
-                   class="p-6 border border-gray-200 rounded-lg hover:border-red-200 hover:bg-red-50 transition-colors">
-                <div class="flex items-start justify-between">
-                  <div>
-                    <h4 class="font-medium text-gray-900">{{skill.name}}</h4>
-                    <p class="text-sm text-gray-600 mt-1">{{skill.category}}</p>
-                    <p class="text-sm text-gray-500 mt-2">{{skill.description}}</p>
-                  </div>
-                  <span [class]="'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ' + 
-                    (skill.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800')">
-                    {{skill.isActive ? 'Active' : 'Inactive'}}
-                  </span>
-                </div>
-                <div class="flex gap-2 mt-4">
-                  <button (click)="editSkill(skill)"
-                          class="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors">
-                    Edit
-                  </button>
-                  <button (click)="deleteSkill(skill.id)"
-                          class="px-3 py-1 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors">
-                    Delete
-                  </button>
-                </div>
-              </div>
-            </div>
-            <p *ngIf="adminSkills.length === 0" class="text-gray-500 text-center py-8">No skills found</p>
-          </div>
-        </div>
+      <!-- Skills Tab -->
+      <app-skills-management 
+        *ngIf="activeTab === 'skills'"
+        [adminSkills]="adminSkills"
+        (editSkill)="editSkill($event)"
+        (deleteSkill)="deleteSkill($event)">
+      </app-skills-management>
 
-        <!-- Applications Tab -->
-        <div *ngSwitchCase="'applications'" class="bg-white rounded-xl shadow-sm border border-gray-100">
-          <div class="p-6">
-            <div class="space-y-4">
-              <div *ngFor="let application of allApplications" 
-                   class="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                <div>
-                  <p class="font-medium text-gray-900">
-                    {{ getApplicationTitle(application) }}
-                  </p>
-                  <p class="text-sm text-gray-600">
-                    {{ getApplicationCreator(application) }}
-                  </p>
-                  <p class="text-sm text-gray-500 mt-1">Status: {{application.status}}</p>
-                </div>
-                <div class="flex items-center gap-3">
-                  <span [class]="'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ' + 
-                    (application.status === 'accepted' ? 'bg-green-100 text-green-800' :
-                     application.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                     application.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                     application.status === 'applied' ? 'bg-blue-100 text-blue-800' :
-                     'bg-gray-100 text-gray-800')">
-                    {{application.status}}
-                  </span>
-                  <span class="text-sm text-gray-500">
-                    {{application.createdAt | date:'medium'}}
-                  </span>
-                </div>
-              </div>
-            </div>
-            <p *ngIf="allApplications.length === 0" class="text-gray-500 text-center py-8">No applications found</p>
-            
-            <!-- Pagination -->
-            <app-pagination
-              *ngIf="!applicationsPaginationState.isLoading && allApplications.length > 0"
-              [paginationState]="applicationsPaginationState"
-              (pageChange)="onApplicationsPageChange($event)">
-            </app-pagination>
-          </div>
-        </div>
+      <!-- Applications Tab -->
+      <app-applications-view 
+        *ngIf="activeTab === 'applications'"
+        [applications]="allApplications"
+        [paginationState]="applicationsPaginationState"
+        (pageChange)="onApplicationsPageChange($event)">
+      </app-applications-view>
 
-        <!-- Users Tab -->
-        <div *ngSwitchCase="'users'" class="bg-white rounded-xl shadow-sm border border-gray-100">
-          <div class="p-6">
-            <!-- Table Header -->
-            <div class="overflow-x-auto">
-              <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
-                  <tr>
-                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      User
-                    </th>
-                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Role
-                    </th>
-                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Company
-                    </th>
-                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Approval Status
-                    </th>
-                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Created
-                    </th>
-                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
-                  <tr *ngFor="let user of allUsers" class="hover:bg-gray-50">
-                    <td class="px-6 py-4 whitespace-nowrap">
-                      <div class="flex items-center">
-                        <div class="flex-shrink-0 h-10 w-10">
-                          <div class="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
-                            <span class="text-sm font-medium text-gray-700">
-                              {{user.firstName?.charAt(0)}}{{user.lastName?.charAt(0)}}
-                            </span>
-                          </div>
-                        </div>
-                        <div class="ml-4">
-                          <div class="text-sm font-medium text-gray-900">
-                            {{user.firstName}} {{user.lastName}}
-                          </div>
-                          <div class="text-sm text-gray-500">
-                            {{user.contactPerson}}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                      <span [class]="'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ' + getUserTypeColor(user.userType)">
-                        {{user.userType | titlecase}}
-                      </span>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                      <div class="text-sm text-gray-900">{{user.companyName}}</div>
-                      <div class="text-sm text-gray-500">{{user.businessInfo?.businessType}}</div>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                      <span [class]="'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ' + 
-                        (user.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800')">
-                        {{user.isActive ? 'Active' : 'Inactive'}}
-                      </span>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                      <span [class]="'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ' + 
-                        (user.approvalStatus === 'approved' ? 'bg-green-100 text-green-800' :
-                         user.approvalStatus === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                         'bg-red-100 text-red-800')">
-                        {{user.approvalStatus | titlecase}}
-                      </span>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {{user.createdAt | date:'short'}}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div class="flex space-x-2">
-                        <button (click)="editUser(user)"
-                                class="text-blue-600 hover:text-blue-900 px-2 py-1 rounded text-xs">
-                          Edit
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            
-            <p *ngIf="allUsers.length === 0" class="text-gray-500 text-center py-8">No users found</p>
-            
-            <!-- Pagination -->
-            <app-pagination
-              *ngIf="!usersPaginationState.isLoading && allUsers.length > 0"
-              [paginationState]="usersPaginationState"
-              (pageChange)="onUsersPageChange($event)">
-            </app-pagination>
-          </div>
-        </div>
+      <!-- Users Tab -->
+      <app-users-management 
+        *ngIf="activeTab === 'users'"
+        [users]="allUsers"
+        [paginationState]="usersPaginationState"
+        (pageChange)="onUsersPageChange($event)"
+        (editUser)="editUser($event)">
+      </app-users-management>
 
-        <!-- User Profile Tab -->
-        <div *ngSwitchCase="'user-profile'" class="bg-white rounded-xl shadow-sm border border-gray-100">
-          <div *ngIf="selectedUserForProfile" class="p-6">
-            <!-- Back Button and Header -->
-            <div class="flex items-center justify-between mb-6">
-              <div class="flex items-center space-x-4">
-                <button (click)="backToUsers()" 
-                        class="flex items-center text-gray-600 hover:text-gray-900 transition-colors">
-                  <img src="assets/icons/lucide/lucide/arrow-left.svg" alt="back" class="w-5 h-5 mr-2" />
-                  Back to Users
-                </button>
-                <div class="h-6 w-px bg-gray-300"></div>
-                <div>
-                  <h2 class="text-2xl font-bold text-gray-900">{{selectedUserForProfile.firstName}} {{selectedUserForProfile.lastName}}</h2>
-                  <p class="text-gray-600">{{selectedUserForProfile.userType | titlecase}} Profile</p>
-                </div>
-              </div>
-              <div class="flex items-center space-x-3">
-                <!-- Approve/Reject Buttons for Pending Users -->
-                <button *ngIf="selectedUserForProfile.approvalStatus === 'pending'"
-                        (click)="approveUserFromProfile(selectedUserForProfile)"
-                        class="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors">
-                  <img src="assets/icons/lucide/lucide/check.svg" class="w-4 h-4 mr-2" alt="Approve" />
-                  Approve User
-                </button>
-                <button *ngIf="selectedUserForProfile.approvalStatus === 'pending'"
-                        (click)="openRejectModalFromProfile(selectedUserForProfile)"
-                        class="inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors ml-2">
-                  <img src="assets/icons/lucide/lucide/x.svg" class="w-4 h-4 mr-2" alt="Reject" />
-                  Reject User
-                </button>
-
-                <!-- Reject Modal -->
-                <div *ngIf="showProfileRejectModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-                  <div class="bg-white rounded-lg shadow-lg p-8 w-full max-w-md">
-                    <h3 class="text-lg font-semibold mb-4 text-red-700 flex items-center">
-                      <img src="assets/icons/lucide/lucide/alert-triangle.svg" class="w-5 h-5 mr-2 text-red-600" alt="Alert" />
-                      Reject User
-                    </h3>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Rejection Reason</label>
-                    <textarea [(ngModel)]="profileRejectNotes" rows="3" class="w-full border border-gray-300 rounded-lg p-2 mb-4" placeholder="Enter reason for rejection..."></textarea>
-                    <div class="flex justify-end space-x-2">
-                      <button (click)="closeRejectModalFromProfile()" class="px-4 py-2 rounded bg-gray-200 text-gray-700 hover:bg-gray-300">Cancel</button>
-                      <button (click)="rejectUserFromProfile(selectedUserForProfile, profileRejectNotes)" [disabled]="!profileRejectNotes.trim()" class="px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700">Reject</button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Profile Content -->
-            <div class="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-              <!-- Loading State -->
-              <div *ngIf="isProfileLoading" class="min-h-screen bg-gray-50 flex items-center justify-center">
-                <div class="text-center">
-                  <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                  <p class="text-gray-600">Loading profile data...</p>
-                </div>
-              </div>
-
-              <!-- Error State -->
-              <div *ngIf="!isProfileLoading && !selectedUserProfileData" class="min-h-screen bg-gray-50 flex items-center justify-center">
-                <div class="bg-gradient-to-r from-red-50 to-pink-50 border-l-4 border-red-400 p-6 m-6 rounded-lg">
-                  <div class="flex items-center">
-                    <img src="assets/icons/lucide/lucide/alert-triangle.svg" class="w-6 h-6 text-red-400 mr-3" alt="Alert">
-                    <div>
-                      <h3 class="text-lg font-semibold text-red-800">No Profile Data Available</h3>
-                      <p class="text-red-700">Unable to load profile information. Please try again later.</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Profile Content -->
-              <div *ngIf="!isProfileLoading && selectedUserProfileData" class="min-h-screen bg-gray-50">
-                <!-- Header -->
-                <div class="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6">
-                  <div class="max-w-7xl mx-auto">
-                    <div class="flex items-center space-x-4">
-                      <div class="p-2 bg-white bg-opacity-20 rounded-lg">
-                        <img src="assets/icons/lucide/lucide/user.svg" class="w-8 h-8 text-white" alt="User">
-                      </div>
-                      <div>
-                        <h1 class="text-2xl font-bold">Profile Dashboard</h1>
-                        <p class="text-blue-100">View account information and preferences</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Main Content -->
-                <div class="max-w-7xl mx-auto p-6">
-                  <!-- Tab Navigation -->
-                  <div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-8">
-                    <div class="flex flex-wrap border-b border-gray-200">
-                      <button 
-                        *ngFor="let tab of profileTabList"
-                        (click)="setActiveProfileTab(tab.value)"
-                        [class]="activeProfileTab === tab.value ? 
-                          'flex items-center px-6 py-4 text-blue-600 border-b-2 border-blue-600 font-medium' : 
-                          'flex items-center px-6 py-4 text-gray-500 hover:text-gray-700 hover:bg-gray-50'"
-                      >
-                        <img 
-                          [src]="activeProfileTab === tab.value ? 'assets/icons/lucide/lucide/user.svg' : 'assets/icons/lucide/lucide/user.svg'" 
-                          class="w-5 h-5 mr-2" 
-                          [alt]="tab.label"
-                        >
-                        {{tab.label}}
-                      </button>
-                    </div>
-
-                    <!-- Tab Content -->
-                    <div class="p-8">
-                      <!-- Personal Information Tab -->
-                      <div *ngIf="activeProfileTab === 'personal'" class="space-y-8">
-                        <div class="flex justify-between items-center">
-                          <div>
-                            <h3 class="text-2xl font-bold text-gray-900 flex items-center">
-                              <img src="assets/icons/lucide/lucide/user.svg" class="w-6 h-6 mr-3 text-blue-600" alt="User">
-                              Personal Information
-                            </h3>
-                            <p class="text-gray-600 mt-1">Basic account details and contact information</p>
-                          </div>
-                          <span [class]="'inline-flex items-center px-4 py-2 rounded-full text-sm font-medium ' + 
-                            (selectedUserProfileData?.user?.approvalStatus === 'approved' ? 'bg-green-100 text-green-800' :
-                             selectedUserProfileData?.user?.approvalStatus === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                             'bg-red-100 text-red-800')">
-                            <img [src]="selectedUserProfileData?.user?.approvalStatus === 'approved' ? 'assets/icons/lucide/lucide/circle-check.svg' : 
-                                       selectedUserProfileData?.user?.approvalStatus === 'pending' ? 'assets/icons/lucide/lucide/clock.svg' : 
-                                       'assets/icons/lucide/lucide/x-circle.svg'" 
-                                 class="w-4 h-4 mr-2" [alt]="selectedUserProfileData?.user?.approvalStatus">
-                            {{selectedUserProfileData?.user?.approvalStatus === 'approved' ? 'Admin Approved' : 
-                              selectedUserProfileData?.user?.approvalStatus === 'pending' ? 'Pending Approval' : 
-                              'Admin Rejected'}}
-                          </span>
-                        </div>
-
-                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                          <div class="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-xl border border-blue-100">
-                            <h4 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                              <img src="assets/icons/lucide/lucide/user.svg" class="w-5 h-5 mr-2 text-blue-600" alt="User">
-                              Basic Information
-                            </h4>
-                            <div class="space-y-4">
-                              <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">First Name</label>
-                                <div class="p-3 bg-white border border-gray-200 rounded-lg text-gray-900 font-medium shadow-sm">
-                                  {{selectedUserProfileData.user.firstName || 'Not provided'}}
-                                </div>
-                              </div>
-                              <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Last Name</label>
-                                <div class="p-3 bg-white border border-gray-200 rounded-lg text-gray-900 font-medium shadow-sm">
-                                  {{selectedUserProfileData.user.lastName || 'Not provided'}}
-                                </div>
-                              </div>
-                              <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Phone</label>
-                                <div class="p-3 bg-white border border-gray-200 rounded-lg text-gray-900 font-medium shadow-sm">
-                                  {{selectedUserProfileData.user.phone || 'Not provided'}}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div class="bg-gradient-to-br from-green-50 to-emerald-50 p-6 rounded-xl border border-green-100">
-                            <h4 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                              <img src="assets/icons/lucide/lucide/building.svg" class="w-5 h-5 mr-2 text-green-600" alt="Building">
-                              Company Details
-                            </h4>
-                            <div class="space-y-4">
-                              <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Company Name</label>
-                                <div class="p-3 bg-white border border-gray-200 rounded-lg text-gray-900 font-medium shadow-sm">
-                                  {{selectedUserProfileData.user.companyName || 'Not provided'}}
-                                </div>
-                              </div>
-                              <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Contact Person</label>
-                                <div class="p-3 bg-white border border-gray-200 rounded-lg text-gray-900 font-medium shadow-sm">
-                                  {{selectedUserProfileData.user.contactPerson || 'Not provided'}}
-                                </div>
-                              </div>
-                              <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">GST Number</label>
-                                <div class="p-3 bg-white border border-gray-200 rounded-lg text-gray-900 font-medium shadow-sm">
-                                  {{selectedUserProfileData.user.gstNumber || 'Not provided'}}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div class="bg-gradient-to-br from-purple-50 to-violet-50 p-6 rounded-xl border border-purple-100">
-                            <h4 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                              <img src="assets/icons/lucide/lucide/settings.svg" class="w-5 h-5 mr-2 text-purple-600" alt="Settings">
-                              Business Details
-                            </h4>
-                            <div class="space-y-4">
-                              <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Service Type</label>
-                                <div class="p-3 bg-white border border-gray-200 rounded-lg text-gray-900 font-medium shadow-sm">
-                                  {{selectedUserProfileData.user.serviceType || 'Not provided'}}
-                                </div>
-                              </div>
-                              <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Payment Terms</label>
-                                <div class="p-3 bg-white border border-gray-200 rounded-lg text-gray-900 font-medium shadow-sm">
-                                  {{selectedUserProfileData.user.paymentTerms || 'Not provided'}}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <!-- Addresses Tab -->
-                      <div *ngIf="activeProfileTab === 'addresses'" class="space-y-8">
-                        <div class="flex justify-between items-center">
-                          <div>
-                            <h3 class="text-2xl font-bold text-gray-900 flex items-center">
-                              <img src="assets/icons/lucide/lucide/map-pin.svg" class="w-6 h-6 mr-3 text-blue-600" alt="Map Pin">
-                              Addresses
-                            </h3>
-                            <p class="text-gray-600 mt-1">Registered business addresses</p>
-                          </div>
-                          <span [class]="'inline-flex items-center px-4 py-2 rounded-full text-sm font-medium ' + 
-                            (selectedUserProfileData?.user?.approvalStatus === 'approved' ? 'bg-green-100 text-green-800' :
-                             selectedUserProfileData?.user?.approvalStatus === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                             'bg-red-100 text-red-800')">
-                            <img [src]="selectedUserProfileData?.user?.approvalStatus === 'approved' ? 'assets/icons/lucide/lucide/circle-check.svg' : 
-                                       selectedUserProfileData?.user?.approvalStatus === 'pending' ? 'assets/icons/lucide/lucide/clock.svg' : 
-                                       'assets/icons/lucide/lucide/x-circle.svg'" 
-                                 class="w-4 h-4 mr-2" [alt]="selectedUserProfileData?.user?.approvalStatus">
-                            {{selectedUserProfileData?.user?.approvalStatus === 'approved' ? 'Admin Approved' : 
-                              selectedUserProfileData?.user?.approvalStatus === 'pending' ? 'Pending Approval' : 
-                              'Admin Rejected'}}
-                          </span>
-                        </div>
-
-                        <!-- Addresses List -->
-                        <div class="space-y-6">
-                          <div *ngFor="let address of selectedUserProfileData?.addresses || []; let i = index" 
-                               class="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-xl border border-blue-100 hover:shadow-lg transition-all duration-200">
-                            <div class="flex items-start justify-between">
-                              <div class="flex-1">
-                                <div class="flex items-center space-x-3 mb-3">
-                                  <div class="p-2 bg-blue-600 rounded-lg">
-                                    <img src="assets/icons/lucide/lucide/map-pin.svg" class="w-5 h-5 text-white" alt="Map Pin">
-                                  </div>
-                                  <div>
-                                    <h4 class="text-xl font-semibold text-gray-900">{{address.addressLine1}}</h4>
-                                    <span *ngIf="address.isDefault" class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                      <img src="assets/icons/lucide/lucide/star.svg" class="w-3 h-3 mr-1" alt="Star">
-                                      Default Address
-                                    </span>
-                                  </div>
-                                </div>
-                                <div class="ml-12 space-y-2">
-                                  <p *ngIf="address.addressLine2" class="text-gray-700 font-medium">{{address.addressLine2}}</p>
-                                  <p class="text-gray-600 flex items-center">
-                                    <img src="assets/icons/lucide/lucide/map-pin.svg" class="w-4 h-4 mr-2 text-gray-400" alt="Map Pin">
-                                    {{address.city}}, {{address.state}} {{address.pinCode}}
-                                  </p>
-                                  <p class="text-gray-600 flex items-center">
-                                    <img src="assets/icons/lucide/lucide/globe.svg" class="w-4 h-4 mr-2 text-gray-400" alt="Globe">
-                                    {{address.country}}
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <div *ngIf="!selectedUserProfileData?.addresses?.length" class="text-center py-12">
-                            <div class="p-6 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
-                              <img src="assets/icons/lucide/lucide/map-pin-off.svg" class="w-12 h-12 text-gray-400 mx-auto mb-4" alt="Map Pin Off">
-                              <h3 class="text-lg font-medium text-gray-900 mb-2">No Addresses Found</h3>
-                              <p class="text-gray-600">No addresses have been registered for this account.</p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <!-- Bank Details Tab (Vendor Only) -->
-                      <div *ngIf="activeProfileTab === 'bank' && isVendorProfile()" class="space-y-8">
-                        <div class="flex justify-between items-center">
-                          <div>
-                            <h3 class="text-2xl font-bold text-gray-900 flex items-center">
-                              <img src="assets/icons/lucide/lucide/credit-card.svg" class="w-6 h-6 mr-3 text-blue-600" alt="Credit Card">
-                              Bank Details
-                            </h3>
-                            <p class="text-gray-600 mt-1">Registered banking information</p>
-                          </div>
-                          <span [class]="'inline-flex items-center px-4 py-2 rounded-full text-sm font-medium ' + 
-                            (selectedUserProfileData?.user?.approvalStatus === 'approved' ? 'bg-green-100 text-green-800' :
-                             selectedUserProfileData?.user?.approvalStatus === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                             'bg-red-100 text-red-800')">
-                            <img [src]="selectedUserProfileData?.user?.approvalStatus === 'approved' ? 'assets/icons/lucide/lucide/circle-check.svg' : 
-                                       selectedUserProfileData?.user?.approvalStatus === 'pending' ? 'assets/icons/lucide/lucide/clock.svg' : 
-                                       'assets/icons/lucide/lucide/x-circle.svg'" 
-                                 class="w-4 h-4 mr-2" [alt]="selectedUserProfileData?.user?.approvalStatus">
-                            {{selectedUserProfileData?.user?.approvalStatus === 'approved' ? 'Admin Approved' : 
-                              selectedUserProfileData?.user?.approvalStatus === 'pending' ? 'Pending Approval' : 
-                              'Admin Rejected'}}
-                          </span>
-                        </div>
-
-                        <!-- Bank Details List -->
-                        <div class="space-y-6">
-                          <div *ngFor="let bank of selectedUserProfileData?.bankDetails || []; let i = index" 
-                               class="bg-gradient-to-br from-green-50 to-emerald-50 p-6 rounded-xl border border-green-100 hover:shadow-lg transition-all duration-200">
-                            <div class="flex items-start justify-between">
-                              <div class="flex-1">
-                                <div class="flex items-center space-x-3 mb-4">
-                                  <div class="p-2 bg-green-600 rounded-lg">
-                                    <img src="assets/icons/lucide/lucide/credit-card.svg" class="w-5 h-5 text-white" alt="Credit Card">
-                                  </div>
-                                  <div>
-                                    <h4 class="text-xl font-semibold text-gray-900">{{bank.bankName || 'Bank Name Not Provided'}}</h4>
-                                    <div class="flex items-center space-x-2 mt-1">
-                                      <span *ngIf="bank.isVerified" class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                        <img src="assets/icons/lucide/lucide/circle-check.svg" class="w-3 h-3 mr-1" alt="Check">
-                                        Verified
-                                      </span>
-                                      <span *ngIf="!bank.isVerified" class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                                        <img src="assets/icons/lucide/lucide/clock.svg" class="w-3 h-3 mr-1" alt="Clock">
-                                        Not Verified
-                                      </span>
-                                    </div>
-                                  </div>
-                                </div>
-                                <div class="ml-12 grid grid-cols-1 md:grid-cols-2 gap-4">
-                                  <div class="bg-white p-3 rounded-lg border border-gray-200">
-                                    <label class="block text-xs font-medium text-gray-500 mb-1">Account Number</label>
-                                    <p class="text-gray-900 font-medium">{{bank.bankAccountNumber || 'Not Provided'}}</p>
-                                  </div>
-                                  <div class="bg-white p-3 rounded-lg border border-gray-200">
-                                    <label class="block text-xs font-medium text-gray-500 mb-1">Account Type</label>
-                                    <p class="text-gray-900 font-medium">{{bank.accountType || 'Not Provided'}}</p>
-                                  </div>
-                                  <div class="bg-white p-3 rounded-lg border border-gray-200">
-                                    <label class="block text-xs font-medium text-gray-500 mb-1">IFSC Code</label>
-                                    <p class="text-gray-900 font-medium">{{bank.ifscCode || 'Not Provided'}}</p>
-                                  </div>
-                                  <div class="bg-white p-3 rounded-lg border border-gray-200">
-                                    <label class="block text-xs font-medium text-gray-500 mb-1">Branch</label>
-                                    <p class="text-gray-900 font-medium">{{bank.branchName || 'Branch Not Provided'}}, {{bank.bankCity || 'City Not Provided'}}</p>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <div *ngIf="!selectedUserProfileData?.bankDetails?.length" class="text-center py-12">
-                            <div class="p-6 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
-                              <img src="assets/icons/lucide/lucide/credit-card.svg" class="w-12 h-12 text-gray-400 mx-auto mb-4" alt="Credit Card">
-                              <h3 class="text-lg font-medium text-gray-900 mb-2">No Bank Details Found</h3>
-                              <p class="text-gray-600">No banking information has been registered for this account.</p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <!-- Compliance Tab -->
-                      <div *ngIf="activeProfileTab === 'compliance'" class="space-y-8">
-                        <div class="flex justify-between items-center">
-                          <div>
-                            <h3 class="text-2xl font-bold text-gray-900 flex items-center">
-                              <img src="assets/icons/lucide/lucide/shield-check.svg" class="w-6 h-6 mr-3 text-blue-600" alt="Shield Check">
-                              Statutory Compliance
-                            </h3>
-                            <p class="text-gray-600 mt-1">Regulatory and compliance information</p>
-                          </div>
-                          <span [class]="'inline-flex items-center px-4 py-2 rounded-full text-sm font-medium ' + 
-                            (selectedUserProfileData?.user?.approvalStatus === 'approved' ? 'bg-green-100 text-green-800' :
-                             selectedUserProfileData?.user?.approvalStatus === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                             'bg-red-100 text-red-800')">
-                            <img [src]="selectedUserProfileData?.user?.approvalStatus === 'approved' ? 'assets/icons/lucide/lucide/circle-check.svg' : 
-                                       selectedUserProfileData?.user?.approvalStatus === 'pending' ? 'assets/icons/lucide/lucide/clock.svg' : 
-                                       'assets/icons/lucide/lucide/x-circle.svg'" 
-                                 class="w-4 h-4 mr-2" [alt]="selectedUserProfileData?.user?.approvalStatus">
-                            {{selectedUserProfileData?.user?.approvalStatus === 'approved' ? 'Admin Approved' : 
-                              selectedUserProfileData?.user?.approvalStatus === 'pending' ? 'Pending Approval' : 
-                              'Admin Rejected'}}
-                          </span>
-                        </div>
-
-                        <div class="space-y-8">
-                          <!-- PAN Number Section -->
-                          <div class="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-xl border border-blue-100">
-                            <h4 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                              <img src="assets/icons/lucide/lucide/credit-card.svg" class="w-5 h-5 mr-2 text-blue-600" alt="Credit Card">
-                              Tax Information
-                            </h4>
-                            <div class="bg-white p-4 rounded-lg border border-gray-200">
-                              <label class="block text-sm font-medium text-gray-700 mb-2">PAN Number</label>
-                              <div class="p-3 bg-gray-50 border border-gray-200 rounded-lg text-gray-900 font-medium">
-                                {{selectedUserProfileData.compliance?.panNumber || 'Not provided'}}
-                              </div>
-                            </div>
-                          </div>
-
-                          <!-- Registrations Section -->
-                          <div class="bg-gradient-to-br from-green-50 to-emerald-50 p-6 rounded-xl border border-green-100">
-                            <h4 class="text-lg font-semibold text-gray-900 mb-6 flex items-center">
-                              <img src="assets/icons/lucide/lucide/building.svg" class="w-5 h-5 mr-2 text-green-600" alt="Building">
-                              Government Registrations
-                            </h4>
-                            
-                            <div class="space-y-6">
-                              <!-- ESI Registration -->
-                              <div class="bg-white p-4 rounded-lg border border-gray-200">
-                                <div class="flex items-center mb-3">
-                                  <div class="h-5 w-5 rounded border-2 border-gray-300 flex items-center justify-center mr-3">
-                                    <div *ngIf="selectedUserProfileData.compliance?.registeredUnderESI" class="w-2.5 h-2.5 bg-green-600 rounded"></div>
-                                  </div>
-                                  <label class="text-sm font-medium text-gray-900">Registered under ESI</label>
-                                </div>
-                                <div *ngIf="selectedUserProfileData.compliance?.registeredUnderESI" class="ml-8">
-                                  <label class="block text-xs font-medium text-gray-500 mb-1">ESI Registration Number</label>
-                                  <div class="p-2 bg-gray-50 border border-gray-200 rounded text-gray-900 font-medium">
-                                    {{selectedUserProfileData.compliance?.esiRegistrationNumber || 'Not provided'}}
-                                  </div>
-                                </div>
-                              </div>
-
-                              <!-- PF Registration -->
-                              <div class="bg-white p-4 rounded-lg border border-gray-200">
-                                <div class="flex items-center mb-3">
-                                  <div class="h-5 w-5 rounded border-2 border-gray-300 flex items-center justify-center mr-3">
-                                    <div *ngIf="selectedUserProfileData.compliance?.registeredUnderPF" class="w-2.5 h-2.5 bg-green-600 rounded"></div>
-                                  </div>
-                                  <label class="text-sm font-medium text-gray-900">Registered under PF</label>
-                                </div>
-                                <div *ngIf="selectedUserProfileData.compliance?.registeredUnderPF" class="ml-8">
-                                  <label class="block text-xs font-medium text-gray-500 mb-1">PF Registration Number</label>
-                                  <div class="p-2 bg-gray-50 border border-gray-200 rounded text-gray-900 font-medium">
-                                    {{selectedUserProfileData.compliance?.pfRegistrationNumber || 'Not provided'}}
-                                  </div>
-                                </div>
-                              </div>
-
-                              <!-- MSMED Registration -->
-                              <div class="bg-white p-4 rounded-lg border border-gray-200">
-                                <div class="flex items-center mb-3">
-                                  <div class="h-5 w-5 rounded border-2 border-gray-300 flex items-center justify-center mr-3">
-                                    <div *ngIf="selectedUserProfileData.compliance?.registeredUnderMSMED" class="w-2.5 h-2.5 bg-green-600 rounded"></div>
-                                  </div>
-                                  <label class="text-sm font-medium text-gray-900">Registered under MSMED</label>
-                                </div>
-                                <div *ngIf="selectedUserProfileData.compliance?.registeredUnderMSMED" class="ml-8">
-                                  <label class="block text-xs font-medium text-gray-500 mb-1">MSMED Registration Number</label>
-                                  <div class="p-2 bg-gray-50 border border-gray-200 rounded text-gray-900 font-medium">
-                                    {{selectedUserProfileData.compliance?.msmedRegistrationNumber || 'Not provided'}}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          <!-- Compliance Status Section -->
-                          <div class="bg-gradient-to-br from-purple-50 to-violet-50 p-6 rounded-xl border border-purple-100">
-                            <h4 class="text-lg font-semibold text-gray-900 mb-6 flex items-center">
-                              <img src="assets/icons/lucide/lucide/shield.svg" class="w-5 h-5 mr-2 text-purple-600" alt="Shield">
-                              Compliance Status
-                            </h4>
-                            
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div class="bg-white p-4 rounded-lg border border-gray-200">
-                                <div class="flex items-center mb-2">
-                                  <div class="h-4 w-4 rounded border border-gray-300 flex items-center justify-center mr-3">
-                                    <div *ngIf="selectedUserProfileData.compliance?.compliesWithStatutoryRequirements" class="w-2 h-2 bg-green-600 rounded"></div>
-                                  </div>
-                                  <label class="text-sm font-medium text-gray-900">Complies with statutory requirements</label>
-                                </div>
-                              </div>
-
-                              <div class="bg-white p-4 rounded-lg border border-gray-200">
-                                <div class="flex items-center mb-2">
-                                  <div class="h-4 w-4 rounded border border-gray-300 flex items-center justify-center mr-3">
-                                    <div *ngIf="selectedUserProfileData.compliance?.hasCloseRelativesInCompany" class="w-2 h-2 bg-green-600 rounded"></div>
-                                  </div>
-                                  <label class="text-sm font-medium text-gray-900">Has close relatives in company</label>
-                                </div>
-                              </div>
-
-                              <div class="bg-white p-4 rounded-lg border border-gray-200">
-                                <div class="flex items-center mb-2">
-                                  <div class="h-4 w-4 rounded border border-gray-300 flex items-center justify-center mr-3">
-                                    <div *ngIf="selectedUserProfileData.compliance?.hasAdequateSafetyStandards" class="w-2 h-2 bg-green-600 rounded"></div>
-                                  </div>
-                                  <label class="text-sm font-medium text-gray-900">Has adequate safety standards</label>
-                                </div>
-                              </div>
-
-                              <div class="bg-white p-4 rounded-lg border border-gray-200">
-                                <div class="flex items-center mb-2">
-                                  <div class="h-4 w-4 rounded border border-gray-300 flex items-center justify-center mr-3">
-                                    <div *ngIf="selectedUserProfileData.compliance?.hasOngoingLitigation" class="w-2 h-2 bg-green-600 rounded"></div>
-                                  </div>
-                                  <label class="text-sm font-medium text-gray-900">Has ongoing litigation</label>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <!-- User Profile Tab -->
+      <app-profile-dashboard 
+        *ngIf="activeTab === 'user-profile'"
+        [userId]="selectedUserForProfile?._id"
+        [isAdminView]="true"
+        [refreshTrigger]="profileRefreshTrigger"
+        (backToUsers)="backToUsers()"
+        (approveUser)="approveUserFromProfile($event)"
+        (rejectUser)="rejectUserFromProfile($event.user, $event.notes)">
+      </app-profile-dashboard>
     </div>
   </div>
 
