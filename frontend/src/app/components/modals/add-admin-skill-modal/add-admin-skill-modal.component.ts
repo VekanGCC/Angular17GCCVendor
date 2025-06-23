@@ -38,26 +38,6 @@ import { AdminSkill } from '../../../models/admin.model';
             </div>
           </div>
 
-          <!-- Category -->
-          <div class="space-y-2">
-            <label for="category" class="block text-sm font-semibold text-gray-700">Category</label>
-            <select 
-              id="category" 
-              formControlName="category"
-              class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-            >
-              <option value="">Select a category</option>
-              <option *ngFor="let category of skillCategories" [value]="category">
-                {{category}}
-              </option>
-            </select>
-            <div *ngIf="skillForm.get('category')?.invalid && skillForm.get('category')?.touched" 
-                 class="text-sm text-red-500 flex items-center mt-1">
-              <img src="assets/icons/lucide/lucide/info.svg" alt="alert-circle" class="w-4 h-4 mr-1" />
-              Category is required
-            </div>
-          </div>
-
           <!-- Description -->
           <div class="space-y-2">
             <label for="description" class="block text-sm font-semibold text-gray-700">Description</label>
@@ -119,27 +99,12 @@ export class AddAdminSkillModalComponent implements OnInit {
   isLoading = false;
   errorMessage = '';
 
-  skillCategories = [
-    'Programming Languages',
-    'Frameworks & Libraries',
-    'Databases',
-    'Cloud Platforms',
-    'DevOps & Tools',
-    'Mobile Development',
-    'Web Development',
-    'Data Science & Analytics',
-    'Cybersecurity',
-    'Project Management',
-    'Other'
-  ];
-
   constructor(
     private adminService: AdminService,
     private fb: FormBuilder
   ) {
     this.skillForm = this.fb.group({
       name: ['', Validators.required],
-      category: ['', Validators.required],
       description: ['', Validators.required],
       isActive: [true]
     });

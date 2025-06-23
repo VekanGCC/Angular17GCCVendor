@@ -34,7 +34,7 @@
             </div>
             <div class="ml-3">
               <p class="font-medium text-gray-900">{{resource.name}}</p>
-              <p class="text-sm text-gray-600">{{resource.skills.join(', ') || 'No skills listed'}}</p>
+              <p class="text-sm text-gray-600">{{ resource.skills && resource.skills.length > 0 ? resource.skills[0].name : 'No skill listed' }}</p>
             </div>
           </div>
           <button class="text-purple-600 hover:text-purple-700">

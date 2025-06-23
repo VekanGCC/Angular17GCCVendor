@@ -15,24 +15,15 @@ const requirementSchema = new mongoose.Schema({
   },
   
   category: {
-    type: String,
-    required: [true, 'Requirement category is required'],
-    enum: [
-      'development',
-      'design',
-      'project_management',
-      'qa_testing',
-      'devops',
-      'data_science',
-      'content_writing',
-      'marketing',
-      'other'
-    ]
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Category',
+    required: [true, 'Requirement category is required']
   },
   
   skills: [{
-    type: String,
-    trim: true
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'AdminSkill',
+    required: [true, 'Requirement skills are required']
   }],
   
   experience: {

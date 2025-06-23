@@ -15,24 +15,15 @@ const resourceSchema = new mongoose.Schema({
   },
   
   category: {
-    type: String,
-    required: [true, 'Resource category is required'],
-    enum: [
-      'developer',
-      'designer',
-      'project_manager',
-      'qa_tester',
-      'devops',
-      'data_scientist',
-      'content_writer',
-      'marketing_specialist',
-      'other'
-    ]
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Category',
+    required: [true, 'Resource category is required']
   },
   
   skills: [{
-    type: String,
-    trim: true
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'AdminSkill',
+    required: [true, 'Resource skills are required']
   }],
   
   experience: {
@@ -115,7 +106,7 @@ const resourceSchema = new mongoose.Schema({
 
 // Indexes for better performance
 resourceSchema.index({ category: 1, status: 1 });
-resourceSchema.index({ 'skills': 1 });
+resourceSchema.index({ skill: 1, status: 1 });
 resourceSchema.index({ createdBy: 1 });
 resourceSchema.index({ createdAt: -1 });
 

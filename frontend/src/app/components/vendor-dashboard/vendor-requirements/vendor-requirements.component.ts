@@ -58,7 +58,8 @@ export class VendorRequirementsComponent implements OnInit, OnChanges, OnDestroy
       headerName: 'Opportunity', 
       field: 'title', 
       flex: 2,
-      sortable: true,
+      sortable: false,
+      filter: false,
       cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       cellRenderer: (params: any) => {
         const requirement = params.data;
@@ -72,7 +73,7 @@ export class VendorRequirementsComponent implements OnInit, OnChanges, OnDestroy
         `;
       }
     },
-    { 
+   /* { 
       headerName: 'Skills', 
       field: 'skills', 
       flex: 1,
@@ -100,12 +101,46 @@ export class VendorRequirementsComponent implements OnInit, OnChanges, OnDestroy
         html += '</div>';
         return html;
       }
-    },
+    },*/ {
+  headerName: 'Skills', 
+  field: 'skills', 
+  flex: 1,
+  sortable: false,
+  filter: false,
+  cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
+  valueGetter: (params: any) => {
+    const skills = params.data.skills || [];
+    return skills.length > 0 ? skills[0].name : '';
+  },
+  cellRenderer: (params: any) => {
+    const skills = params.data.skills || [];
+    if (skills.length === 0) {
+      return '<span class="text-xs text-gray-500 italic">None</span>';
+    }
+
+    const displaySkills = skills.slice(0, 2); // Show only first 2
+    const remainingCount = skills.length - 2;
+
+    let html = '<div class="flex flex-wrap gap-1 items-center">';
+    displaySkills.forEach((skill: any) => {
+      html += `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">${skill.name}</span>`;
+    });
+
+    if (remainingCount > 0) {
+      html += `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">+${remainingCount}</span>`;
+    }
+
+    html += '</div>';
+    return html;
+  }
+}
+,
     { 
       headerName: 'Budget', 
       field: 'budget.charge', 
       flex: 1,
-      sortable: true,
+      sortable: false,
+      filter: false,
       cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       cellRenderer: (params: any) => {
         const budgetDisplay = this.getBudgetDisplay(params.data);
@@ -116,7 +151,8 @@ export class VendorRequirementsComponent implements OnInit, OnChanges, OnDestroy
       headerName: 'Duration', 
       field: 'duration', 
       flex: 1,
-      sortable: true,
+      sortable: false,
+      filter: false,
       cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       cellRenderer: (params: any) => {
         const duration = this.getDurationDisplay(params.data);
@@ -127,7 +163,8 @@ export class VendorRequirementsComponent implements OnInit, OnChanges, OnDestroy
       headerName: 'Location', 
       field: 'location.city', 
       flex: 1,
-      sortable: true,
+      sortable: false,
+      filter: false,
       cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       cellRenderer: (params: any) => {
         const location = this.getLocationDisplay(params.data);
@@ -146,7 +183,8 @@ export class VendorRequirementsComponent implements OnInit, OnChanges, OnDestroy
       headerName: 'Status', 
       field: 'status', 
       flex: 1,
-      sortable: true,
+      sortable: false,
+      filter: false,
       cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       cellRenderer: (params: any) => {
         const status = params.data.status || 'unknown';
@@ -194,8 +232,8 @@ export class VendorRequirementsComponent implements OnInit, OnChanges, OnDestroy
 
   defaultColDef = { 
     resizable: true, 
-    sortable: true, 
-    filter: true,
+    sortable: false, 
+    filter: false,
     flex: 1,
     minWidth: 100
   };
@@ -206,10 +244,7 @@ export class VendorRequirementsComponent implements OnInit, OnChanges, OnDestroy
       minWidth: 100,
     },
     rowHeight: 60,
-    tooltipShowDelay: 500,
-    onSortChanged: (event: SortChangedEvent) => {
-      this.onSortChanged(event);
-    }
+    tooltipShowDelay: 500
   };
 
   constructor(
@@ -252,7 +287,10 @@ export class VendorRequirementsComponent implements OnInit, OnChanges, OnDestroy
     this.apiService.getActiveSkills().subscribe({
       next: (response) => {
         if (response.success && response.data) {
-          this.availableSkills = response.data;
+          this.availableSkills = (response.data as any[]).map(skill => ({
+            ...skill,
+            _id: skill._id || skill.id || skill.name // fallback if needed
+          }));
           console.log('🔧 VendorRequirementsComponent: Loaded skills:', this.availableSkills);
         }
       },

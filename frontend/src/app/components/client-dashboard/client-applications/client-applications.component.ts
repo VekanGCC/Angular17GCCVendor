@@ -169,16 +169,32 @@ export class ClientApplicationsComponent implements OnInit, OnChanges {
           const historyBtn = document.getElementById(`history-${application._id}`);
           
           if (statusSelect) {
-            statusSelect.addEventListener('change', (event) => {
+            // Remove existing event listener if it exists
+            const existingHandler = (statusSelect as any)._changeHandler;
+            if (existingHandler) {
+              statusSelect.removeEventListener('change', existingHandler);
+            }
+            
+            const changeHandler = (event: Event) => {
               const newStatus = (event.target as HTMLSelectElement).value;
               if (newStatus) {
                 this.onStatusChange(application._id, newStatus);
               }
-            });
+            };
+            statusSelect.addEventListener('change', changeHandler);
+            (statusSelect as any)._changeHandler = changeHandler; // Store reference for removal
           }
           
           if (historyBtn) {
-            historyBtn.addEventListener('click', () => this.onViewHistory(application._id));
+            // Remove existing event listener if it exists
+            const existingHandler = (historyBtn as any)._clickHandler;
+            if (existingHandler) {
+              historyBtn.removeEventListener('click', existingHandler);
+            }
+            
+            const clickHandler = () => this.onViewHistory(application._id);
+            historyBtn.addEventListener('click', clickHandler);
+            (historyBtn as any)._clickHandler = clickHandler; // Store reference for removal
           }
         });
         

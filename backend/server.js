@@ -103,6 +103,10 @@ app.use('/api/notifications', require('./routes/notifications'));
 
 // Admin routes
 app.use('/api/admin', require('./routes/adminRoutes'));
+app.use('/api/admin/categories', require('./routes/adminCategories'));
+
+// Public category routes
+app.use('/api/categories', require('./routes/categories'));
 
 // File management routes
 app.use('/api/files', require('./routes/files'));

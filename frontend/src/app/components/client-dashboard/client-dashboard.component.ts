@@ -493,11 +493,9 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
     this.clientService.updateRequirement(requirementId, updates).subscribe({
       next: (response) => {
         if (response.success) {
-          // Update the requirement in the local array
-          const index = this.clientRequirements.findIndex(r => r._id === requirementId);
-          if (index !== -1) {
-            this.clientRequirements[index] = { ...this.clientRequirements[index], ...updates };
-          }
+          console.log('🔧 ClientDashboard: Requirement updated successfully, reloading data');
+          // Reload requirements to ensure UI shows the latest data
+          this.loadRequirements(this.requirementsPaginationState.currentPage);
           this.closeEditRequirementModal();
         }
         this.isLoading = false;

@@ -70,8 +70,8 @@
           formControlName="category"
           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
           <option value="">Select a category</option>
-          <option *ngFor="let category of categories" [value]="category">
-            {{category | formatEnum}}
+          <option *ngFor="let category of availableCategories" [value]="category._id">
+            {{category.name}}
           </option>
         </select>
       </div>
@@ -155,8 +155,8 @@
               [formControlName]="i"
               class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
               <option value="">Select a skill</option>
-              <option *ngFor="let adminSkill of availableSkills" [value]="adminSkill.name">
-                {{adminSkill.name}} ({{adminSkill.category}})
+              <option *ngFor="let adminSkill of availableSkills" [value]="getSkillId(adminSkill)">
+                {{adminSkill.name}}
               </option>
             </select>
             <button

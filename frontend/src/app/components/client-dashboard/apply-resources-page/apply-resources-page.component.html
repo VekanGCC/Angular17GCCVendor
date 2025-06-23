@@ -145,7 +145,7 @@
               <div>
                 <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Skills</p>
                 <p class="text-sm font-semibold text-gray-900">
-                  {{ resource.skills?.length || 0 }} skills
+                  {{ resource.skills && resource.skills.length > 0 ? resource.skills[0].name : 'No skill' }}
                 </p>
               </div>
             </div>
@@ -166,12 +166,11 @@
           <div *ngIf="resource.skills && resource.skills.length > 0" class="mb-3">
             <div class="flex items-center gap-2 mb-2">
               <img src="assets/icons/lucide/lucide/target.svg" alt="skills" class="w-4 h-4 text-gray-500" />
-              <span class="text-sm font-medium text-gray-700">Skills & Expertise</span>
+              <span class="text-sm font-medium text-gray-700">Skill & Expertise</span>
             </div>
             <div class="flex flex-wrap gap-2">
-              <span *ngFor="let skill of resource.skills" 
-                    class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 border border-blue-200">
-                {{ skill }}
+              <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 border border-blue-200">
+                {{ resource.skills[0].name }}
               </span>
             </div>
           </div>

@@ -5,6 +5,7 @@ import { environment } from '../../environments/environment';
 import { User } from '../models/user.model';
 import { AdminSkill, PlatformStats, TransactionData } from '../models/admin.model';
 import { VendorSkill } from '../models/vendor-skill.model';
+import { Category } from '../models/category.model';
 import { ApiService } from './api.service';
 import { ApiResponse } from '../models/api-response.model';
 import { PaginatedResponse } from '../models/pagination.model';
@@ -222,11 +223,36 @@ export class AdminService {
     return this.apiService.post<User>(`/admin/users/${userId}/toggle-status`, {});
   }
 
-  getSkillCategories(): Observable<string[]> {
-    return this.apiService.get<string[]>('/admin/skill-categories');
+  getCategories(): Observable<ApiResponse<Category[]>> {
+    return this.apiService.get<ApiResponse<Category[]>>('/admin/categories').pipe(
+      map(response => {
+        console.log('Admin Service: Categories response:', response);
+        return response;
+      }),
+      catchError(error => {
+        console.error('Admin Service: Error fetching categories:', error);
+        return of({
+          success: false,
+          data: [],
+          message: 'Failed to load categories'
+        });
+      })
+    );
   }
 
-  addAdminSkill(skill: Omit<AdminSkill, 'id' | 'createdAt' | 'updatedAt'>): Observable<ApiResponse<AdminSkill>> {
+  addCategory(category: Omit<Category, '_id' | 'createdAt' | 'updatedAt' | 'createdBy'>): Observable<ApiResponse<Category>> {
+    return this.apiService.post<ApiResponse<Category>>('/admin/categories', category);
+  }
+
+  updateCategory(categoryId: string, category: Partial<Category>): Observable<Category> {
+    return this.apiService.put<Category>(`/admin/categories/${categoryId}`, category);
+  }
+
+  deleteCategory(categoryId: string): Observable<void> {
+    return this.apiService.delete<void>(`/admin/categories/${categoryId}`);
+  }
+
+  addAdminSkill(skill: Omit<AdminSkill, '_id' | 'createdAt' | 'updatedAt' | 'createdBy'>): Observable<ApiResponse<AdminSkill>> {
     return this.apiService.post<ApiResponse<AdminSkill>>('/admin/skills', skill);
   }
 

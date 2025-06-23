@@ -222,7 +222,6 @@ const getPlatformStats = asyncHandler(async (req, res, next) => {
 // @access  Private (Admin only)
 const getAdminSkills = asyncHandler(async (req, res, next) => {
   const { 
-    category,
     isActive,
     page = 1, 
     limit = 50, 
@@ -233,10 +232,6 @@ const getAdminSkills = asyncHandler(async (req, res, next) => {
 
   // Build query
   let query = {};
-
-  if (category) {
-    query.category = category;
-  }
 
   if (isActive !== undefined) {
     query.isActive = isActive === 'true';

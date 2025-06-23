@@ -4,11 +4,13 @@ import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
 import { LayoutComponent } from '../layout/layout.component';
 import { AddAdminSkillModalComponent } from '../modals/add-admin-skill-modal/add-admin-skill-modal.component';
+import { AddCategoryModalComponent } from '../modals/add-category-modal/add-category-modal.component';
 import { AuthService } from '../../services/auth.service';
 import { AdminService } from '../../services/admin.service';
 import { AppService } from '../../services/app.service';
 import { VendorManagementService } from '../../services/vendor-management.service';
 import { AdminSkill, PlatformStats, TransactionData, SkillApproval } from '../../models/admin.model';
+import { Category } from '../../models/category.model';
 import { VendorSkill } from '../../models/vendor-skill.model';
 import { User } from '../../models/user.model';
 import { Resource } from '../../models/resource.model';
@@ -24,6 +26,7 @@ import { ApiService } from '../../services/api.service';
 import { AdminOverviewComponent } from './admin-overview/admin-overview.component';
 import { SkillApprovalsComponent } from './skill-approvals/skill-approvals.component';
 import { SkillsManagementComponent } from './skills-management/skills-management.component';
+import { CategoriesManagementComponent } from './categories-management/categories-management.component';
 import { ApplicationsViewComponent } from './applications-view/applications-view.component';
 import { UsersManagementComponent } from './users-management/users-management.component';
 import { ProfileDashboardComponent } from '../profile/profile-dashboard.component';
@@ -56,11 +59,13 @@ interface NavigationTab {
     LucideAngularModule, 
     LayoutComponent,
     AddAdminSkillModalComponent,
+    AddCategoryModalComponent,
     PaginationComponent,
     // Import new tab components
     AdminOverviewComponent,
     SkillApprovalsComponent,
     SkillsManagementComponent,
+    CategoriesManagementComponent,
     ApplicationsViewComponent,
     UsersManagementComponent,
     ProfileDashboardComponent
@@ -71,11 +76,12 @@ interface NavigationTab {
 export class AdminDashboardComponent implements OnInit, OnDestroy {
   currentUser: User | null = null;
   isLoading = false;
-  activeTab: 'overview' | 'skill-approvals' | 'skills' | 'applications' | 'users' | 'user-profile' = 'overview';
+  activeTab: 'overview' | 'skill-approvals' | 'skills' | 'applications' | 'users' | 'user-profile' | 'categories' = 'overview';
   
   // Data
   skillApprovals: SkillApproval[] = [];
   adminSkills: AdminSkill[] = [];
+  categories: Category[] = [];
   platformStats: PlatformStats = {
     totalUsers: 0,
     totalVendors: 0,
@@ -103,6 +109,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
 
   // Modals
   showAddSkillModal = false;
+  showAddCategoryModal = false;
   showSkillApprovalModal = false;
   showSkillRejectModal = false;
   selectedVendorSkill: VendorSkill | null = null;
@@ -136,6 +143,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     { id: 'overview', label: 'Overview', icon: 'home' },
     { id: 'skill-approvals', label: 'Vendor Skill', icon: 'check-circle', badge: 0 },
     { id: 'skills', label: 'Skills', icon: 'list' },
+    { id: 'categories', label: 'Categories', icon: 'folder' },
     { id: 'applications', label: 'Applications', icon: 'file-text' },
     { id: 'users', label: 'Users', icon: 'users' }
   ];
@@ -239,18 +247,15 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   }
 
   private async loadDashboardData(): Promise<void> {
-    try {
-      await Promise.all([
-        this.loadSkillApprovals(),
-        this.loadAdminSkills(),
-        this.loadPlatformStats(),
-        this.loadTransactions(),
-        this.loadApplications(),
-        this.loadUsers()
-      ]);
-    } catch (error) {
-      console.error('Error loading dashboard data:', error);
-    }
+    await Promise.all([
+      this.loadSkillApprovals(),
+      this.loadAdminSkills(),
+      this.loadCategories(),
+      this.loadPlatformStats(),
+      this.loadTransactions(),
+      this.loadApplications(),
+      this.loadUsers()
+    ]);
   }
 
   private async loadSkillApprovals(): Promise<void> {
@@ -313,6 +318,17 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       console.error('Error loading admin skills:', error);
     } finally {
       this.loadingStates.skills = false;
+    }
+  }
+
+  private async loadCategories(): Promise<void> {
+    try {
+      const response = await firstValueFrom(this.adminService.getCategories());
+      if (response.success) {
+        this.categories = response.data;
+      }
+    } catch (error) {
+      console.error('Error loading categories:', error);
     }
   }
 
@@ -418,7 +434,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     }
   }
 
-  setActiveTab(tab: 'overview' | 'skill-approvals' | 'skills' | 'applications' | 'users' | 'user-profile'): void {
+  setActiveTab(tab: 'overview' | 'skill-approvals' | 'skills' | 'applications' | 'users' | 'user-profile' | 'categories'): void {
     this.activeTab = tab;
     
     // Reset pagination states when switching tabs
@@ -644,10 +660,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     this.loadSkillApprovals();
   }
 
-  getSkillCategories(): Observable<string[]> {
-    return this.adminService.getSkillCategories();
-  }
-
   getProficiencyClass(level: string): string {
     const classes: { [key: string]: string } = {
       beginner: 'text-green-600 bg-green-100',
@@ -820,6 +832,31 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       ...this.platformStats,
       activeSkills: this.platformStats.activeSkills + 1
     };
+  }
+
+  onCategoryAdded(newCategory: Category): void {
+    // Add the new category to the list
+    this.categories = [...this.categories, newCategory];
+    console.log('Category added:', newCategory);
+  }
+
+  editCategory(category: Category): void {
+    // TODO: Implement category editing
+    console.log('Edit category:', category);
+  }
+
+  onCategoryDeleted(categoryId: string): void {
+    // Remove the deleted category from the list
+    this.categories = this.categories.filter(cat => cat._id !== categoryId);
+    console.log('Category deleted:', categoryId);
+  }
+
+  onCategoryUpdated(updatedCategory: Category): void {
+    // Update the category in the list
+    this.categories = this.categories.map(cat => 
+      cat._id === updatedCategory._id ? updatedCategory : cat
+    );
+    console.log('Category updated:', updatedCategory);
   }
 
   getApplicationTitle(application: any): string {

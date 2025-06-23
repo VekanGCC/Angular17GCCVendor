@@ -1,9 +1,9 @@
 const mongoose = require('mongoose');
 
-const adminSkillSchema = new mongoose.Schema({
+const categorySchema = new mongoose.Schema({
   name: {
     type: String,
-    required: [true, 'Skill name is required'],
+    required: [true, 'Category name is required'],
     trim: true,
     unique: true
   },
@@ -25,7 +25,7 @@ const adminSkillSchema = new mongoose.Schema({
 });
 
 // Indexes for better performance
-adminSkillSchema.index({ name: 1 });
-adminSkillSchema.index({ isActive: 1 });
+categorySchema.index({ name: 1 });
+categorySchema.index({ isActive: 1 });
 
-module.exports = mongoose.model('AdminSkill', adminSkillSchema);
+module.exports = mongoose.model('Category', categorySchema); 

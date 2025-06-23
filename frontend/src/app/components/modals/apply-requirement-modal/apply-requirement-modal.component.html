@@ -133,9 +133,9 @@
                 </div>
                 
                 <div class="flex flex-wrap gap-1">
-                  <span *ngFor="let skill of resource.skills" 
+                  <span *ngIf="resource.skills && resource.skills.length > 0" 
                         class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                    {{ skill }}
+                    {{ resource.skills[0].name }}
                   </span>
                 </div>
                 

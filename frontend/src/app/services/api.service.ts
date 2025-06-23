@@ -190,6 +190,12 @@ export class ApiService {
     return this.get<ApiResponse<AdminSkill[]>>('/skills/active');
   }
 
+  // Get active categories for dropdowns
+  getActiveCategories(): Observable<ApiResponse<any[]>> {
+    console.log('📂 API: Fetching active categories...');
+    return this.get<ApiResponse<any[]>>('/categories/active');
+  }
+
   // Vendor Niche Skills
   getVendorSkills(): Observable<any> {
     console.log('🎯 API: Fetching vendor niche skills...');

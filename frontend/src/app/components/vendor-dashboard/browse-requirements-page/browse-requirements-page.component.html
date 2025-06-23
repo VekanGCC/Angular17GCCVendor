@@ -169,10 +169,10 @@
             <img src="assets/icons/lucide/lucide/target.svg" alt="skills" class="w-4 h-4 text-gray-500" />
             <span class="text-sm font-medium text-gray-700">Required Skills</span>
           </div>
-          <div class="flex flex-wrap gap-2">
+          <div class="flex flex-col gap-1">
             <span *ngFor="let skill of requirement.skills" 
-                  class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gradient-to-r from-purple-50 to-indigo-50 text-purple-700 border border-purple-200">
-              {{ skill }}
+                  class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 w-fit">
+              {{ getSkillDisplayName(skill) }}
             </span>
           </div>
         </div>
@@ -250,13 +250,9 @@
                       <td class="resource-name">{{ resource.name }}</td>
                       <td class="resource-skills">
                         <div class="flex flex-wrap gap-1">
-                          <span *ngFor="let skill of resource.skills?.slice(0, 3)" 
+                          <span *ngIf="resource.skills && resource.skills.length > 0" 
                                 class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
-                            {{ skill }}
-                          </span>
-                          <span *ngIf="(resource.skills?.length || 0) > 3" 
-                                class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
-                            +{{ (resource.skills?.length || 0) - 3 }}
+                            {{ resource.skills[0].name }}
                           </span>
                         </div>
                       </td>
@@ -292,13 +288,9 @@
                     <td>{{ resource.name }}</td>
                     <td>
                       <div class="flex flex-wrap gap-1">
-                        <span *ngFor="let skill of resource.skills?.slice(0, 2)" 
+                        <span *ngIf="resource.skills && resource.skills.length > 0" 
                               class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
-                          {{ skill }}
-                        </span>
-                        <span *ngIf="(resource.skills?.length || 0) > 2" 
-                              class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
-                          +{{ (resource.skills?.length || 0) - 2 }}
+                          {{ resource.skills[0].name }}
                         </span>
                       </div>
                     </td>

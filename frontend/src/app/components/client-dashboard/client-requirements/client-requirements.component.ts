@@ -68,7 +68,16 @@ export class ClientRequirementsComponent implements OnInit, OnChanges {
       filter: false,
       valueGetter: (params: any) => {
         const skills = params.data.skills || [];
-        return skills.length > 0 ? skills[0] : '';
+        if (skills.length === 0) return '';
+        
+        // Handle both populated objects and ObjectIds
+        const firstSkill = skills[0];
+        if (typeof firstSkill === 'object' && firstSkill.name) {
+          return firstSkill.name;
+        } else if (typeof firstSkill === 'string') {
+          return firstSkill; // Return ObjectId as fallback
+        }
+        return '';
       },
       cellRenderer: (params: any) => {
         const skills = params.data.skills || [];
@@ -78,8 +87,17 @@ export class ClientRequirementsComponent implements OnInit, OnChanges {
         const remainingCount = skills.length - 2;
         
         let html = '<div class="flex flex-wrap gap-1 justify-start">';
-        displaySkills.forEach((skill: string) => {
-          html += `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">${skill}</span>`;
+        displaySkills.forEach((skill: any) => {
+          let skillName = 'Unknown';
+          
+          // Handle both populated objects and ObjectIds
+          if (typeof skill === 'object' && skill.name) {
+            skillName = skill.name;
+          } else if (typeof skill === 'string') {
+            skillName = skill; // Use ObjectId as fallback
+          }
+          
+          html += `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">${skillName}</span>`;
         });
         if (remainingCount > 0) {
           html += `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">+${remainingCount}</span>`;
@@ -92,22 +110,33 @@ export class ClientRequirementsComponent implements OnInit, OnChanges {
       headerName: 'Category',
       field: 'category',
       flex: 1,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       sortable: false,
       filter: false,
       cellRenderer: (params: any) => {
-        return `<span class="text-sm text-gray-900">${params.value || 'N/A'}</span>`;
+        let categoryName = 'N/A';
+        
+        // Handle both populated objects and ObjectIds
+        if (typeof params.data.category === 'object' && params.data.category.name) {
+          categoryName = params.data.category.name;
+        } else if (typeof params.data.category === 'string') {
+          categoryName = params.data.category; // Use ObjectId as fallback
+        }
+        
+        return `<span class="text-sm text-gray-900">${categoryName}</span>`;
       }
     },
     {
       headerName: 'Experience',
       field: 'experience.minYears',
       flex: 1,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       sortable: false,
       filter: false,
       cellRenderer: (params: any) => {
         const experience = params.data.experience || {};
         return `
-          <div>
+          <div class="text-left">
             <div class="text-sm text-gray-900">${experience.minYears || 0} years</div>
             <div class="text-xs text-gray-500">${experience.level || 'Not specified'}</div>
           </div>
@@ -155,6 +184,7 @@ export class ClientRequirementsComponent implements OnInit, OnChanges {
       headerName: 'Posted',
       field: 'createdAt',
       flex: 1,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       sortable: false,
       filter: false,
       cellRenderer: (params: any) => {
@@ -170,21 +200,28 @@ export class ClientRequirementsComponent implements OnInit, OnChanges {
       sortable: false,
       filter: false,
       cellRenderer: (params: any) => {
-        const attachment = params.data.attachment;
+        const requirement = params.data;
+        const attachment = requirement.attachment;
+        
         if (!attachment || !attachment.originalName) {
           return '<span class="text-xs text-gray-500 italic">No file</span>';
         }
         
-        return `
-          <div class="flex items-center justify-center">
-            <button 
-              class="download-btn p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
-              id="download-${params.data._id}"
-              title="${attachment.originalName}">
-              <img src="assets/icons/lucide/lucide/file-text.svg" alt="file" class="w-4 h-4" />
-            </button>
-          </div>
+        const button = document.createElement('button');
+        button.className = 'download-btn p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors';
+        button.innerHTML = `
+          <img src="assets/icons/lucide/lucide/file-text.svg" class="w-4 h-4" alt="file">
         `;
+        button.id = `download-${requirement._id}`;
+        button.title = `Download ${attachment.originalName}`;
+        
+        // Add click event listener
+        button.addEventListener('click', (event) => {
+          event.stopPropagation();
+          this.downloadAttachment(requirement);
+        });
+        
+        return button;
       }
     },
     {
@@ -196,7 +233,7 @@ export class ClientRequirementsComponent implements OnInit, OnChanges {
       filter: false,
       cellRenderer: (params: any) => {
         const requirement = params.data;
-        let html = '<div class="flex space-x-2">';
+        let html = '<div class="flex space-x-2 justify-start">';
         
         if (['open', 'in_progress', 'on_hold', 'draft'].includes(requirement.status)) {
           html += `
@@ -214,13 +251,14 @@ export class ClientRequirementsComponent implements OnInit, OnChanges {
             id="edit-${requirement._id}">
             Edit
           </button>
-        </div>`;
+        `;
+        
+        html += '</div>';
         
         // Add event listeners after rendering
         setTimeout(() => {
           const closeBtn = document.getElementById(`close-${requirement._id}`);
           const editBtn = document.getElementById(`edit-${requirement._id}`);
-          const downloadBtn = document.getElementById(`download-${requirement._id}`);
           
           if (closeBtn) {
             closeBtn.addEventListener('click', () => {
@@ -236,13 +274,6 @@ export class ClientRequirementsComponent implements OnInit, OnChanges {
               this.onOpenEditRequirementModal(requirement);
               // Force change detection to ensure modal opens immediately
               this.changeDetectorRef.detectChanges();
-            });
-          }
-          
-          if (downloadBtn && requirement.attachment) {
-            downloadBtn.addEventListener('click', () => {
-              console.log('🔍 DEBUG: Download button clicked for requirement:', requirement._id);
-              this.downloadAttachment(requirement);
             });
           }
         });
@@ -350,26 +381,36 @@ export class ClientRequirementsComponent implements OnInit, OnChanges {
   }
 
   downloadAttachment(requirement: Requirement): void {
+    console.log('🔧 ClientRequirementsComponent: Downloading attachment:', requirement.attachment);
+    
     if (!requirement.attachment || !requirement.attachment.fileId) {
-      console.error('No attachment found for requirement:', requirement._id);
+      console.error('🔧 ClientRequirementsComponent: No file ID found for download');
       return;
     }
 
-    this.apiService.downloadFile(requirement.attachment.fileId).subscribe(
-      (response: Blob) => {
+    // Use the API service to download the file
+    this.apiService.downloadFile(requirement.attachment.fileId).subscribe({
+      next: (response: Blob) => {
+        console.log('🔧 ClientRequirementsComponent: File download successful');
+        
+        // Create download link and trigger download
         const link = document.createElement('a');
-        link.href = window.URL.createObjectURL(response);
-        link.download = requirement.attachment!.originalName;
+        link.href = URL.createObjectURL(response);
+        link.download = requirement.attachment!.originalName || 'download';
         link.target = '_blank';
         
         // Trigger download
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+        
+        // Clean up the object URL
+        URL.revokeObjectURL(link.href);
       },
-      (error) => {
-        console.error('Error downloading file:', error);
+      error: (error: any) => {
+        console.error('🔧 ClientRequirementsComponent: File download error:', error);
+        // Handle download error - could show a toast notification here
       }
-    );
+    });
   }
 } 

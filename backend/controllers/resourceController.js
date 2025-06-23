@@ -42,23 +42,10 @@ const getResources = asyncHandler(async (req, res, next) => {
     query.category = category;
   }
 
-  // Search by skills
   if (skills) {
-    let skillsArray = [];
-    let logic = 'OR';
-    if (skills.includes(':')) {
-      const [skillsStr, logicStr] = skills.split(':');
-      skillsArray = skillsStr.split(',').map(skill => skill.trim());
-      logic = logicStr.toUpperCase() === 'AND' ? 'AND' : 'OR';
-    } else {
-      skillsArray = skills.split(',').map(skill => skill.trim());
-    }
-    console.log('🔧 ResourceController: Skills array:', skillsArray, 'Logic:', logic);
-    if (logic === 'AND') {
-      query.skills = { $all: skillsArray };
-    } else {
-      query.skills = { $in: skillsArray };
-    }
+    // Handle skills as array or single skill
+    const skillsArray = Array.isArray(skills) ? skills : [skills];
+    query.skills = { $in: skillsArray };
   }
 
   // Search by experience range
@@ -92,6 +79,9 @@ const getResources = asyncHandler(async (req, res, next) => {
 
   // Execute query with pagination
   const resources = await Resource.find(query)
+    .populate('category', 'name description')
+    .populate('skills', 'name description')
+    .populate('createdBy', 'firstName lastName email')
     .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
     .limit(limit * 1)
     .skip((page - 1) * limit);
@@ -118,7 +108,10 @@ const getResources = asyncHandler(async (req, res, next) => {
 // @route   GET /api/resources/:id
 // @access  Private
 const getResource = asyncHandler(async (req, res, next) => {
-  const resource = await Resource.findById(req.params.id);
+  const resource = await Resource.findById(req.params.id)
+    .populate('category', 'name description')
+    .populate('skills', 'name description')
+    .populate('createdBy', 'firstName lastName email');
 
   if (!resource) {
     return next(new ErrorResponse('Resource not found', 404));
@@ -136,8 +129,22 @@ const createResource = asyncHandler(async (req, res, next) => {
   // Add user to req.body from JWT token
   req.body.createdBy = req.user.id;
 
+  // Ensure skills is an array and convert string IDs to ObjectIds
+  if (req.body.skills) {
+    if (!Array.isArray(req.body.skills)) {
+      req.body.skills = [req.body.skills];
+    }
+    // Filter out any empty or invalid skill IDs
+    req.body.skills = req.body.skills.filter(skillId => skillId && skillId.trim() !== '');
+  }
+
+  // Remove the old skill field if it exists
+  if (req.body.skill) {
+    delete req.body.skill;
+  }
+
   console.log('🔧 ResourceController: Creating resource with data:', JSON.stringify(req.body, null, 2));
-  console.log('🔧 ResourceController: Attachment data:', req.body.attachment);
+  console.log('🔧 ResourceController: Skills array:', req.body.skills);
 
   const resource = await Resource.create(req.body);
 

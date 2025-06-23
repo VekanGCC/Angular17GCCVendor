@@ -523,6 +523,8 @@ const getClientRequirements = asyncHandler(async (req, res, next) => {
 
   // Execute query with pagination
   const requirements = await Requirement.find(query)
+    .populate('category', 'name description')
+    .populate('skills', 'name description')
     .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
     .limit(limit * 1)
     .skip((page - 1) * limit);

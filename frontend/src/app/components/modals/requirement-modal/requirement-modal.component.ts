@@ -25,6 +25,7 @@ export class RequirementModalComponent implements OnInit, OnChanges {
 
   requirementForm: FormGroup;
   availableSkills: AdminSkill[] = [];
+  availableCategories: any[] = [];
   
   // File upload properties
   selectedFile: File | null = null;
@@ -32,17 +33,6 @@ export class RequirementModalComponent implements OnInit, OnChanges {
   readonly maxFileSize = 5 * 1024 * 1024; // 5MB
   readonly allowedFileTypes = ['.pdf', '.doc', '.docx'];
   
-  categories = [
-    'development',
-    'design',
-    'project_management',
-    'qa_testing',
-    'devops',
-    'data_science',
-    'content_writing',
-    'marketing',
-    'other'
-  ];
   experienceLevels = [
     'junior',
     'mid',
@@ -99,6 +89,22 @@ export class RequirementModalComponent implements OnInit, OnChanges {
       }
     });
 
+    // Load available categories from API service (public endpoint)
+    this.apiService.getActiveCategories().subscribe({
+      next: (response) => {
+        console.log('🔧 RequirementModal: Categories response:', response);
+        if (response.success) {
+          this.availableCategories = response.data;
+          console.log('🔧 RequirementModal: Available categories:', this.availableCategories);
+        } else {
+          console.error('🔧 RequirementModal: Failed to load categories:', response.message);
+        }
+      },
+      error: (error) => {
+        console.error('🔧 RequirementModal: Error loading categories:', error);
+      }
+    });
+
     // If not in edit mode, we don't need to wait for skills to load
     if (this.mode !== 'edit') {
       // If in edit mode, populate the form after skills are loaded (handled above)
@@ -133,10 +139,12 @@ export class RequirementModalComponent implements OnInit, OnChanges {
       this.skills.removeAt(0);
     }
     
-    // Add each skill from the requirement
-    this.requirement.skills.forEach(skill => {
+    // Add each skill from the requirement - handle both string and object formats
+    this.requirement.skills.forEach((skill: any) => {
       console.log('🔧 RequirementModal: Adding skill to form:', skill);
-      this.skills.push(this.fb.control(skill, Validators.required));
+      // If skill is an object, use its _id, otherwise use the skill string
+      const skillId = typeof skill === 'object' ? skill._id : skill;
+      this.skills.push(this.fb.control(skillId, Validators.required));
     });
 
     // If no skills, add at least one empty skill field
@@ -148,17 +156,17 @@ export class RequirementModalComponent implements OnInit, OnChanges {
     // Patch the form with individual values to ensure proper updates
     this.requirementForm.patchValue({
       title: this.requirement.title,
-      category: this.requirement.category,
-      location: this.requirement.location.city,
+      category: (this.requirement.category as any)?._id || this.requirement.category, // Handle both object and string
+      location: (this.requirement.location as any)?.city || this.requirement.location,
       duration: parseInt(this.requirement.duration),
-      budget: this.requirement.budget.charge || 50,
+      budget: (this.requirement.budget as any)?.charge || this.requirement.budget || 50,
       description: this.requirement.description
     });
 
     // Set experience values separately to ensure proper FormGroup update
     this.experience.setValue({
-      minYears: this.requirement.experience.minYears,
-      level: this.requirement.experience.level
+      minYears: (this.requirement.experience as any)?.minYears || (this.requirement.experience as any)?.years || 1,
+      level: (this.requirement.experience as any)?.level || 'junior'
     });
 
     console.log('🔧 RequirementModal: Form patched with data');
@@ -186,7 +194,11 @@ export class RequirementModalComponent implements OnInit, OnChanges {
   }
 
   addSkill(): void {
-    this.skills.push(this.fb.control('', Validators.required));
+    console.log('🔧 RequirementModal: Adding new skill field');
+    this.skills.push(this.fb.control('')); // Remove Validators.required initially
+    // Force change detection to ensure the new field appears immediately
+    this.changeDetectorRef.detectChanges();
+    console.log('🔧 RequirementModal: New skill field added, total skills:', this.skills.length);
   }
 
   removeSkill(index: number): void {
@@ -208,7 +220,16 @@ export class RequirementModalComponent implements OnInit, OnChanges {
     console.log('🔧 RequirementModal: Form errors:', this.requirementForm.errors);
     console.log('🔧 RequirementModal: Budget field errors:', this.requirementForm.get('budget')?.errors);
 
-    if (this.requirementForm.valid) {
+    // Check if the main form fields are valid (excluding skills array)
+    const mainFormValid = this.requirementForm.get('title')?.valid &&
+                         this.requirementForm.get('category')?.valid &&
+                         this.requirementForm.get('experience')?.valid &&
+                         this.requirementForm.get('location')?.valid &&
+                         this.requirementForm.get('duration')?.valid &&
+                         this.requirementForm.get('budget')?.valid &&
+                         this.requirementForm.get('description')?.valid;
+
+    if (mainFormValid) {
       const user = this.authService.currentUser;
       if (!user) return;
 
@@ -218,17 +239,42 @@ export class RequirementModalComponent implements OnInit, OnChanges {
       console.log('🔧 RequirementModal: Experience in formValue:', formValue.experience);
       console.log('🔧 RequirementModal: MinYears in formValue:', formValue.experience?.minYears);
       console.log('🔧 RequirementModal: Level in formValue:', formValue.experience?.level);
+      console.log('🔧 RequirementModal: Category in formValue:', formValue.category);
+      console.log('🔧 RequirementModal: Skills in formValue:', formValue.skills);
       
-      const filteredSkills = formValue.skills.filter((skill: string) => skill.trim() !== '');
+      // Filter out empty skills and validate that at least one skill is selected
+      const filteredSkills = formValue.skills.filter((skill: string) => skill && skill.trim() !== '');
       console.log('🔧 RequirementModal: Filtered skills:', filteredSkills);
 
-      if (filteredSkills.length === 0) return;
+      if (filteredSkills.length === 0) {
+        console.error('🔧 RequirementModal: At least one skill must be selected');
+        return;
+      }
+
+      // Validate that category and skills are ObjectIds
+      if (!formValue.category || formValue.category === '') {
+        console.error('🔧 RequirementModal: Category is required but not selected');
+        return;
+      }
+
+      // Check if category is a valid ObjectId (24 character hex string)
+      if (!/^[0-9a-fA-F]{24}$/.test(formValue.category)) {
+        console.error('🔧 RequirementModal: Category is not a valid ObjectId:', formValue.category);
+        return;
+      }
+
+      // Check if all skills are valid ObjectIds
+      const invalidSkills = filteredSkills.filter((skill: string) => !/^[0-9a-fA-F]{24}$/.test(skill));
+      if (invalidSkills.length > 0) {
+        console.error('🔧 RequirementModal: Some skills are not valid ObjectIds:', invalidSkills);
+        return;
+      }
 
       const requirementData = {
         title: formValue.title,
         description: formValue.description,
-        category: formValue.category,
-        skills: filteredSkills,
+        category: formValue.category, // This should now be a valid ObjectId
+        skills: filteredSkills, // These should now be valid ObjectIds
         experience: {
           minYears: formValue.experience.minYears,
           level: formValue.experience.level
@@ -254,6 +300,8 @@ export class RequirementModalComponent implements OnInit, OnChanges {
       };
 
       console.log('🔧 RequirementModal: Final requirement data being sent:', requirementData);
+      console.log('🔧 RequirementModal: Category ObjectId:', requirementData.category);
+      console.log('🔧 RequirementModal: Skills ObjectIds:', requirementData.skills);
       console.log('🔧 RequirementModal: Budget data:', requirementData.budget);
       console.log('🔧 RequirementModal: Budget charge value:', requirementData.budget.charge);
 
@@ -513,5 +561,9 @@ export class RequirementModalComponent implements OnInit, OnChanges {
     console.log('🔧 RequirementModal: Level field value:', this.experience.get('level')?.value);
     console.log('🔧 RequirementModal: MinYears field valid:', this.experience.get('minYears')?.valid);
     console.log('🔧 RequirementModal: Level field valid:', this.experience.get('level')?.valid);
+  }
+
+  getSkillId(skill: any): string {
+    return skill._id || skill.id || '';
   }
 }

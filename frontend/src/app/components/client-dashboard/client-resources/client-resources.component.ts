@@ -81,11 +81,12 @@ export class ClientResourcesComponent implements OnInit, OnChanges, OnDestroy {
       filter: false,
       cellRenderer: (params: any) => {
         const resource = params.data;
+        const categoryName = resource.category?.name || 'N/A';
         return `
           <div class="flex items-center justify-start text-left">
             <div class="min-w-0 flex-1">
               <div class="text-sm font-medium text-gray-900 truncate">${resource.name || 'N/A'}</div>
-              <div class="text-xs text-gray-500 truncate">${resource.category || 'N/A'}</div>
+              <div class="text-xs text-gray-500 truncate">${categoryName}</div>
             </div>
           </div>
         `;
@@ -100,7 +101,7 @@ export class ClientResourcesComponent implements OnInit, OnChanges, OnDestroy {
       filter: false,
       valueGetter: (params: any) => {
         const skills = params.data.skills || [];
-        return skills.length > 0 ? skills[0] : '';
+        return skills.length > 0 ? skills[0]?.name || '' : '';
       },
       cellRenderer: (params: any) => {
         const skills = params.data.skills || [];
@@ -110,8 +111,9 @@ export class ClientResourcesComponent implements OnInit, OnChanges, OnDestroy {
         const remainingCount = skills.length - 2;
         
         let html = '<div class="flex flex-wrap gap-1 justify-start">';
-        displaySkills.forEach((skill: string) => {
-          html += `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">${skill}</span>`;
+        displaySkills.forEach((skill: any) => {
+          const skillName = skill?.name || 'Unknown';
+          html += `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">${skillName}</span>`;
         });
         if (remainingCount > 0) {
           html += `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">+${remainingCount}</span>`;

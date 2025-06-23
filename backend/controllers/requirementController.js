@@ -47,9 +47,47 @@ const getRequirements = asyncHandler(async (req, res, next) => {
 
   // Execute query with pagination
   const requirements = await Requirement.find(query)
+    .populate('category')
+    .populate('skills')
     .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
     .limit(limit * 1)
     .skip((page - 1) * limit);
+
+  console.log('🔧 Backend: Retrieved requirements:', JSON.stringify(requirements, null, 2));
+  console.log('🔧 Backend: First requirement skills:', requirements[0]?.skills);
+  console.log('🔧 Backend: First requirement category:', requirements[0]?.category);
+
+  // Debug: Check if referenced documents exist
+  if (requirements.length > 0) {
+    const firstReq = requirements[0];
+    console.log('🔧 Backend: Checking if category exists:', firstReq.category);
+    console.log('🔧 Backend: Checking if skills exist:', firstReq.skills);
+    
+    // Check if category exists
+    const Category = require('../models/Category');
+    const categoryExists = await Category.findById(firstReq.category);
+    console.log('🔧 Backend: Category exists:', categoryExists ? 'YES' : 'NO');
+    if (categoryExists) {
+      console.log('🔧 Backend: Category data:', categoryExists);
+    }
+    
+    // Check if skills exist
+    const AdminSkill = require('../models/AdminSkill');
+    for (let i = 0; i < firstReq.skills.length; i++) {
+      const skillExists = await AdminSkill.findById(firstReq.skills[i]);
+      console.log(`🔧 Backend: Skill ${i} (${firstReq.skills[i]}) exists:`, skillExists ? 'YES' : 'NO');
+      if (skillExists) {
+        console.log(`🔧 Backend: Skill ${i} data:`, skillExists);
+      }
+    }
+    
+    // Try manual population
+    console.log('🔧 Backend: Trying manual population...');
+    const manualPopulated = await Requirement.findById(firstReq._id)
+      .populate('category')
+      .populate('skills');
+    console.log('🔧 Backend: Manual populated result:', JSON.stringify(manualPopulated, null, 2));
+  }
 
   const total = await Requirement.countDocuments(query);
 
@@ -71,7 +109,9 @@ const getRequirements = asyncHandler(async (req, res, next) => {
 // @route   GET /api/requirements/:id
 // @access  Private
 const getRequirement = asyncHandler(async (req, res, next) => {
-  const requirement = await Requirement.findById(req.params.id);
+  const requirement = await Requirement.findById(req.params.id)
+    .populate('category')
+    .populate('skills');
 
   if (!requirement) {
     return next(new ErrorResponse('Requirement not found', 404));
@@ -123,7 +163,9 @@ const updateRequirement = asyncHandler(async (req, res, next) => {
   requirement = await Requirement.findByIdAndUpdate(req.params.id, req.body, {
     new: true,
     runValidators: true
-  });
+  })
+  .populate('category')
+  .populate('skills');
 
   res.status(200).json(
     ApiResponse.success(requirement, 'Requirement updated successfully')
@@ -160,7 +202,9 @@ const updateRequirementStatus = asyncHandler(async (req, res, next) => {
       new: true,
       runValidators: true
     }
-  );
+  )
+  .populate('category')
+  .populate('skills');
 
   res.status(200).json(
     ApiResponse.success(requirement, 'Requirement status updated successfully')

@@ -52,6 +52,16 @@
       </button>
 
       <button
+        (click)="setActiveTab('categories')"
+        [class]="'w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ' + 
+          (activeTab === 'categories'
+            ? 'bg-red-50 text-red-700 border border-red-200'
+            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900')">
+        <img src="assets/icons/lucide/lucide/folder.svg" alt="folder" class="w-5 h-5 mr-3" />
+        <span class="font-medium">Categories</span>
+      </button>
+
+      <button
         (click)="setActiveTab('applications')"
         [class]="'w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ' + 
           (activeTab === 'applications'
@@ -98,6 +108,7 @@
             {{activeTab === 'overview' ? 'Platform Overview' :
               activeTab === 'skill-approvals' ? 'Vendor Skill' :
               activeTab === 'skills' ? 'Skill Management' :
+              activeTab === 'categories' ? 'Category Management' :
               activeTab === 'applications' ? 'All Applications' :
               'User Management'}}
           </h2>
@@ -105,6 +116,7 @@
             {{activeTab === 'overview' ? 'Monitor platform performance and key metrics' :
               activeTab === 'skill-approvals' ? 'Review and approve vendor skill submissions' :
               activeTab === 'skills' ? 'Manage platform skills and categories' :
+              activeTab === 'categories' ? 'Manage platform categories' :
               activeTab === 'applications' ? 'View all applications from vendors and clients' :
               'Manage all platform users and permissions'}}
           </p>
@@ -156,6 +168,17 @@
         (deleteSkill)="deleteSkill($event)">
       </app-skills-management>
 
+      <!-- Categories Tab -->
+      <app-categories-management 
+        *ngIf="activeTab === 'categories'"
+        [categories]="categories"
+        (openAddModal)="showAddCategoryModal = true"
+        (openEditModal)="editCategory($event)"
+        (categoryDeleted)="onCategoryDeleted($event)"
+        (categoryUpdated)="onCategoryUpdated($event)"
+        (categoryAdded)="onCategoryAdded($event)">
+      </app-categories-management>
+
       <!-- Applications Tab -->
       <app-applications-view 
         *ngIf="activeTab === 'applications'"
@@ -192,6 +215,13 @@
     (close)="showAddSkillModal = false"
     (skillAdded)="onSkillAdded($event)">
   </app-add-admin-skill-modal>
+
+  <!-- Add Category Modal -->
+  <app-add-category-modal 
+    *ngIf="showAddCategoryModal" 
+    (close)="showAddCategoryModal = false"
+    (categoryAdded)="onCategoryAdded($event)">
+  </app-add-category-modal>
 
   <!-- Skill Approval Modal -->
   <div *ngIf="showSkillApprovalModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">

@@ -156,6 +156,9 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
   // Browse requirements page properties
   showBrowseRequirementsPage = false;
 
+  // Resource Modal handlers
+  resourceToEdit: Resource | null = null;
+
   constructor(
     private authService: AuthService,
     private appService: AppService,
@@ -582,17 +585,15 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
     const vendorId = this.currentUser._id;
     
     // Use safe filtering with null checks
-    this.vendorResources = (this.resources || []).filter(r => r && r.vendorId === vendorId);
+    this.vendorResources = (this.resources || []).filter(r => r && r.createdBy === vendorId);
     // Use vendorApplications that are loaded from vendor-specific endpoint
     // this.vendorApplications is already set by loadVendorApplications()
-    this.organizationUsers = (this.vendorUsers || []).filter(u => u && u.vendorId === vendorId);
-    this.organizationSkills = (this.vendorSkills || []).filter(s => s && s.vendor._id === vendorId);
+    this.organizationUsers = (this.vendorUsers || []).filter(u => u && u.createdBy === vendorId);
     
     console.log('📊 VendorDashboard: Filtered data:', {
       vendorResources: this.vendorResources.length,
       vendorApplications: this.vendorApplications.length,
       organizationUsers: this.organizationUsers.length,
-      organizationSkills: this.organizationSkills.length,
       totalRequirements: (this.requirements || []).length
     });
     
@@ -763,9 +764,9 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
   }
 
   handleEditResource(resource: Resource): void {
-    // Handle editing a resource
     console.log('Editing resource:', resource);
-    // TODO: Implement resource editing logic
+    this.resourceToEdit = resource;
+    this.showResourceModal = true;
   }
 
   handleToggleResourceStatus(data: {resourceId: string, currentStatus: 'active' | 'inactive'}): void {
@@ -994,6 +995,7 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
 
   onCloseResourceModal(): void {
     this.showResourceModal = false;
+    this.resourceToEdit = null; // Clear the resource being edited
     // Refresh resources data after modal is closed
     this.loadVendorResources(this.resourcesPaginationState.currentPage);
   }

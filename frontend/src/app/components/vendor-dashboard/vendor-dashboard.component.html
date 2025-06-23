@@ -157,7 +157,11 @@
     </div>
 
     <!-- Resource Modal -->
-    <app-resource-modal *ngIf="showResourceModal" (close)="onCloseResourceModal()"></app-resource-modal>
+    <app-resource-modal 
+      *ngIf="showResourceModal" 
+      [resourceToEdit]="resourceToEdit"
+      (close)="onCloseResourceModal()">
+    </app-resource-modal>
 
     <!-- Apply Resource Modal - Temporarily disabled due to interface changes -->
     <!-- <app-apply-resource-modal

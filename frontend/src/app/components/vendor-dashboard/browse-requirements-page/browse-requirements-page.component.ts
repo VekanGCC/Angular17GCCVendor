@@ -71,6 +71,15 @@ export class BrowseRequirementsPageComponent implements OnInit {
     this.requirement = this.appService.getRequirementById(this.selectedRequirementId) || null;
     
     console.log('🔧 BrowseRequirementsPage: Loaded requirement:', this.requirement);
+    console.log('🔧 BrowseRequirementsPage: Requirement skills:', this.requirement?.skills);
+    console.log('🔧 BrowseRequirementsPage: Skills type:', typeof this.requirement?.skills);
+    console.log('🔧 BrowseRequirementsPage: Skills length:', this.requirement?.skills?.length);
+    
+    if (this.requirement?.skills && this.requirement.skills.length > 0) {
+      console.log('🔧 BrowseRequirementsPage: First skill:', this.requirement.skills[0]);
+      console.log('🔧 BrowseRequirementsPage: First skill type:', typeof this.requirement.skills[0]);
+      console.log('🔧 BrowseRequirementsPage: First skill keys:', Object.keys(this.requirement.skills[0]));
+    }
     
     if (!this.requirement) {
       console.error('🔧 BrowseRequirementsPage: No requirement found with ID:', this.selectedRequirementId);
@@ -128,9 +137,7 @@ export class BrowseRequirementsPageComponent implements OnInit {
       this.filteredResources = this.resources.filter(resource =>
         resource.name.toLowerCase().includes(searchTerm) ||
         resource.description.toLowerCase().includes(searchTerm) ||
-        (resource.skills && resource.skills.some((skill: string) => 
-          skill.toLowerCase().includes(searchTerm)
-        ))
+        (resource.skills && resource.skills.length > 0 && resource.skills[0].name && resource.skills[0].name.toLowerCase().includes(searchTerm))
       );
       console.log('🔧 Filtered resources:', this.filteredResources.length);
     }
@@ -260,6 +267,13 @@ export class BrowseRequirementsPageComponent implements OnInit {
   getResourceName(resourceId: string): string {
     const resource = this.resources.find(r => r._id === resourceId);
     return resource ? resource.name : 'Unknown Resource';
+  }
+
+  getSkillDisplayName(skill: any): string {
+    if (skill && skill.name) {
+      return skill.name;
+    }
+    return skill || 'Unknown Skill';
   }
 
   private updateSelectedResources(): void {

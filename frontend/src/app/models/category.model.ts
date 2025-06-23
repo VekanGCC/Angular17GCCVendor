@@ -1,4 +1,4 @@
-export interface AdminSkill {
+export interface Category {
   _id: string;
   name: string;
   description?: string;
@@ -8,13 +8,13 @@ export interface AdminSkill {
   updatedAt: string;
 }
 
-export interface CreateAdminSkillRequest {
+export interface CreateCategoryRequest {
   name: string;
   description?: string;
   isActive?: boolean;
 }
 
-export interface UpdateAdminSkillRequest {
+export interface UpdateCategoryRequest {
   name?: string;
   description?: string;
   isActive?: boolean;
