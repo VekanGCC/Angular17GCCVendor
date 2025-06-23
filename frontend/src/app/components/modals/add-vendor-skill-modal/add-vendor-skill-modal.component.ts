@@ -35,7 +35,6 @@ export class AddVendorSkillModalComponent implements OnInit, OnDestroy {
   ) {
     this.skillForm = this.fb.group({
       skillName: ['', Validators.required],
-      category: ['', Validators.required],
       description: ['', Validators.required],
       yearsOfExperience: ['', [Validators.required, Validators.min(0), Validators.max(50)]],
       proficiencyLevel: ['advanced', Validators.required]
@@ -73,8 +72,7 @@ export class AddVendorSkillModalComponent implements OnInit, OnDestroy {
     const selectedSkill = this.availableSkills.find(skill => skill.name === event.target.value);
     if (selectedSkill) {
       this.skillForm.patchValue({
-        skillName: selectedSkill.name,
-        category: selectedSkill.category || ''
+        skillName: selectedSkill.name
       });
     }
   }

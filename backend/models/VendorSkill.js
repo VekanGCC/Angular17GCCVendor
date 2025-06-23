@@ -13,7 +13,6 @@ const vendorSkillSchema = new mongoose.Schema({
   },
   category: {
     type: String,
-    required: [true, 'Skill category is required'],
     trim: true
   },
   description: {

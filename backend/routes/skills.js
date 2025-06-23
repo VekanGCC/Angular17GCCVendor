@@ -17,7 +17,7 @@ const ApiResponse = require('../models/ApiResponse');
 // Get all active skills (accessible by vendors)
 router.get('/active', protect, asyncHandler(async (req, res) => {
   const skills = await AdminSkill.find({ isActive: true })
-    .select('name category')
+    .select('name')
     .sort('name');
 
   res.status(200).json(
