@@ -10,6 +10,7 @@ import { VendorService } from '../../../services/vendor.service';
 import { AppService } from '../../../services/app.service';
 import { User } from '../../../models/user.model';
 
+
 @Component({
   selector: 'app-browse-requirements-page',
   standalone: true,
