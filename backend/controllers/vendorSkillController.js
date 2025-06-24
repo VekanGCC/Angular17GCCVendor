@@ -29,6 +29,9 @@ exports.getVendorSkills = asyncHandler(async (req, res, next) => {
   query = query.populate({
     path: 'vendor',
     select: 'firstName lastName email companyName'
+  }).populate({
+    path: 'skill',
+    select: 'name description isActive'
   });
 
   const skills = await query.sort('-createdAt');
@@ -48,6 +51,9 @@ exports.getVendorSkill = asyncHandler(async (req, res, next) => {
     .populate({
       path: 'vendor',
       select: 'firstName lastName email companyName'
+    }).populate({
+      path: 'skill',
+      select: 'name description isActive'
     });
 
   if (!skill) {
@@ -74,9 +80,16 @@ exports.createVendorSkill = asyncHandler(async (req, res, next) => {
 
   const skill = await VendorSkill.create(req.body);
 
+  // Populate the skill field for the response
+  const populatedSkill = await VendorSkill.findById(skill._id)
+    .populate({
+      path: 'skill',
+      select: 'name description isActive'
+    });
+
   res.status(201).json({
     success: true,
-    data: skill
+    data: populatedSkill
   });
 });
 
@@ -104,9 +117,16 @@ exports.updateVendorSkillStatus = asyncHandler(async (req, res, next) => {
 
   await skill.save();
 
+  // Populate the skill field for the response
+  const populatedSkill = await VendorSkill.findById(skill._id)
+    .populate({
+      path: 'skill',
+      select: 'name description isActive'
+    });
+
   res.status(200).json({
     success: true,
-    data: skill
+    data: populatedSkill
   });
 });
 

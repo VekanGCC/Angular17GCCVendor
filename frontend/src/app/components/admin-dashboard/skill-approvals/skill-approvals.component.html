@@ -17,7 +17,7 @@
       <div class="flex-1">
         <div class="flex items-start justify-between">
           <div>
-            <p class="font-medium text-gray-900">{{approval.skill.skillName}}</p>
+            <p class="font-medium text-gray-900">{{approval.skill?.skill?.name || approval.skill?.skillName || 'Unknown'}}</p>
             <p class="text-sm text-gray-600" *ngIf="approval.skill.category">{{approval.skill.category}}</p>
             <p class="text-sm text-gray-500 mt-1">{{approval.skill.description}}</p>
             <div class="flex items-center gap-4 mt-2">

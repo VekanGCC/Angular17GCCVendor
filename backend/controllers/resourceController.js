@@ -100,58 +100,48 @@ const getResources = asyncHandler(async (req, res, next) => {
         const skillLogic = req.query.skillLogic || 'OR';
         console.log('🔧 ResourceController: Filtering by skill IDs:', validSkillIds, 'with logic:', skillLogic);
         
-        // First, get the skill names from AdminSkill model using the skill IDs
-        const adminSkills = await AdminSkill.find({ _id: { $in: validSkillIds } });
-        const skillNames = adminSkills.map(skill => skill.name);
-        console.log('🔧 ResourceController: Skill names:', skillNames);
+        // Get approved vendor skills that match the selected skill IDs
+        let approvedVendorSkillsQuery = {
+          status: 'approved',
+          skill: { $in: validSkillIds }
+        };
         
-        if (skillNames.length > 0) {
-          // Get approved vendor skills that match the selected skill names
-          let approvedVendorSkillsQuery = {
-            status: 'approved',
-            skillName: { $in: skillNames }
-          };
+        const approvedVendorSkills = await VendorSkill.find(approvedVendorSkillsQuery);
+        console.log('🔧 ResourceController: Found', approvedVendorSkills.length, 'approved vendor skills');
+        
+        if (approvedVendorSkills.length > 0) {
+          // Group by vendor and check logic
+          const vendorSkillMap = {};
+          approvedVendorSkills.forEach(vs => {
+            if (!vendorSkillMap[vs.vendor]) {
+              vendorSkillMap[vs.vendor] = [];
+            }
+            vendorSkillMap[vs.vendor].push(vs.skill);
+          });
           
-          const approvedVendorSkills = await VendorSkill.find(approvedVendorSkillsQuery);
-          console.log('🔧 ResourceController: Found', approvedVendorSkills.length, 'approved vendor skills');
+          let approvedVendors = [];
           
-          if (approvedVendorSkills.length > 0) {
-            // Group by vendor and check logic
-            const vendorSkillMap = {};
-            approvedVendorSkills.forEach(vs => {
-              if (!vendorSkillMap[vs.vendor]) {
-                vendorSkillMap[vs.vendor] = [];
-              }
-              vendorSkillMap[vs.vendor].push(vs.skillName);
+          if (skillLogic === 'AND') {
+            // For AND logic, vendor must have ALL selected skills approved
+            approvedVendors = Object.keys(vendorSkillMap).filter(vendorId => {
+              const vendorSkills = vendorSkillMap[vendorId];
+              return validSkillIds.every(skillId => vendorSkills.includes(skillId));
             });
-            
-            let approvedVendors = [];
-            
-            if (skillLogic === 'AND') {
-              // For AND logic, vendor must have ALL selected skills approved
-              approvedVendors = Object.keys(vendorSkillMap).filter(vendorId => {
-                const vendorSkills = vendorSkillMap[vendorId];
-                return skillNames.every(skillName => vendorSkills.includes(skillName));
-              });
-            } else {
-              // For OR logic, vendor must have ANY of the selected skills approved
-              approvedVendors = Object.keys(vendorSkillMap);
-            }
-            
-            console.log('🔧 ResourceController: Found', approvedVendors.length, 'approved vendors with matching skills');
-            
-            if (approvedVendors.length > 0) {
-              query.createdBy = { $in: approvedVendors };
-            } else {
-              // No vendors have the required approved skills
-              query.createdBy = { $in: [] };
-            }
           } else {
-            // No approved vendor skills found for the selected skills
+            // For OR logic, vendor must have ANY of the selected skills approved
+            approvedVendors = Object.keys(vendorSkillMap);
+          }
+          
+          console.log('🔧 ResourceController: Found', approvedVendors.length, 'approved vendors with matching skills');
+          
+          if (approvedVendors.length > 0) {
+            query.createdBy = { $in: approvedVendors };
+          } else {
+            // No vendors have the required approved skills
             query.createdBy = { $in: [] };
           }
         } else {
-          // No valid skill names found, return empty result
+          // No approved vendor skills found for the selected skills
           query.createdBy = { $in: [] };
         }
       } else {
@@ -190,43 +180,34 @@ const getResources = asyncHandler(async (req, res, next) => {
         if (validSkillIds.length > 0) {
           const skillLogic = req.query.skillLogic || 'OR';
           
-          // Get the skill names from AdminSkill model
-          const adminSkills = await AdminSkill.find({ _id: { $in: validSkillIds } });
-          const skillNames = adminSkills.map(skill => skill.name);
+          // Check if this vendor has approved skills matching the selected skills
+          const vendorApprovedSkills = await VendorSkill.find({ 
+            vendor: req.user.id, 
+            status: 'approved',
+            skill: { $in: validSkillIds }
+          });
           
-          if (skillNames.length > 0) {
-            // Check if this vendor has approved skills matching the selected skills
-            const vendorApprovedSkills = await VendorSkill.find({ 
-              vendor: req.user.id, 
-              status: 'approved',
-              skillName: { $in: skillNames }
-            });
+          if (skillLogic === 'AND') {
+            // For AND logic, vendor must have ALL selected skills approved
+            const vendorSkillIds = vendorApprovedSkills.map(vs => vs.skill);
+            const hasAllSkills = validSkillIds.every(skillId => vendorSkillIds.includes(skillId));
             
-            if (skillLogic === 'AND') {
-              // For AND logic, vendor must have ALL selected skills approved
-              const vendorSkillNames = vendorApprovedSkills.map(vs => vs.skillName);
-              const hasAllSkills = skillNames.every(skillName => vendorSkillNames.includes(skillName));
-              
-              if (!hasAllSkills) {
-                // Vendor doesn't have all required approved skills
-                query.createdBy = { $in: [] };
-              } else {
-                // Vendor has all required approved skills
-                query.createdBy = req.user.id;
-              }
+            if (!hasAllSkills) {
+              // Vendor doesn't have all required approved skills
+              query.createdBy = { $in: [] };
             } else {
-              // For OR logic, vendor must have ANY of the selected skills approved
-              if (vendorApprovedSkills.length === 0) {
-                // Vendor has no approved skills matching the selection
-                query.createdBy = { $in: [] };
-              } else {
-                // Vendor has at least one approved skill matching the selection
-                query.createdBy = req.user.id;
-              }
+              // Vendor has all required approved skills
+              query.createdBy = req.user.id;
             }
           } else {
-            // No valid skill names found
-            query.createdBy = { $in: [] };
+            // For OR logic, vendor must have ANY of the selected skills approved
+            if (vendorApprovedSkills.length === 0) {
+              // Vendor has no approved skills matching the selection
+              query.createdBy = { $in: [] };
+            } else {
+              // Vendor has at least one approved skill matching the selection
+              query.createdBy = req.user.id;
+            }
           }
         } else {
           // No valid skill IDs

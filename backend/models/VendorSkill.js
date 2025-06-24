@@ -6,10 +6,10 @@ const vendorSkillSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
-  skillName: {
-    type: String,
-    required: [true, 'Skill name is required'],
-    trim: true
+  skill: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'AdminSkill',
+    required: [true, 'Skill reference is required']
   },
   category: {
     type: String,
@@ -55,7 +55,7 @@ const vendorSkillSchema = new mongoose.Schema({
 });
 
 // Add indexes for faster queries
-vendorSkillSchema.index({ vendor: 1, skillName: 1 });
+vendorSkillSchema.index({ vendor: 1, skill: 1 });
 vendorSkillSchema.index({ status: 1 });
 vendorSkillSchema.index({ category: 1 });
 
