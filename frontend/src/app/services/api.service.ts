@@ -67,6 +67,11 @@ export class ApiService {
     if (params.minDuration) httpParams = httpParams.set('minDuration', params.minDuration);
     if (params.maxDuration) httpParams = httpParams.set('maxDuration', params.maxDuration);
     
+    // Approved vendors filter
+    if (params.approvedVendorsOnly !== undefined) {
+      httpParams = httpParams.set('approvedVendorsOnly', params.approvedVendorsOnly.toString());
+    }
+    
     console.log('🔧 API: Built HTTP params:', httpParams.toString());
     return httpParams;
   }

@@ -60,6 +60,7 @@ export class ClientResourcesComponent implements OnInit, OnChanges, OnDestroy {
   maxExperience = '';
   minRate = '';
   maxRate = '';
+  approvedVendorsOnly = false;
 
   // Experience levels for dropdown
   experienceLevels = [
@@ -334,6 +335,10 @@ export class ClientResourcesComponent implements OnInit, OnChanges, OnDestroy {
     this.emitSearchChange();
   }
 
+  onApprovedVendorsChange(): void {
+    this.emitSearchChange();
+  }
+
   toggleFilters(): void {
     this.showFilters = !this.showFilters;
   }
@@ -373,10 +378,12 @@ export class ClientResourcesComponent implements OnInit, OnChanges, OnDestroy {
   clearFilters(): void {
     this.searchTerm = '';
     this.selectedSkillIds = [];
+    this.skillLogic = 'OR';
     this.minExperience = '';
     this.maxExperience = '';
     this.minRate = '';
     this.maxRate = '';
+    this.approvedVendorsOnly = false;
     this.emitSearchChange();
   }
 
@@ -403,6 +410,11 @@ export class ClientResourcesComponent implements OnInit, OnChanges, OnDestroy {
     this.onRateChange();
   }
 
+  removeApprovedVendorsFilter(): void {
+    this.approvedVendorsOnly = false;
+    this.onApprovedVendorsChange();
+  }
+
   // Helper method to get skill name by ID
   getSkillNameById(skillId: string): string {
     const skill = this.availableSkills.find(s => s._id === skillId);
@@ -410,12 +422,13 @@ export class ClientResourcesComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   private emitSearchChange(): void {
-    const searchParams: { [key: string]: string | string[] | undefined } = {
+    const searchParams: { [key: string]: string | string[] | boolean | undefined } = {
       search: this.searchTerm,
       minExperience: this.minExperience || undefined,
       maxExperience: this.maxExperience || undefined,
       minRate: this.minRate || undefined,
-      maxRate: this.maxRate || undefined
+      maxRate: this.maxRate || undefined,
+      approvedVendorsOnly: this.approvedVendorsOnly || undefined
     };
 
     // Handle skills parameter - send as array of IDs
@@ -443,7 +456,8 @@ export class ClientResourcesComponent implements OnInit, OnChanges, OnDestroy {
       this.minExperience ||
       this.maxExperience ||
       this.minRate ||
-      this.maxRate
+      this.maxRate ||
+      this.approvedVendorsOnly
     );
   }
 

@@ -21,6 +21,7 @@ export interface PaginationParams {
   maxBudget?: string;
   minDuration?: string;
   maxDuration?: string;
+  approvedVendorsOnly?: boolean;
 }
 
 export interface PaginationMeta {
