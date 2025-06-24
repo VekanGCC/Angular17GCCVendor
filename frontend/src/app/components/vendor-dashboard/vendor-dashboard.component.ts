@@ -380,18 +380,19 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
   }
 
   private async loadVendorSkills(): Promise<void> {
-    this.apiService.getVendorSkills().subscribe({
-      next: (response: any) => {
-        if (response.success && response.data) {
-          this.vendorSkills = response.data;
-          this.organizationSkills = response.data;
-          console.log('🔧 VendorDashboard: Loaded vendor skills:', this.vendorSkills);
-        }
-      },
-      error: (error: any) => {
-        console.error('Error loading vendor skills:', error);
+    try {
+      const response = await this.apiService.getVendorSkills().toPromise();
+      if (response && response.success && response.data) {
+        // Create new array references to ensure change detection
+        this.vendorSkills = [...response.data];
+        this.organizationSkills = [...response.data];
+        console.log('🔧 VendorDashboard: Loaded vendor skills:', this.vendorSkills);
+        // Force change detection to ensure UI updates
+        this.changeDetectorRef.detectChanges();
       }
-    });
+    } catch (error: any) {
+      console.error('Error loading vendor skills:', error);
+    }
   }
 
   // Pagination update methods
@@ -1009,8 +1010,18 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
 
   onVendorSkillAdded(skill: any): void {
     console.log('🔧 VendorDashboard: Vendor skill added:', skill);
-    // Refresh vendor skills data
-    this.loadVendorSkills();
+    
+    // Immediately add the new skill to local arrays for instant UI update
+    this.vendorSkills = [...this.vendorSkills, skill];
+    this.organizationSkills = [...this.organizationSkills, skill];
+    
+    // Force change detection to ensure immediate UI update
+    this.changeDetectorRef.detectChanges();
+    
+    // Then refresh from server to ensure data consistency
+    setTimeout(() => {
+      this.loadVendorSkills();
+    }, 1000);
   }
 
   onVendorSkillDeleted(skillId: string): void {

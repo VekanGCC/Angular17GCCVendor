@@ -106,7 +106,7 @@
         <div *ngFor="let approval of skillApprovals.slice(0, 5); trackBy: trackById" 
              class="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
           <div>
-            <p class="font-medium text-gray-900">{{approval.skill.skillName}}</p>
+            <p class="font-medium text-gray-900">{{approval.skill.skill.name}}</p>
             <p class="text-sm text-gray-600" *ngIf="approval.skill.category">{{approval.skill.category}}</p>
           </div>
           <span [class]="'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ' + 

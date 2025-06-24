@@ -68,15 +68,6 @@ export class AddVendorSkillModalComponent implements OnInit, OnDestroy {
     );
   }
 
-  onSkillSelect(event: any): void {
-    const selectedSkill = this.availableSkills.find(skill => skill.name === event.target.value);
-    if (selectedSkill) {
-      this.skillForm.patchValue({
-        skill: selectedSkill._id,
-      });
-    }
-  }
-
   onSubmit(): void {
     if (this.skillForm.valid) {
       this.submitting = true;

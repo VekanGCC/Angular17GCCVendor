@@ -19,11 +19,11 @@
         </label>
         <select
           id="skillSelect"
-          (change)="onSkillSelect($event)"
+          formControlName="skill"
           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           [disabled]="loadingSkills">
           <option value="">Choose a skill...</option>
-          <option *ngFor="let skill of availableSkills" [value]="skill.name">
+          <option *ngFor="let skill of availableSkills" [value]="skill._id">
             {{skill.name}}
           </option>
         </select>
@@ -31,9 +31,6 @@
           Loading skills...
         </div>
       </div>
-
-      <!-- Hidden Skill ID Field -->
-      <input type="hidden" formControlName="skill">
 
       <!-- Description -->
       <div>

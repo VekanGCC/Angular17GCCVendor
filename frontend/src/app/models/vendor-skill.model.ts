@@ -7,7 +7,12 @@ export interface VendorSkill {
     firstName: string;
     lastName: string;
   };
-  skillName: string;
+  skill: {
+    _id: string;
+    name: string;
+    description: string;
+    isActive: boolean;
+  };
   category: string;
   description: string;
   yearsOfExperience: number;

@@ -1,8 +1,21 @@
 <div class="space-y-6">
   <div class="bg-white rounded-xl shadow-sm border border-gray-100">
     <div class="p-6 border-b border-gray-100">
-      <h3 class="text-lg font-semibold text-gray-900">Vendor Niche Skills</h3>
-      <p class="text-sm text-gray-600 mt-1">Manage your specialized skills and expertise</p>
+      <div class="flex items-center justify-between">
+        <div>
+          <h3 class="text-lg font-semibold text-gray-900">Vendor Niche Skills</h3>
+          <p class="text-sm text-gray-600 mt-1">Manage your specialized skills and expertise</p>
+          <p class="text-xs text-gray-500 mt-1">Total skills: {{vendorSkills.length}}</p>
+        </div>
+        <div class="flex gap-2">
+          <button
+            (click)="onOpenAddSkillModal()"
+            class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2">
+            <lucide-icon name="plus" class="w-4 h-4"></lucide-icon>
+            Add Niche Skill
+          </button>
+        </div>
+      </div>
     </div>
     
     <!-- Loading State -->
@@ -65,13 +78,6 @@
         <div class="text-4xl mb-4">📋</div>
         <h3 class="mt-2 text-sm font-medium text-gray-900">No niche skills added</h3>
         <p class="mt-1 text-sm text-gray-500">Get started by adding your first specialized skill.</p>
-        <div class="mt-6">
-          <button
-            (click)="onOpenAddSkillModal()"
-            class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
-            Add Niche Skill
-          </button>
-        </div>
       </div>
     </div>
   </div>

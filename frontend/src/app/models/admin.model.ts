@@ -26,6 +26,7 @@ export interface SkillApproval {
 }
 
 export interface AdminSkill {
+  _id: string;
   id: string;
   name: string;
   category: string;

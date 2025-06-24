@@ -572,7 +572,7 @@ export class ApiService {
 
   // Vendor Niche Skills
   createVendorSkill(skill: any): Observable<any> {
-    console.log('➕ API: Creating vendor niche skill:', skill.skillName);
+    console.log('➕ API: Creating vendor niche skill:', skill);
     
     if (this.useMockData) {
       return this.post('/vendor-skills', skill);
