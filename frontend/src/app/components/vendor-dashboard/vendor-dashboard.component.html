@@ -27,15 +27,7 @@
       <!-- Navigation Menu -->
       <nav class="flex-1 p-3 sm:p-4 space-y-1 sm:space-y-2 overflow-y-auto">
         <button
-          *ngFor="let tab of [
-            { id: 'overview', label: 'Overview', icon: 'home.svg' },
-            { id: 'requirements', label: 'Browse Requirements', icon: 'briefcase.svg' },
-            { id: 'resources', label: 'My Resources', icon: 'users.svg' },
-            { id: 'applications', label: 'Vendor Applications', icon: 'trending-up.svg' },
-            { id: 'skill-management', label: 'Skills Management', icon: 'settings.svg' },
-            { id: 'user-management', label: 'User Management', icon: 'user-plus.svg' },
-            { id: 'profile', label: 'Profile', icon: 'user.svg' }
-          ]"
+          *ngFor="let tab of getAvailableMenuItems()"
           (click)="setActiveTab(tab.id); showMobileMenu = false"
           [class]="'w-full flex items-center px-3 py-2 sm:px-4 sm:py-3 text-left rounded-lg transition-colors text-sm sm:text-base ' + 
             (activeTab === tab.id
@@ -172,7 +164,12 @@
     </app-apply-resource-modal> -->
 
     <!-- Add User Modal -->
-    <app-add-user-modal *ngIf="showAddUserModal" (close)="showAddUserModal = false"></app-add-user-modal>
+    <app-add-user-modal 
+      *ngIf="showAddUserModal" 
+      [userType]="'vendor'"
+      (close)="showAddUserModal = false"
+      (userAdded)="onUserAdded($event)">
+    </app-add-user-modal>
 
     <!-- Add Skill Modal -->
     <app-add-skill-modal *ngIf="showAddSkillModal" (close)="showAddSkillModal = false"></app-add-skill-modal>

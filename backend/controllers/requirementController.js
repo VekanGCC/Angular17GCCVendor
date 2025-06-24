@@ -29,9 +29,14 @@ const getRequirements = asyncHandler(async (req, res, next) => {
   // Build query
   let query = {};
 
-  // If user is a client, only show their requirements
-  if (req.user.role === 'client') {
-    query.createdBy = req.user.id;
+  // If user is a client, only show their organization's requirements
+  if (req.user.userType === 'client') {
+    if (req.user.organizationId) {
+      query.organizationId = req.user.organizationId;
+    } else {
+      // If client doesn't have organizationId, only show their own requirements
+      query.createdBy = req.user.id;
+    }
   }
 
   if (search) {
@@ -180,6 +185,13 @@ const getRequirement = asyncHandler(async (req, res, next) => {
 const createRequirement = asyncHandler(async (req, res, next) => {
   // Add user to req.body from JWT token
   req.body.createdBy = req.user.id;
+
+  // Add organizationId from user's organization
+  if (req.user.organizationId) {
+    req.body.organizationId = req.user.organizationId;
+  } else {
+    return next(new ErrorResponse('User must belong to an organization to create requirements', 400));
+  }
 
   console.log('🔧 Backend: Creating requirement with body:', JSON.stringify(req.body, null, 2));
   console.log('🔧 Backend: Budget field:', req.body.budget);

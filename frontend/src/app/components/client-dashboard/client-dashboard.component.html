@@ -20,13 +20,7 @@
       <!-- Navigation Menu -->
       <nav class="flex-1 p-4 space-y-2">
         <button
-          *ngFor="let tab of [
-            { id: 'overview', label: 'Overview', icon: 'home.svg' },
-            { id: 'requirements', label: 'My Requirements', icon: 'briefcase.svg' },
-            { id: 'resources', label: 'Browse Resources', icon: 'users.svg' },
-            { id: 'applications', label: 'Applications', icon: 'trending-up.svg' },
-            { id: 'profile', label: 'Profile', icon: 'user.svg' }
-          ]"
+          *ngFor="let tab of getAvailableMenuItems()"
           (click)="setActiveTab(tab.id)"
           [class]="'w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ' + 
             (activeTab === tab.id
@@ -103,6 +97,15 @@
           (pageChange)="onApplicationsPageChange($event)">
         </app-client-applications>
 
+        <!-- User Management Tab -->
+        <app-client-user-management 
+          *ngIf="activeTab === 'user-management'"
+          [users]="organizationUsers"
+          [isLoading]="isLoading"
+          (openAddUserModal)="showAddUserModal = true"
+          (toggleUserStatus)="handleToggleUserStatus($event)">
+        </app-client-user-management>
+
         <!-- Apply Resources Tab -->
         <app-apply-resources-page 
           *ngIf="activeTab === 'apply-resources'"
@@ -158,4 +161,12 @@
     [application]="selectedApplication"
     (closeModal)="closeApplicationDetailsModal()">
   </app-application-details-modal>
+
+  <!-- Add User Modal -->
+  <app-add-user-modal 
+    *ngIf="showAddUserModal" 
+    [userType]="'client'"
+    (close)="showAddUserModal = false"
+    (userAdded)="onUserAdded($event)">
+  </app-add-user-modal>
 </app-layout>

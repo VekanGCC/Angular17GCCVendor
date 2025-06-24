@@ -70,6 +70,18 @@ const userSchema = new mongoose.Schema({
     select: false
   },
   
+  // Organization fields (for vendor and client users)
+  organizationId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Organization',
+    required: false // Required for vendor and client users with organizations
+  },
+  organizationRole: {
+    type: String,
+    enum: ['vendor_owner', 'vendor_employee', 'client_owner', 'client_employee'],
+    required: false // Required for vendor and client users with organizations
+  },
+  
   // Admin permissions
   permissions: {
     manageUsers: { type: Boolean, default: false },

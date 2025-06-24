@@ -46,6 +46,19 @@ const applicationSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
+  },
+  
+  updatedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  
+  // Organization field for applications (both vendor and client)
+  organizationId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Organization',
+    required: true // Required for both vendor and client applications
   }
 }, {
   timestamps: true
@@ -57,6 +70,8 @@ applicationSchema.index({ requirement: 1, resource: 1 }, { unique: true });
 // Other indexes for better performance
 applicationSchema.index({ status: 1 });
 applicationSchema.index({ createdBy: 1 });
+applicationSchema.index({ updatedBy: 1 });
 applicationSchema.index({ createdAt: -1 });
+applicationSchema.index({ organizationId: 1 });
 
 module.exports = mongoose.model('Application', applicationSchema);

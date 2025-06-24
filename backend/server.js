@@ -92,6 +92,7 @@ app.use('/api/vendor/reviews', require('./routes/vendorReviews'));
 app.use('/api/vendor/analytics', require('./routes/vendorAnalytics'));
 app.use('/api/vendor/payments', require('./routes/vendorPayments'));
 app.use('/api/vendor/settings', require('./routes/vendorSettings'));
+app.use('/api/vendor/organization', require('./routes/vendorOrganization'));
 
 // Resource management routes
 app.use('/api/resources', require('./routes/resources'));
@@ -115,7 +116,6 @@ app.use('/api/files', require('./routes/files'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/skills', require('./routes/skills'));
 app.use('/api/vendor/niche-skills', require('./routes/vendorSkills'));
-app.use('/api/clients', require('./routes/client'));
 app.use('/api/vendors', require('./routes/vendor'));
 app.use('/api/requirements', require('./routes/requirements'));
 app.use('/api/resources', require('./routes/resources'));

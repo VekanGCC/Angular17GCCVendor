@@ -2,6 +2,7 @@ const User = require('../models/User');
 const UserAddress = require('../models/UserAddress');
 const UserStatutoryCompliance = require('../models/UserStatutoryCompliance');
 const Requirement = require('../models/Requirement');
+const OTP = require('../models/OTP');
 const asyncHandler = require('../utils/asyncHandler');
 const ErrorResponse = require('../utils/errorResponse');
 const { validationResult } = require('express-validator');
@@ -266,7 +267,7 @@ const updateClientProfile = asyncHandler(async (req, res, next) => {
   });
 });
 
-// @desc    Send OTP to user's email
+// @desc    Send OTP to client email
 // @route   POST /api/client/send-otp
 // @access  Public
 const sendOTP = asyncHandler(async (req, res, next) => {
@@ -282,16 +283,14 @@ const sendOTP = asyncHandler(async (req, res, next) => {
     return next(new ErrorResponse('No user found with this email', 404));
   }
 
-  // Generate a 6-digit OTP
+  // Generate and store OTP in user table (for organization owners)
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  
-  // Store OTP in user document
   user.otp = otp;
-  user.otpExpiry = Date.now() + 10 * 60 * 1000; // OTP valid for 10 minutes
+  user.otpExpiry = Date.now() + 10 * 60 * 1000; // 10 minutes
   await user.save();
 
-  // TODO: Send OTP via email service
-  console.log('OTP for', email, ':', otp);
+  // Send OTP via email (currently just logging)
+  console.log(`OTP for ${email}: ${otp}`);
 
   res.status(200).json({
     success: true,
@@ -308,25 +307,31 @@ const verifyOTP = asyncHandler(async (req, res, next) => {
   if (!email || !otp) {
     return next(new ErrorResponse('Please provide email and OTP', 400));
   }
- console.log('email', email);
+
   const user = await User.findOne({ email: email.toLowerCase() });
-  console.log('user', user);
-  if (!user || !user.otp || !user.otpExpiry) {
-    
-    return next(new ErrorResponse('No OTP found. Please request a new OTP.', 400));
+  if (!user) {
+    return next(new ErrorResponse('User not found', 404));
   }
 
-  if (Date.now() > user.otpExpiry) {
-    return next(new ErrorResponse('OTP has expired', 400));
+  // Find valid OTP
+  const otpRecord = await OTP.findOne({
+    userId: user._id,
+    email: user.email,
+    otp,
+    type: 'email_verification',
+    isUsed: false,
+    expiresAt: { $gt: new Date() }
+  });
+
+  if (!otpRecord) {
+    return next(new ErrorResponse('Invalid or expired OTP', 400));
   }
 
-  if (user.otp !== otp) {
-    return next(new ErrorResponse('Invalid OTP', 400));
-  }
+  // Mark OTP as used
+  otpRecord.isUsed = true;
+  await otpRecord.save();
 
-  // Clear OTP after successful verification
-  user.otp = undefined;
-  user.otpExpiry = undefined;
+  // Mark email as verified
   user.isEmailVerified = true;
   await user.save();
 
@@ -353,7 +358,7 @@ const saveStep = asyncHandler(async (req, res, next) => {
       return next(new ErrorResponse('Email already registered', 400));
     }
 
-    // Create new user
+    // Create new user first (without organization)
     user = await User.create({
       email: email.toLowerCase(),
       password,
@@ -369,10 +374,27 @@ const saveStep = asyncHandler(async (req, res, next) => {
       registrationStep: 1
     });
 
-    // Generate and store OTP
+    // Extract domain from email for organization
+    const domain = email.split('@')[1];
+
+    // Create organization for client (now we have the user ID)
+    const Organization = require('../models/Organization');
+    const organization = await Organization.create({
+      name: companyName || `${firstName} ${lastName}'s Organization`,
+      ownerId: user._id, // Now we can provide the user ID
+      organizationType: 'client',
+      domain: domain
+    });
+
+    // Update user with organization details
+    user.organizationId = organization._id;
+    user.organizationRole = 'client_owner';
+    await user.save();
+
+    // Generate and store OTP in user table (for organization owners)
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     user.otp = otp;
-    user.otpExpiry = Date.now() + 5 * 60 * 1000; // 5 minutes
+    user.otpExpiry = Date.now() + 10 * 60 * 1000; // 10 minutes
     await user.save();
 
     // Send OTP via email (currently just logging)
@@ -498,9 +520,15 @@ const getClientRequirements = asyncHandler(async (req, res, next) => {
   } = req.query;
 
   // Build query
-  let query = {
-    createdBy: req.user.id // Only get requirements created by this client
-  };
+  let query = {};
+
+  // Get requirements from the client's organization
+  if (req.user.organizationId) {
+    query.organizationId = req.user.organizationId;
+  } else {
+    // Fallback to only get requirements created by this client if no organization
+    query.createdBy = req.user.id;
+  }
 
   if (search) {
     query.$or = [
@@ -555,3 +583,162 @@ exports.updateClientProfile = updateClientProfile;
 exports.sendOTP = sendOTP;
 exports.verifyOTP = verifyOTP;
 exports.getClientRequirements = getClientRequirements;
+
+// @desc    Get organization users for client
+// @route   GET /api/client/organization/users
+// @access  Private (Client only)
+const getOrganizationUsers = asyncHandler(async (req, res, next) => {
+  const user = await User.findById(req.user.id);
+  
+  if (!user.organizationId) {
+    return next(new ErrorResponse('User not associated with any organization', 400));
+  }
+
+  // Only organization owners can view users
+  if (user.organizationRole !== 'client_owner') {
+    return next(new ErrorResponse('Access denied. Only organization owners can view users.', 403));
+  }
+
+  const users = await User.find({ 
+    organizationId: user.organizationId,
+    userType: 'client'
+  }).select('-password -otp -otpExpiry');
+
+  res.status(200).json(
+    ApiResponse.success(
+      users,
+      'Organization users retrieved successfully'
+    )
+  );
+});
+
+// @desc    Add user to client organization
+// @route   POST /api/client/organization/users
+// @access  Private (Client only)
+const addOrganizationUser = asyncHandler(async (req, res, next) => {
+  const { email, password, firstName, lastName, phone } = req.body;
+
+  const currentUser = await User.findById(req.user.id);
+  
+  if (!currentUser.organizationId) {
+    return next(new ErrorResponse('User not associated with any organization', 400));
+  }
+
+  // Only organization owners can add users
+  if (currentUser.organizationRole !== 'client_owner') {
+    return next(new ErrorResponse('Access denied. Only organization owners can add users.', 403));
+  }
+
+  // Check if user already exists
+  const existingUser = await User.findOne({ email: email.toLowerCase() });
+  if (existingUser) {
+    return next(new ErrorResponse('User with this email already exists', 400));
+  }
+
+  // Validate email domain (must match organization domain)
+  const emailDomain = email.split('@')[1];
+  const organization = await require('../models/Organization').findById(currentUser.organizationId);
+  
+  if (organization.domain && emailDomain !== organization.domain) {
+    return next(new ErrorResponse(`Email domain must match organization domain: ${organization.domain}`, 400));
+  }
+
+  // Create new user
+  const newUser = await User.create({
+    email: email.toLowerCase(),
+    password,
+    firstName,
+    lastName,
+    phone,
+    userType: 'client',
+    organizationId: currentUser.organizationId,
+    organizationRole: 'client_employee',
+    companyName: organization.name, // Use organization name
+    contactPerson: `${firstName} ${lastName}`,
+    gstNumber: 'N/A', // Employee doesn't need GST
+    serviceType: 'Employee',
+    isEmailVerified: false,
+    approvalStatus: 'approved'
+  });
+
+  // Generate OTP for email verification
+  const OTP = require('../models/OTP');
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  
+  await OTP.create({
+    userId: newUser._id,
+    email: newUser.email,
+    otp,
+    type: 'email_verification',
+    expiresAt: Date.now() + 10 * 60 * 1000 // 10 minutes
+  });
+
+  // Send OTP via email (currently just logging)
+  console.log(`OTP for ${email}: ${otp}`);
+
+  res.status(201).json(
+    ApiResponse.success(
+      { 
+        user: {
+          id: newUser._id,
+          email: newUser.email,
+          firstName: newUser.firstName,
+          lastName: newUser.lastName,
+          status: newUser.isActive ? 'active' : 'inactive'
+        },
+        email 
+      },
+      'User added successfully. OTP sent to email for verification.'
+    )
+  );
+});
+
+// @desc    Update user status in client organization
+// @route   PUT /api/client/organization/users/:userId/status
+// @access  Private (Client only)
+const updateUserStatus = asyncHandler(async (req, res, next) => {
+  const { userId } = req.params;
+  const { status } = req.body;
+
+  const currentUser = await User.findById(req.user.id);
+  
+  if (!currentUser.organizationId) {
+    return next(new ErrorResponse('User not associated with any organization', 400));
+  }
+
+  // Only organization owners can update user status
+  if (currentUser.organizationRole !== 'client_owner') {
+    return next(new ErrorResponse('Access denied. Only organization owners can update user status.', 403));
+  }
+
+  // Find the user to update
+  const userToUpdate = await User.findById(userId);
+  if (!userToUpdate) {
+    return next(new ErrorResponse('User not found', 404));
+  }
+
+  // Ensure user belongs to the same organization
+  if (userToUpdate.organizationId.toString() !== currentUser.organizationId.toString()) {
+    return next(new ErrorResponse('Access denied. User does not belong to your organization.', 403));
+  }
+
+  // Prevent updating organization owner status
+  if (userToUpdate.organizationRole === 'client_owner') {
+    return next(new ErrorResponse('Cannot update organization owner status', 400));
+  }
+
+  // Update user status
+  userToUpdate.isActive = status === 'active';
+  await userToUpdate.save();
+
+  res.status(200).json(
+    ApiResponse.success(
+      userToUpdate,
+      'User status updated successfully'
+    )
+  );
+});
+
+exports.getOrganizationUsers = getOrganizationUsers;
+exports.addOrganizationUser = addOrganizationUser;
+exports.updateUserStatus = updateUserStatus;

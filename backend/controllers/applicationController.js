@@ -6,6 +6,7 @@ const asyncHandler = require('../utils/asyncHandler');
 const ErrorResponse = require('../utils/errorResponse');
 const ApiResponse = require('../models/ApiResponse');
 const { createNotification } = require('./notificationController');
+const User = require('../models/User');
 
 // @desc    Get all applications
 // @route   GET /api/applications
@@ -40,19 +41,29 @@ const getApplications = asyncHandler(async (req, res, next) => {
 
   // For vendor-specific applications
   if (vendorId) {
-    // Find requirements created by this vendor
-    const vendorRequirements = await Requirement.find({ createdBy: vendorId }).select('_id');
-    const requirementIds = vendorRequirements.map(req => req._id);
+    // Get the vendor user to check if they have an organization
+    const vendor = await User.findById(vendorId);
     
-    // Find resources owned by this vendor
-    const vendorResources = await Resource.find({ createdBy: vendorId }).select('_id');
-    const resourceIds = vendorResources.map(res => res._id);
-    
-    // Applications where vendor is either requirement owner or resource owner
-    query.$or = [
-      { requirement: { $in: requirementIds } },
-      { resource: { $in: resourceIds } }
-    ];
+    if (vendor && vendor.userType === 'vendor' && vendor.organizationId) {
+      // Use organization-based filtering for vendors with organizations
+      query.organizationId = vendor.organizationId;
+      console.log('🔧 ApplicationController: Filtering vendor applications by organization ID:', vendor.organizationId);
+    } else {
+      // Fallback to user-based filtering for vendors without organization
+      // Find requirements created by this vendor
+      const vendorRequirements = await Requirement.find({ createdBy: vendorId }).select('_id');
+      const requirementIds = vendorRequirements.map(req => req._id);
+      
+      // Find resources owned by this vendor
+      const vendorResources = await Resource.find({ createdBy: vendorId }).select('_id');
+      const resourceIds = vendorResources.map(res => res._id);
+      
+      // Applications where vendor is either requirement owner or resource owner
+      query.$or = [
+        { requirement: { $in: requirementIds } },
+        { resource: { $in: resourceIds } }
+      ];
+    }
   }
 
   // For client-specific applications
@@ -70,6 +81,7 @@ const getApplications = asyncHandler(async (req, res, next) => {
     .populate('requirement', 'title status priority')
     .populate('resource', 'name status category')
     .populate('createdBy', 'firstName lastName email')
+    .populate('updatedBy', 'firstName lastName email')
     .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
     .limit(limit * 1)
     .skip((page - 1) * limit);
@@ -109,21 +121,28 @@ const getVendorApplications = asyncHandler(async (req, res, next) => {
   console.log('=== Vendor Applications Debug ===');
   console.log('Vendor ID:', vendorId);
   console.log('Vendor User Type:', req.user.userType);
+  console.log('Vendor Organization ID:', req.user.organizationId);
 
-  // Find resources owned by this vendor
-  const vendorResources = await Resource.find({ createdBy: vendorId }).select('_id name');
-  const resourceIds = vendorResources.map(res => res._id);
-  
-  console.log('Vendor Resources Count:', vendorResources.length);
-  console.log('Vendor Resource IDs:', resourceIds);
-  vendorResources.forEach((res, index) => {
-    console.log(`Resource ${index + 1}:`, { id: res._id, name: res.name });
-  });
-  
-  // Build query - only show applications for resources owned by this vendor
-  let query = {
-    resource: { $in: resourceIds }
-  };
+  // Build query - filter by organization for vendor applications
+  let query = {};
+
+  if (req.user.userType === 'vendor' && req.user.organizationId) {
+    // Filter applications by organization
+    query.organizationId = req.user.organizationId;
+    console.log('🔧 ApplicationController: Filtering by organization ID:', req.user.organizationId);
+  } else {
+    // Fallback to user-based filtering for vendors without organization
+    const vendorResources = await Resource.find({ createdBy: vendorId }).select('_id name');
+    const resourceIds = vendorResources.map(res => res._id);
+    
+    console.log('Vendor Resources Count:', vendorResources.length);
+    console.log('Vendor Resource IDs:', resourceIds);
+    vendorResources.forEach((res, index) => {
+      console.log(`Resource ${index + 1}:`, { id: res._id, name: res.name });
+    });
+    
+    query.resource = { $in: resourceIds };
+  }
 
   if (status) {
     query.status = status;
@@ -136,6 +155,7 @@ const getVendorApplications = asyncHandler(async (req, res, next) => {
     .populate('requirement', 'title status priority createdBy')
     .populate('resource', 'name status category createdBy')
     .populate('createdBy', 'firstName lastName email')
+    .populate('updatedBy', 'firstName lastName email')
     .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
     .limit(limit * 1)
     .skip((page - 1) * limit);
@@ -150,7 +170,8 @@ const getVendorApplications = asyncHandler(async (req, res, next) => {
       requirementId: app.requirement._id,
       requirementTitle: app.requirement.title,
       requirementOwner: app.requirement.createdBy,
-      applicationCreator: app.createdBy._id
+      applicationCreator: app.createdBy._id,
+      organizationId: app.organizationId
     });
   });
   console.log('================================');
@@ -186,14 +207,18 @@ const getClientApplications = asyncHandler(async (req, res, next) => {
   // Get client ID from JWT token
   const clientId = req.user.id;
 
-  // Find requirements created by this client
-  const clientRequirements = await Requirement.find({ createdBy: clientId }).select('_id');
-  const requirementIds = clientRequirements.map(req => req._id);
-  
   // Build query
-  let query = {
-    requirement: { $in: requirementIds }
-  };
+  let query = {};
+
+  // Filter by organization if client belongs to one
+  if (req.user.organizationId) {
+    query.organizationId = req.user.organizationId;
+  } else {
+    // Fallback to requirement-based filtering for clients without organization
+    const clientRequirements = await Requirement.find({ createdBy: clientId }).select('_id');
+    const requirementIds = clientRequirements.map(req => req._id);
+    query.requirement = { $in: requirementIds };
+  }
 
   if (status) {
     query.status = status;
@@ -204,6 +229,7 @@ const getClientApplications = asyncHandler(async (req, res, next) => {
     .populate('requirement', 'title status priority')
     .populate('resource', 'name status category')
     .populate('createdBy', 'firstName lastName email')
+    .populate('updatedBy', 'firstName lastName email')
     .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
     .limit(limit * 1)
     .skip((page - 1) * limit);
@@ -231,7 +257,8 @@ const getApplication = asyncHandler(async (req, res, next) => {
   const application = await Application.findById(req.params.id)
     .populate('requirement', 'title description status priority category')
     .populate('resource', 'name description status category')
-    .populate('createdBy', 'firstName lastName email');
+    .populate('createdBy', 'firstName lastName email')
+    .populate('updatedBy', 'firstName lastName email');
 
   if (!application) {
     return next(new ErrorResponse('Application not found', 404));
@@ -253,6 +280,7 @@ const getApplicationHistory = asyncHandler(async (req, res, next) => {
   }
 
   const history = await ApplicationHistory.find({ application: req.params.id })
+    .populate('createdBy', 'firstName lastName email')
     .populate('updatedBy', 'firstName lastName email')
     .sort({ createdAt: -1 });
 
@@ -290,29 +318,50 @@ const createApplication = asyncHandler(async (req, res, next) => {
   }
 
   // Create application with user ID from token
-  const application = await Application.create({
+  const applicationData = {
     requirement: requirementId,
     resource: resourceId,
     notes,
     proposedRate,
     availability,
     createdBy: req.user.id,
+    updatedBy: req.user.id,
     status: 'applied'
-  });
+  };
+
+  // Add organizationId for both vendor and client applications
+  if (req.user.organizationId) {
+    applicationData.organizationId = req.user.organizationId;
+    console.log('🔧 ApplicationController: Adding organizationId to application:', req.user.organizationId);
+  } else {
+    return next(new ErrorResponse('User must belong to an organization to create applications', 400));
+  }
+
+  const application = await Application.create(applicationData);
 
   // Populate related fields for response
   const populatedApplication = await Application.findById(application._id)
     .populate('requirement', 'title status priority')
     .populate('resource', 'name status category')
-    .populate('createdBy', 'firstName lastName email');
+    .populate('createdBy', 'firstName lastName email')
+    .populate('updatedBy', 'firstName lastName email');
 
   // Create initial history entry
-  await ApplicationHistory.create({
+  const historyData = {
     application: application._id,
     status: 'applied',
     notes: notes || 'Application submitted',
+    createdBy: req.user.id,
     updatedBy: req.user.id
-  });
+  };
+
+  // Add organizationId for application history
+  if (req.user.organizationId) {
+    historyData.organizationId = req.user.organizationId;
+    console.log('🔧 ApplicationController: Adding organizationId to application history:', req.user.organizationId);
+  }
+
+  await ApplicationHistory.create(historyData);
 
   // Create notification for requirement owner
   if (requirement.createdBy.toString() !== req.user.id) {
@@ -377,6 +426,7 @@ const updateApplicationStatus = asyncHandler(async (req, res, next) => {
   if (notes) {
     updateData.notes = notes;
   }
+  updateData.updatedBy = req.user.id;
   updateData.updatedAt = Date.now();
 
   application = await Application.findByIdAndUpdate(
@@ -389,16 +439,26 @@ const updateApplicationStatus = asyncHandler(async (req, res, next) => {
   )
     .populate('requirement', 'title status priority')
     .populate('resource', 'name status category')
-    .populate('createdBy', 'firstName lastName email');
+    .populate('createdBy', 'firstName lastName email')
+    .populate('updatedBy', 'firstName lastName email');
 
   // Create history entry
-  await ApplicationHistory.create({
+  const historyData = {
     application: application._id,
     previousStatus,
     status,
     notes: notes || `Status changed from ${previousStatus} to ${status}`,
+    createdBy: req.user.id,
     updatedBy: req.user.id
-  });
+  };
+
+  // Add organizationId for application history
+  if (req.user.organizationId) {
+    historyData.organizationId = req.user.organizationId;
+    console.log('🔧 ApplicationController: Adding organizationId to application history:', req.user.organizationId);
+  }
+
+  await ApplicationHistory.create(historyData);
 
   // Create notification for application creator
   await createNotification({
@@ -439,6 +499,7 @@ const updateApplication = asyncHandler(async (req, res, next) => {
   if (notes !== undefined) updateData.notes = notes;
   if (proposedRate) updateData.proposedRate = proposedRate;
   if (availability) updateData.availability = availability;
+  updateData.updatedBy = req.user.id;
   updateData.updatedAt = Date.now();
 
   application = await Application.findByIdAndUpdate(
@@ -451,15 +512,25 @@ const updateApplication = asyncHandler(async (req, res, next) => {
   )
     .populate('requirement', 'title status priority')
     .populate('resource', 'name status category')
-    .populate('createdBy', 'firstName lastName email');
+    .populate('createdBy', 'firstName lastName email')
+    .populate('updatedBy', 'firstName lastName email');
 
   // Create history entry
-  await ApplicationHistory.create({
+  const historyData = {
     application: application._id,
     status: application.status,
     notes: 'Application details updated',
+    createdBy: req.user.id,
     updatedBy: req.user.id
-  });
+  };
+
+  // Add organizationId for application history
+  if (req.user.organizationId) {
+    historyData.organizationId = req.user.organizationId;
+    console.log('🔧 ApplicationController: Adding organizationId to application history:', req.user.organizationId);
+  }
+
+  await ApplicationHistory.create(historyData);
 
   res.status(200).json(
     ApiResponse.success(application, 'Application updated successfully')
@@ -484,13 +555,22 @@ const deleteApplication = asyncHandler(async (req, res, next) => {
   }
 
   // Create final history entry before deletion
-  await ApplicationHistory.create({
+  const historyData = {
     application: application._id,
     previousStatus: application.status,
     status: 'deleted',
     notes: 'Application was deleted',
+    createdBy: req.user.id,
     updatedBy: req.user.id
-  });
+  };
+
+  // Add organizationId for application history
+  if (req.user.organizationId) {
+    historyData.organizationId = req.user.organizationId;
+    console.log('🔧 ApplicationController: Adding organizationId to application history:', req.user.organizationId);
+  }
+
+  await ApplicationHistory.create(historyData);
 
   await application.deleteOne();
 

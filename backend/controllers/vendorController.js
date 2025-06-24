@@ -2,6 +2,8 @@ const User = require('../models/User');
 const UserAddress = require('../models/UserAddress');
 const UserBankDetails = require('../models/UserBankDetails');
 const UserStatutoryCompliance = require('../models/UserStatutoryCompliance');
+const Organization = require('../models/Organization');
+const OTP = require('../models/OTP');
 const asyncHandler = require('../utils/asyncHandler');
 const ErrorResponse = require('../utils/errorResponse');
 const { validationResult } = require('express-validator');
@@ -47,15 +49,9 @@ const saveStep = asyncHandler(async (req, res, next) => {
   if (step === 1) {
     // Step 1: Create new vendor with basic info
     const { email, password, companyName, contactPerson, gstNumber, serviceType, numberOfResources, firstName, lastName, phone } = data;
-    // Check if user already exists
-    user = await User.findOne({ email: email.toLowerCase() });
-    if (user) {
-      return next(new ErrorResponse('Email already registered', 400));
-    }
-    // Create new user
-    user = await User.create({
-      email: email.toLowerCase(),
-      password,
+    
+    console.log('🔧 VendorController: Step 1 - Creating vendor with data:', {
+      email,
       companyName,
       contactPerson,
       gstNumber,
@@ -63,25 +59,83 @@ const saveStep = asyncHandler(async (req, res, next) => {
       numberOfResources,
       firstName,
       lastName,
-      phone,
-      userType: 'vendor',
-      registrationStep: 1
+      phone
     });
-    // Generate and store OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    user.otp = otp;
-    user.otpExpiry = Date.now() + 5 * 60 * 1000; // 5 minutes
-    await user.save();
-    // Send OTP via email (currently just logging)
-    console.log(`OTP for ${email}: ${otp}`);
-    res.status(201).json({
-      success: true,
-      message: 'Vendor created successfully. OTP sent to email.',
-      data: {
-        email: user.email,
-        registrationStep: user.registrationStep
-      }
-    });
+    
+    // Check if user already exists
+    user = await User.findOne({ email: email.toLowerCase() });
+    if (user) {
+      console.log('🔧 VendorController: User already exists with email:', email);
+      return next(new ErrorResponse('Email already registered', 400));
+    }
+
+    // Extract domain from email for organization
+    const emailDomain = email.split('@')[1];
+    console.log('🔧 VendorController: Email domain extracted:', emailDomain);
+    
+    try {
+      // Create new user first (without organization)
+      console.log('🔧 VendorController: Creating user first...');
+      const userData = {
+        email: email.toLowerCase(),
+        password,
+        companyName,
+        contactPerson,
+        gstNumber,
+        serviceType,
+        numberOfResources,
+        firstName,
+        lastName,
+        phone,
+        userType: 'vendor',
+        registrationStep: 1
+      };
+      console.log('🔧 VendorController: User data to create:', { ...userData, password: '***' });
+      
+      user = await User.create(userData);
+      console.log('🔧 VendorController: User created successfully:', user._id);
+
+      // Create organization with the user as owner
+      console.log('🔧 VendorController: Creating organization with owner...');
+      const organization = await Organization.create({
+        name: companyName || `${firstName} ${lastName} Organization`,
+        ownerId: user._id, // Set owner immediately
+        organizationType: 'vendor',
+        domain: emailDomain,
+        status: 'active'
+      });
+      console.log('🔧 VendorController: Organization created successfully:', organization._id);
+
+      // Update user with organization details
+      console.log('🔧 VendorController: Updating user with organization details...');
+      user.organizationId = organization._id;
+      user.organizationRole = 'vendor_owner';
+      await user.save();
+      console.log('🔧 VendorController: User updated with organization details');
+
+      // Generate and store OTP in user table (for organization owners)
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      user.otp = otp;
+      user.otpExpiry = Date.now() + 10 * 60 * 1000; // 10 minutes
+      await user.save();
+      
+      // Send OTP via email (currently just logging)
+      console.log(`🔧 VendorController: OTP for ${email}: ${otp}`);
+      console.log(`🔧 VendorController: Organization created: ${organization._id} for vendor: ${user._id}`);
+      
+      res.status(201).json({
+        success: true,
+        message: 'Vendor created successfully. OTP sent to email.',
+        data: {
+          email: user.email,
+          registrationStep: user.registrationStep,
+          organizationId: organization._id
+        }
+      });
+    } catch (error) {
+      console.error('🔧 VendorController: Error during vendor creation:', error);
+      return next(new ErrorResponse(`Vendor creation failed: ${error.message}`, 500));
+    }
   } else if (step === 2) {
     // Step 2: Verify OTP
     const { email, otp } = data;

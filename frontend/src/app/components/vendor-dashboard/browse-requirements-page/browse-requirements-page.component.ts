@@ -270,10 +270,54 @@ export class BrowseRequirementsPageComponent implements OnInit {
   }
 
   getSkillDisplayName(skill: any): string {
-    if (skill && skill.name) {
+    if (!skill) return 'Unknown Skill';
+    
+    // If skill is a string, return it directly
+    if (typeof skill === 'string') {
+      return skill;
+    }
+    
+    // If skill is an object with a name property, return the name
+    if (skill && typeof skill === 'object' && skill.name) {
       return skill.name;
     }
-    return skill || 'Unknown Skill';
+    
+    // Fallback
+    return 'Unknown Skill';
+  }
+
+  getLocationDisplay(location: any): string {
+    if (!location) return 'Location not specified';
+    
+    const city = location.city || '';
+    const state = location.state || '';
+    
+    if (city && state) {
+      return `${city}, ${state}`;
+    } else if (city) {
+      return city;
+    } else if (state) {
+      return state;
+    } else {
+      return 'Location not specified';
+    }
+  }
+
+  getCategoryDisplayName(category: any): string {
+    if (!category) return 'No Category';
+    
+    // If category is a string, return it directly
+    if (typeof category === 'string') {
+      return category;
+    }
+    
+    // If category is an object with a name property, return the name
+    if (category && typeof category === 'object' && category.name) {
+      return category.name;
+    }
+    
+    // Fallback
+    return 'No Category';
   }
 
   private updateSelectedResources(): void {

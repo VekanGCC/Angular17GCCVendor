@@ -1031,6 +1031,41 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
     this.organizationSkills = this.organizationSkills.filter(skill => skill._id !== skillId);
   }
 
+  onUserAdded(user: any): void {
+    console.log('🔧 VendorDashboard: User added:', user);
+    
+    // Immediately add the new user to local arrays for instant UI update
+    this.vendorUsers = [...this.vendorUsers, user];
+    this.organizationUsers = [...this.organizationUsers, user];
+    
+    // Force change detection to ensure immediate UI update
+    this.changeDetectorRef.detectChanges();
+    
+    // TODO: Refresh users from server to ensure data consistency
+    // this.loadOrganizationUsers();
+  }
+
+  // Get available menu items based on user role
+  getAvailableMenuItems(): any[] {
+    const allMenuItems = [
+      { id: 'overview', label: 'Overview', icon: 'home.svg' },
+      { id: 'requirements', label: 'Browse Requirements', icon: 'briefcase.svg' },
+      { id: 'resources', label: 'My Resources', icon: 'users.svg' },
+      { id: 'applications', label: 'Vendor Applications', icon: 'trending-up.svg' },
+      { id: 'skill-management', label: 'Skills Management', icon: 'settings.svg' },
+      { id: 'user-management', label: 'User Management', icon: 'user-plus.svg' },
+      { id: 'profile', label: 'Profile', icon: 'user.svg' }
+    ];
+
+    // If user is vendor_employee, hide user management
+    if (this.currentUser?.organizationRole === 'vendor_employee') {
+      return allMenuItems.filter(item => item.id !== 'user-management');
+    }
+
+    // If user is vendor_owner, show all items
+    return allMenuItems;
+  }
+
   private async loadVendorRequirementsWithFiltersAndSort(page: number, sortBy: string, sortOrder: 'asc' | 'desc', searchParams: any): Promise<void> {
     try {
       this.requirementsPaginationState.isLoading = true;

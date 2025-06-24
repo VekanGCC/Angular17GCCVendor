@@ -103,6 +103,12 @@ const requirementSchema = new mongoose.Schema({
     required: true
   },
   
+  organizationId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Organization',
+    required: true
+  },
+  
   assignedTo: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
@@ -126,6 +132,7 @@ requirementSchema.index({ status: 1 });
 requirementSchema.index({ category: 1, status: 1 });
 requirementSchema.index({ 'skills': 1 });
 requirementSchema.index({ createdBy: 1 });
+requirementSchema.index({ organizationId: 1 });
 requirementSchema.index({ assignedTo: 1 });
 requirementSchema.index({ createdAt: -1 });
 

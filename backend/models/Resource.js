@@ -91,6 +91,13 @@ const resourceSchema = new mongoose.Schema({
     required: true
   },
   
+  // Organization field for vendor resources
+  organizationId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Organization',
+    required: false // Only required for vendor resources
+  },
+  
   // File attachment information
   attachment: {
     originalName: String,

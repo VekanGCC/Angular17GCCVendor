@@ -1,9 +1,10 @@
-import { Component, EventEmitter, Output } from '@angular/core';
+import { Component, EventEmitter, Output, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
 import { AuthService } from '../../../services/auth.service';
-import { VendorManagementService } from '../../../services/vendor-management.service';
+import { VendorService } from '../../../services/vendor.service';
+import { ClientService } from '../../../services/client.service';
 
 @Component({
   selector: 'app-add-user-modal',
@@ -13,39 +14,100 @@ import { VendorManagementService } from '../../../services/vendor-management.ser
   styleUrls: ['./add-user-modal.component.css']
 })
 export class AddUserModalComponent {
+  @Input() userType: 'vendor' | 'client' = 'vendor';
   @Output() close = new EventEmitter<void>();
+  @Output() userAdded = new EventEmitter<any>();
 
   userForm: FormGroup;
+  loading = false;
+  errorMessage = '';
+  successMessage = '';
 
   constructor(
     private fb: FormBuilder,
     private authService: AuthService,
-    private vendorManagementService: VendorManagementService
+    private vendorService: VendorService,
+    private clientService: ClientService
   ) {
     this.userForm = this.fb.group({
-      name: ['', Validators.required],
+      firstName: ['', [Validators.required, Validators.minLength(2)]],
+      lastName: ['', [Validators.required, Validators.minLength(2)]],
       email: ['', [Validators.required, Validators.email]],
-      role: ['user', Validators.required],
-      department: [''],
-      phone: ['']
-    });
+      phone: ['', [Validators.required, Validators.pattern(/^\+?[\d\s-()]+$/)]],
+      password: ['', [Validators.required, Validators.minLength(6)]],
+      confirmPassword: ['', [Validators.required]]
+    }, { validators: this.passwordMatchValidator });
+  }
+
+  // Custom validator to check if passwords match
+  passwordMatchValidator(group: FormGroup) {
+    const password = group.get('password')?.value;
+    const confirmPassword = group.get('confirmPassword')?.value;
+    
+    if (password !== confirmPassword) {
+      group.get('confirmPassword')?.setErrors({ passwordMismatch: true });
+      return { passwordMismatch: true };
+    } else {
+      group.get('confirmPassword')?.setErrors(null);
+      return null;
+    }
   }
 
   onSubmit(): void {
     if (this.userForm.valid) {
-      const user = this.authService.currentUser;
-      if (!user) return;
+      this.loading = true;
+      this.errorMessage = '';
+      this.successMessage = '';
 
-      const formValue = this.userForm.value;
+      // Remove confirmPassword before sending to API
+      const { confirmPassword, ...employeeData } = this.userForm.value;
 
-      this.vendorManagementService.addVendorUser({
-        ...formValue,
-        vendorId: user._id,
-        status: 'active' as const,
-        createdBy: `${user.firstName} ${user.lastName}`
-      });
-
-      this.close.emit();
+      // Use appropriate service based on userType
+      if (this.userType === 'client') {
+        this.clientService.addOrganizationUser(employeeData).subscribe({
+          next: (response: any) => {
+            this.loading = false;
+            this.successMessage = response.message || 'Employee added successfully!';
+            this.userAdded.emit(response.data);
+            
+            // Reset form
+            this.userForm.reset();
+            this.userForm.markAsUntouched();
+            this.userForm.markAsPristine();
+            
+            // Close modal after 2 seconds
+            setTimeout(() => {
+              this.close.emit();
+            }, 2000);
+          },
+          error: (error: any) => {
+            this.loading = false;
+            this.errorMessage = error.error?.message || 'Error adding employee';
+          }
+        });
+      } else {
+        this.vendorService.addEmployee(employeeData).subscribe({
+          next: (response: any) => {
+            this.loading = false;
+            this.successMessage = response.message || 'Employee added successfully!';
+            this.userAdded.emit(response.data);
+            
+            // Reset form
+            this.userForm.reset();
+            this.userForm.markAsUntouched();
+            this.userForm.markAsPristine();
+            
+            // Close modal after 2 seconds
+            setTimeout(() => {
+              this.close.emit();
+            }, 2000);
+          },
+          error: (error: any) => {
+            this.loading = false;
+            this.errorMessage = error.error?.message || 'Error adding employee';
+          }
+        });
+      }
     }
   }
 

@@ -6,6 +6,14 @@ const vendorSkillSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  
+  // Organization field for vendor skills
+  organizationId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Organization',
+    required: false // Only required for vendor skills
+  },
+  
   skill: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'AdminSkill',
@@ -58,5 +66,6 @@ const vendorSkillSchema = new mongoose.Schema({
 vendorSkillSchema.index({ vendor: 1, skill: 1 });
 vendorSkillSchema.index({ status: 1 });
 vendorSkillSchema.index({ category: 1 });
+vendorSkillSchema.index({ organizationId: 1 });
 
 module.exports = mongoose.model('VendorSkill', vendorSkillSchema); 

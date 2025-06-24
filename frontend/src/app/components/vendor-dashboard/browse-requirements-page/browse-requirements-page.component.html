@@ -49,131 +49,131 @@
       <!-- Requirement Information Section - Full Width -->
       <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <div class="flex items-center gap-2 mb-6">
-          <div class="w-6 h-6 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
-            <img src="assets/icons/lucide/lucide/briefcase.svg" alt="requirement" class="w-3 h-3 text-white" />
+          <div class="w-6 h-6 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center">
+            <img src="assets/icons/lucide/lucide/file-text.svg" alt="requirements" class="w-3 h-3 text-white" />
           </div>
-          <h2 class="text-lg font-semibold text-gray-900">Requirement Details</h2>
+          <h2 class="text-lg font-semibold text-gray-900">Requirement Information</h2>
         </div>
         
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <!-- Title & Description -->
-          <div class="lg:col-span-2">
-            <div class="flex items-center gap-2 p-3 bg-white rounded-lg">
-              <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                <img src="assets/icons/lucide/lucide/file-text.svg" alt="title" class="w-4 h-4 text-blue-600" />
+        <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+          
+          <!-- Requirement Header -->
+          <div class="flex items-start justify-between mb-4">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 bg-gradient-to-br from-green-100 to-emerald-100 rounded-lg flex items-center justify-center">
+                <img src="assets/icons/lucide/lucide/file-text.svg" alt="requirement" class="w-5 h-5 text-green-600" />
               </div>
               <div>
-                <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Title</p>
-                <p class="text-sm font-semibold text-gray-900">{{ requirement.title }}</p>
+                <h4 class="font-semibold text-gray-900 text-lg">{{ requirement.title }}</h4>
+                <div class="flex items-center gap-2 mt-1">
+                  <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                    {{ getCategoryDisplayName(requirement.category) }}
+                  </span>
+                  <span class="text-xs text-gray-500">• Requirement</span>
+                  <div class="flex items-center gap-1">
+                    <div class="w-2 h-2 rounded-full" 
+                         [class]="requirement.status === 'open' ? 'bg-green-500' : 'bg-gray-400'"></div>
+                    <span class="text-xs font-medium text-gray-600 capitalize">{{ requirement.status }}</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
           
-          <!-- Budget -->
-          <div class="flex items-center gap-2 p-3 bg-white rounded-lg">
-            <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-              <img src="assets/icons/lucide/lucide/dollar-sign.svg" alt="budget" class="w-4 h-4 text-green-600" />
+          <!-- Horizontal Data Grid -->
+          <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-4">
+            <!-- Budget -->
+            <div class="flex items-center gap-2 p-3 bg-white rounded-lg">
+              <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                <img src="assets/icons/lucide/lucide/dollar-sign.svg" alt="budget" class="w-4 h-4 text-green-600" />
+              </div>
+              <div>
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Budget</p>
+                <p class="text-sm font-semibold text-gray-900">
+                  {{ requirement.budget?.currency || 'USD' }}{{ requirement.budget?.charge || 0 }}/hr
+                </p>
+                <p class="text-xs text-gray-500">{{ requirement.budget?.type || 'Not specified' }}</p>
+              </div>
             </div>
-            <div>
-              <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Budget</p>
-              <p class="text-sm font-semibold text-gray-900">₹{{ requirement.budget?.charge }}</p>
-              <p class="text-xs text-gray-600">{{ requirement.budget?.type }}</p>
+            
+            <!-- Duration -->
+            <div class="flex items-center gap-2 p-3 bg-white rounded-lg">
+              <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                <img src="assets/icons/lucide/lucide/clock.svg" alt="duration" class="w-4 h-4 text-blue-600" />
+              </div>
+              <div>
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Duration</p>
+                <p class="text-sm font-semibold text-gray-900">
+                  {{ requirement.duration || 'Not specified' }}
+                </p>
+              </div>
+            </div>
+            
+            <!-- Location -->
+            <div *ngIf="requirement.location" class="flex items-center gap-2 p-3 bg-white rounded-lg">
+              <div class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                <img src="assets/icons/lucide/lucide/map-pin.svg" alt="location" class="w-4 h-4 text-purple-600" />
+              </div>
+              <div>
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Location</p>
+                <p class="text-sm font-semibold text-gray-900">
+                  {{ getLocationDisplay(requirement.location) }}
+                </p>
+                <p *ngIf="requirement.location.remote" class="text-xs text-blue-600">Remote Available</p>
+              </div>
+            </div>
+            
+            <!-- Experience -->
+            <div *ngIf="requirement.experience" class="flex items-center gap-2 p-3 bg-white rounded-lg">
+              <div class="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
+                <img src="assets/icons/lucide/lucide/user-check.svg" alt="experience" class="w-4 h-4 text-orange-600" />
+              </div>
+              <div>
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Experience</p>
+                <p class="text-sm font-semibold text-gray-900">
+                  {{ requirement.experience?.minYears || 0 }} years
+                </p>
+                <p class="text-xs text-gray-500">{{ requirement.experience?.level || 'Not specified' }}</p>
+              </div>
+            </div>
+            
+            <!-- Skills Count -->
+            <div class="flex items-center gap-2 p-3 bg-white rounded-lg">
+              <div class="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center">
+                <img src="assets/icons/lucide/lucide/target.svg" alt="skills" class="w-4 h-4 text-indigo-600" />
+              </div>
+              <div>
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Skills</p>
+                <p class="text-sm font-semibold text-gray-900">
+                  {{ requirement.skills && requirement.skills.length > 0 ? requirement.skills.length + ' skills' : 'No skills' }}
+                </p>
+              </div>
+            </div>
+            
+            <!-- Description Preview -->
+            <div *ngIf="requirement.description" class="flex items-center gap-2 p-3 bg-white rounded-lg">
+              <div class="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center">
+                <img src="assets/icons/lucide/lucide/file-text.svg" alt="description" class="w-4 h-4 text-yellow-600" />
+              </div>
+              <div>
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">About</p>
+                <p class="text-sm text-gray-900 line-clamp-2">{{ requirement.description }}</p>
+              </div>
             </div>
           </div>
           
-          <!-- Duration -->
-          <div class="flex items-center gap-2 p-3 bg-white rounded-lg">
-            <div class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-              <img src="assets/icons/lucide/lucide/clock.svg" alt="duration" class="w-4 h-4 text-purple-600" />
+          <!-- Skills Section -->
+          <div *ngIf="requirement.skills && requirement.skills.length > 0" class="mb-3">
+            <div class="flex items-center gap-2 mb-2">
+              <img src="assets/icons/lucide/lucide/target.svg" alt="skills" class="w-4 h-4 text-gray-500" />
+              <span class="text-sm font-medium text-gray-700">Required Skills & Expertise</span>
             </div>
-            <div>
-              <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Duration</p>
-              <p class="text-sm font-semibold text-gray-900">{{ requirement.duration }}</p>
-            </div>
-          </div>
-          
-          <!-- Location -->
-          <div class="flex items-center gap-2 p-3 bg-white rounded-lg">
-            <div class="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
-              <img src="assets/icons/lucide/lucide/map-pin.svg" alt="location" class="w-4 h-4 text-orange-600" />
-            </div>
-            <div>
-              <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Location</p>
-              <p class="text-sm font-semibold text-gray-900">{{ requirement.location?.city }}, {{ requirement.location?.state }}</p>
-              <p *ngIf="requirement.location?.remote" class="text-xs text-blue-600">Remote Available</p>
-            </div>
-          </div>
-          
-          <!-- Experience -->
-          <div class="flex items-center gap-2 p-3 bg-white rounded-lg">
-            <div class="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center">
-              <img src="assets/icons/lucide/lucide/user-check.svg" alt="experience" class="w-4 h-4 text-indigo-600" />
-            </div>
-            <div>
-              <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Experience</p>
-              <p class="text-sm font-semibold text-gray-900">{{ requirement.experience?.minYears }} years</p>
-              <p class="text-xs text-gray-600">{{ requirement.experience?.level }}</p>
-            </div>
-          </div>
-          
-          <!-- Skills Count -->
-          <div class="flex items-center gap-2 p-3 bg-white rounded-lg">
-            <div class="w-8 h-8 bg-pink-100 rounded-lg flex items-center justify-center">
-              <img src="assets/icons/lucide/lucide/target.svg" alt="skills" class="w-4 h-4 text-pink-600" />
-            </div>
-            <div>
-              <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Skills Required</p>
-              <p class="text-sm font-semibold text-gray-900">{{ requirement.skills?.length || 0 }} skills</p>
-            </div>
-          </div>
-          
-          <!-- Status -->
-          <div class="flex items-center gap-2 p-3 bg-white rounded-lg">
-            <div class="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center">
-              <img src="assets/icons/lucide/lucide/activity.svg" alt="status" class="w-4 h-4 text-yellow-600" />
-            </div>
-            <div>
-              <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Status</p>
-              <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                {{ requirement.status }}
+            <div class="flex flex-wrap gap-2">
+              <span *ngFor="let skill of requirement.skills" 
+                    class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 border border-green-200">
+                {{ getSkillDisplayName(skill) }}
               </span>
             </div>
-          </div>
-          
-          <!-- Created Date -->
-          <div class="flex items-center gap-2 p-3 bg-white rounded-lg">
-            <div class="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
-              <img src="assets/icons/lucide/lucide/calendar.svg" alt="date" class="w-4 h-4 text-gray-600" />
-            </div>
-            <div>
-              <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Created</p>
-              <p class="text-sm font-semibold text-gray-900">{{ requirement.createdAt | date:'MMM dd, yyyy' }}</p>
-            </div>
-          </div>
-        </div>
-        
-        <!-- Description Preview -->
-        <div *ngIf="requirement.description" class="flex items-center gap-2 p-3 bg-white rounded-lg mt-4">
-          <div class="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center">
-            <img src="assets/icons/lucide/lucide/file-text.svg" alt="description" class="w-4 h-4 text-yellow-600" />
-          </div>
-          <div>
-            <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">About</p>
-            <p class="text-sm text-gray-900 line-clamp-2">{{ requirement.description }}</p>
-          </div>
-        </div>
-        
-        <!-- Skills Section -->
-        <div *ngIf="requirement.skills && requirement.skills.length > 0" class="mt-4">
-          <div class="flex items-center gap-2 mb-2">
-            <img src="assets/icons/lucide/lucide/target.svg" alt="skills" class="w-4 h-4 text-gray-500" />
-            <span class="text-sm font-medium text-gray-700">Required Skills</span>
-          </div>
-          <div class="flex flex-col gap-1">
-            <span *ngFor="let skill of requirement.skills" 
-                  class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 w-fit">
-              {{ getSkillDisplayName(skill) }}
-            </span>
           </div>
         </div>
       </div>

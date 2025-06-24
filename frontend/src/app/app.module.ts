@@ -12,12 +12,16 @@ import { FileUploadComponent } from './components/file-upload/file-upload.compon
 import { FileManagementComponent } from './components/file-management/file-management.component';
 import { FileDemoComponent } from './components/file-demo/file-demo.component';
 
+// Vendor Components
+import { AddEmployeeModalComponent } from './components/vendor-dashboard/add-employee-modal/add-employee-modal.component';
+
 @NgModule({
   declarations: [
     AppComponent,
     FileUploadComponent,
     FileManagementComponent,
-    FileDemoComponent
+    FileDemoComponent,
+    AddEmployeeModalComponent
   ],
   imports: [
     BrowserModule,

@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const Organization = require('../models/Organization');
 const asyncHandler = require('../utils/asyncHandler');
 const ErrorResponse = require('../utils/errorResponse');
 const sendEmail = require('../utils/sendEmail');
@@ -23,7 +24,7 @@ const register = asyncHandler(async (req, res, next) => {
     return next(new ErrorResponse('Validation failed', 400, errors.array()));
   }
 
-  const { email, password, userType, firstName, lastName, phone } = req.body;
+  const { email, password, userType, firstName, lastName, phone, companyName } = req.body;
 
   // Check if user already exists
   const existingUser = await User.findOne({ email });
@@ -31,8 +32,17 @@ const register = asyncHandler(async (req, res, next) => {
     return next(new ErrorResponse('User already exists with this email', 400));
   }
 
+  // Create organization for vendor and client users
+  let organization = null;
+  let organizationRole = null;
+
+  if (userType === 'vendor' || userType === 'client') {
+    // Set organization role based on user type
+    organizationRole = userType === 'vendor' ? 'vendor_owner' : 'client_owner';
+  }
+
   // Create user with step 1 information
-  const user = await User.create({
+  const userData = {
     email,
     password,
     userType,
@@ -40,7 +50,30 @@ const register = asyncHandler(async (req, res, next) => {
     lastName,
     phone,
     registrationStep: 1
-  });
+  };
+
+  const user = await User.create(userData);
+
+  // Create organization after user creation (now we have the user ID)
+  if (userType === 'vendor' || userType === 'client') {
+    // Extract domain from email for organization
+    const domain = email.split('@')[1];
+
+    // Create organization
+    organization = await Organization.create({
+      name: companyName || `${firstName} ${lastName}'s Organization`,
+      ownerId: user._id, // Now we can provide the user ID
+      organizationType: userType,
+      domain: domain
+    });
+
+    // Update user with organization details
+    user.organizationId = organization._id;
+    user.organizationRole = organizationRole;
+    await user.save();
+
+    console.log(`🔧 AuthController: Created ${userType} organization:`, organization._id);
+  }
 
   // Generate email verification token
   const emailToken = user.getEmailVerificationToken();
@@ -199,11 +232,17 @@ const forgotPassword = asyncHandler(async (req, res, next) => {
   const message = `You are receiving this email because you have requested the reset of a password. Please make a PUT request to: \n\n ${resetUrl}`;
 
   try {
-    await sendEmail({
-      email: user.email,
-      subject: 'Password reset token',
-      message
-    });
+    // Mock email sending for development
+    console.log('📧 Mock Email - Password Reset:');
+    console.log('  To:', user.email);
+    console.log('  Subject: Password reset token');
+    console.log('  Message:', message);
+    
+    // await sendEmail({
+    //   email: user.email,
+    //   subject: 'Password reset token',
+    //   message
+    // });
 
     res.status(200).json({
       success: true,
@@ -311,11 +350,17 @@ const resendVerification = asyncHandler(async (req, res, next) => {
   try {
     const verificationUrl = `${req.protocol}://${req.get('host')}/api/auth/verify-email/${emailToken}`;
     
-    await sendEmail({
-      email: user.email,
-      subject: 'Account Verification',
-      message: `Please verify your account by clicking: ${verificationUrl}`
-    });
+    // Mock email sending for development
+    console.log('📧 Mock Email - Account Verification:');
+    console.log('  To:', user.email);
+    console.log('  Subject: Account Verification');
+    console.log('  Message: Please verify your account by clicking:', verificationUrl);
+    
+    // await sendEmail({
+    //   email: user.email,
+    //   subject: 'Account Verification',
+    //   message: `Please verify your account by clicking: ${verificationUrl}`
+    // });
 
     res.status(200).json({
       success: true,
@@ -347,7 +392,9 @@ const getCurrentUser = asyncHandler(async (req, res, next) => {
       registrationStep: user.registrationStep,
       isRegistrationComplete: user.isRegistrationComplete,
       isEmailVerified: user.isEmailVerified,
-      isPhoneVerified: user.isPhoneVerified
+      isPhoneVerified: user.isPhoneVerified,
+      organizationId: user.organizationId,
+      organizationRole: user.organizationRole
     }
   });
 });
@@ -389,7 +436,9 @@ const sendTokenResponse = (user, statusCode, res, message) => {
         userType: user.userType,
         role: user.role,
         approvalStatus: user.approvalStatus,
-        rejectionReason: user.rejectionReason
+        rejectionReason: user.rejectionReason,
+        organizationId: user.organizationId,
+        organizationRole: user.organizationRole
       }
     };
     console.log('Response data:', { ...response, token: '***', refreshToken: '***' });

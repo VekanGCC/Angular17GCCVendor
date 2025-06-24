@@ -22,6 +22,9 @@ export interface User {
     registrationNumber?: string;
     taxId?: string;
   };
+  // Organization fields (for vendor and client users)
+  organizationId?: string;
+  organizationRole?: 'vendor_owner' | 'vendor_employee' | 'client_owner' | 'client_employee';
   createdAt: string;
   updatedAt: string;
   rejectionReason?: string;

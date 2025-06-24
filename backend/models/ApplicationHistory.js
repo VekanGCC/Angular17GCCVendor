@@ -23,10 +23,25 @@ const applicationHistorySchema = new mongoose.Schema({
     maxlength: [1000, 'Notes cannot be more than 1000 characters']
   },
   
+  // Track who created this history entry
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  
+  // Track who last updated this history entry
   updatedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
+  },
+  
+  // Organization field for application history (both vendor and client)
+  organizationId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Organization',
+    required: true // Required for both vendor and client application history
   }
 }, {
   timestamps: true
@@ -34,6 +49,8 @@ const applicationHistorySchema = new mongoose.Schema({
 
 // Indexes for better performance
 applicationHistorySchema.index({ application: 1, createdAt: -1 });
+applicationHistorySchema.index({ createdBy: 1 });
 applicationHistorySchema.index({ updatedBy: 1 });
+applicationHistorySchema.index({ organizationId: 1 });
 
 module.exports = mongoose.model('ApplicationHistory', applicationHistorySchema);

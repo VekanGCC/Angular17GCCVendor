@@ -8,7 +8,7 @@ import { PaginationParams, PaginatedResponse } from '../models/pagination.model'
   providedIn: 'root'
 })
 export class ClientService {
-  private apiUrl = `${environment.apiUrl}/clients`;
+  private apiUrl = `${environment.apiUrl}/client`;
 
   constructor(private http: HttpClient) {}
 
@@ -86,5 +86,27 @@ export class ClientService {
   // Get client analytics
   getAnalytics(): Observable<any> {
     return this.http.get(`${this.apiUrl}/analytics`);
+  }
+
+  // Client User Management Methods
+  // Get organization users
+  getOrganizationUsers(): Observable<any> {
+    return this.http.get(`${this.apiUrl}/organization/users`);
+  }
+
+  // Add user to organization
+  addOrganizationUser(userData: {
+    email: string;
+    firstName: string;
+    lastName: string;
+    phone: string;
+    password: string;
+  }): Observable<any> {
+    return this.http.post(`${this.apiUrl}/organization/users`, userData);
+  }
+
+  // Update user status
+  updateUserStatus(userId: string, status: string): Observable<any> {
+    return this.http.put(`${this.apiUrl}/organization/users/${userId}/status`, { status });
   }
 } 

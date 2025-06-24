@@ -8,12 +8,14 @@ import { User } from '../../models/user.model';
 import { Resource } from '../../models/resource.model';
 import { Requirement } from '../../models/requirement.model';
 import { Application } from '../../models/application.model';
+import { VendorUser } from '../../models/vendor-user.model';
 import { LayoutComponent } from '../layout/layout.component';
 import { RequirementModalComponent } from '../modals/requirement-modal/requirement-modal.component';
 import { ClientOverviewComponent } from './client-overview/client-overview.component';
 import { ClientRequirementsComponent } from './client-requirements/client-requirements.component';
 import { ClientResourcesComponent } from './client-resources/client-resources.component';
 import { ClientApplicationsComponent } from './client-applications/client-applications.component';
+import { ClientUserManagementComponent } from './client-user-management/client-user-management.component';
 import { ApplicationHistoryModalComponent, ApplicationHistoryEntry } from '../modals/application-history-modal/application-history-modal.component';
 import { ApplicationDetailsModalComponent } from '../modals/application-details-modal/application-details-modal.component';
 import { Subscription } from 'rxjs';
@@ -40,6 +42,7 @@ import { ApplyResourcesPageComponent } from './apply-resources-page/apply-resour
     ClientRequirementsComponent,
     ClientResourcesComponent,
     ClientApplicationsComponent,
+    ClientUserManagementComponent,
     ApplicationHistoryModalComponent,
     ApplicationDetailsModalComponent,
     ProfileDashboardComponent,
@@ -63,10 +66,12 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
   resources: Resource[] = [];
   clientRequirements: Requirement[] = [];
   clientApplications: Application[] = [];
-  activeTab = 'overview';
+  organizationUsers: User[] = [];
+  activeTab: 'overview' | 'requirements' | 'resources' | 'applications' | 'profile' | 'user-management' | 'apply-resources' = 'overview';
   showRequirementModal = false;
   showCloseRequirementModal = false;
   showEditRequirementModal = false;
+  showAddUserModal = false;
   requirementToClose: Requirement | null = null;
   requirementToEdit: Requirement | null = null;
   showHistoryModal = false;
@@ -216,8 +221,8 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
   private initializeActiveTab(): void {
     // Get the fragment from the URL
     this.route.fragment.subscribe(fragment => {
-      if (fragment && ['overview', 'requirements', 'resources', 'applications', 'profile'].includes(fragment)) {
-        this.activeTab = fragment;
+      if (fragment && ['overview', 'requirements', 'resources', 'applications', 'profile', 'user-management', 'apply-resources'].includes(fragment)) {
+        this.activeTab = fragment as 'overview' | 'requirements' | 'resources' | 'applications' | 'profile' | 'user-management' | 'apply-resources';
         console.log('Restored active tab from URL:', this.activeTab);
       } else {
         // Default to overview if no valid fragment
@@ -239,6 +244,7 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
     this.loadRequirements();
     this.loadApplications();
     this.loadResources();
+    this.loadOrganizationUsers();
     this.updateStats();
   }
 
@@ -413,17 +419,36 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
     this.stats[3].value = this.clientApplications.filter(a => a.status === 'accepted').length;
   }
 
-  setActiveTab(tab: string): void {
+  setActiveTab(tab: 'overview' | 'requirements' | 'resources' | 'applications' | 'profile' | 'user-management' | 'apply-resources'): void {
+    console.log('Setting active tab to:', tab);
     this.activeTab = tab;
-    if (tab === 'resources') {
-      this.loadResourcesWithSearch(this.currentSearchParams);
-    } else if (tab === 'applications') {
-      this.loadApplications();
-    } else if (tab === 'requirements') {
-      console.log('Switching to requirements tab, refreshing data...');
-      this.loadRequirements();
-    }
     this.updateUrlFragment(tab);
+    
+    // Reload data when switching to certain tabs
+    switch (tab) {
+      case 'requirements':
+        console.log('🔧 ClientDashboard: Switching to requirements tab, reloading data...');
+        this.loadRequirements(this.requirementsPaginationState.currentPage);
+        break;
+      case 'applications':
+        console.log('🔧 ClientDashboard: Switching to applications tab, reloading data...');
+        this.loadApplications(this.applicationsPaginationState.currentPage);
+        break;
+      case 'resources':
+        console.log('🔧 ClientDashboard: Switching to resources tab, reloading data...');
+        this.loadResourcesWithSearch(this.currentSearchParams, this.resourcesPaginationState.currentPage);
+        break;
+      case 'user-management':
+        console.log('🔧 ClientDashboard: Switching to user management tab, reloading data...');
+        this.loadOrganizationUsers();
+        break;
+      case 'overview':
+        console.log('🔧 ClientDashboard: Switching to overview tab, updating stats...');
+        this.updateStats();
+        break;
+    }
+    
+    this.changeDetectorRef.detectChanges();
   }
 
   // Modal handlers
@@ -707,5 +732,82 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
     console.log('🔧 ClientDashboard: Navigating back to browse resources');
     this.activeTab = 'resources';
     this.changeDetectorRef.detectChanges();
+  }
+
+  // User Management Methods
+  getAvailableMenuItems(): any[] {
+    const allMenuItems = [
+      { id: 'overview', label: 'Overview', icon: 'home.svg' },
+      { id: 'requirements', label: 'My Requirements', icon: 'briefcase.svg' },
+      { id: 'resources', label: 'Browse Resources', icon: 'users.svg' },
+      { id: 'applications', label: 'Applications', icon: 'trending-up.svg' },
+      { id: 'user-management', label: 'User Management', icon: 'user-plus.svg' },
+      { id: 'profile', label: 'Profile', icon: 'user.svg' }
+    ];
+
+    // If user is client_employee, hide user management
+    if (this.currentUser?.organizationRole === 'client_employee') {
+      return allMenuItems.filter(item => item.id !== 'user-management');
+    }
+
+    // If user is client_owner, show all items
+    return allMenuItems;
+  }
+
+  handleToggleUserStatus(data: {id: string, status: string}): void {
+    console.log('🔧 ClientDashboard: Toggling user status:', data);
+    
+    const newStatus = data.status === 'active' ? 'inactive' : 'active';
+    
+    this.clientService.updateUserStatus(data.id, newStatus).subscribe({
+      next: (response) => {
+        console.log('User status updated successfully:', response);
+        
+        // Update local state immediately for responsive UI
+        const userIndex = this.organizationUsers.findIndex(user => user._id === data.id);
+        if (userIndex !== -1) {
+          this.organizationUsers = [...this.organizationUsers];
+          this.organizationUsers[userIndex].isActive = newStatus === 'active';
+          this.changeDetectorRef.detectChanges();
+        }
+      },
+      error: (error) => {
+        console.error('Error updating user status:', error);
+      }
+    });
+  }
+
+  onUserAdded(user: any): void {
+    console.log('🔧 ClientDashboard: User added:', user);
+    
+    // Immediately add the new user to local arrays for instant UI update
+    this.organizationUsers = [...this.organizationUsers, user];
+    
+    // Force change detection to ensure immediate UI update
+    this.changeDetectorRef.detectChanges();
+    
+    // Refresh users from server to ensure data consistency
+    this.loadOrganizationUsers();
+  }
+
+  private loadOrganizationUsers(): void {
+    console.log('🔧 ClientDashboard: Loading organization users...');
+    
+    this.clientService.getOrganizationUsers().subscribe({
+      next: (response) => {
+        console.log('Organization users loaded:', response);
+        if (response.success && response.data) {
+          this.organizationUsers = response.data;
+        } else {
+          this.organizationUsers = [];
+        }
+        this.changeDetectorRef.detectChanges();
+      },
+      error: (error) => {
+        console.error('Error loading organization users:', error);
+        this.organizationUsers = [];
+        this.changeDetectorRef.detectChanges();
+      }
+    });
   }
 }

@@ -166,4 +166,38 @@ export class ApplyRequirementModalComponent implements OnInit {
       default: return 'bg-gray-100 text-gray-800';
     }
   }
+
+  getLocationDisplay(location: any): string {
+    if (!location) return 'Location not specified';
+    
+    const city = location.city || '';
+    const state = location.state || '';
+    
+    if (city && state) {
+      return `${city}, ${state}`;
+    } else if (city) {
+      return city;
+    } else if (state) {
+      return state;
+    } else {
+      return 'Location not specified';
+    }
+  }
+
+  getSkillDisplayName(skill: any): string {
+    if (!skill) return 'Unknown Skill';
+    
+    // If skill is a string, return it directly
+    if (typeof skill === 'string') {
+      return skill;
+    }
+    
+    // If skill is an object with a name property, return the name
+    if (skill && typeof skill === 'object' && skill.name) {
+      return skill.name;
+    }
+    
+    // Fallback
+    return 'Unknown Skill';
+  }
 } 

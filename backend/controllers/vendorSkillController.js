@@ -8,9 +8,16 @@ const ErrorResponse = require('../utils/errorResponse');
 exports.getVendorSkills = asyncHandler(async (req, res, next) => {
   let query;
 
-  // If user is vendor, only show their skills
+  // If user is vendor, show skills based on organization
   if (req.user.userType === 'vendor') {
-    query = VendorSkill.find({ vendor: req.user.id });
+    if (req.user.organizationId) {
+      // Filter by organization for vendor organization members
+      query = VendorSkill.find({ organizationId: req.user.organizationId });
+      console.log('🔧 VendorSkillController: Filtering vendor skills by organization ID:', req.user.organizationId);
+    } else {
+      // Fallback to user-based filtering for vendors without organization
+      query = VendorSkill.find({ vendor: req.user.id });
+    }
   } else {
     // For admin, show all skills
     query = VendorSkill.find();
@@ -61,8 +68,18 @@ exports.getVendorSkill = asyncHandler(async (req, res, next) => {
   }
 
   // Check if user is authorized to view this skill
-  if (req.user.userType === 'vendor' && skill.vendor._id.toString() !== req.user.id) {
-    return next(new ErrorResponse('Not authorized to access this skill', 403));
+  if (req.user.userType === 'vendor') {
+    if (req.user.organizationId) {
+      // Check if skill belongs to the same organization
+      if (skill.organizationId && skill.organizationId.toString() !== req.user.organizationId.toString()) {
+        return next(new ErrorResponse('Not authorized to access this skill', 403));
+      }
+    } else {
+      // Fallback to vendor-based authorization for vendors without organization
+      if (skill.vendor._id.toString() !== req.user.id) {
+        return next(new ErrorResponse('Not authorized to access this skill', 403));
+      }
+    }
   }
 
   res.status(200).json({
@@ -77,6 +94,12 @@ exports.getVendorSkill = asyncHandler(async (req, res, next) => {
 exports.createVendorSkill = asyncHandler(async (req, res, next) => {
   // Add vendor to req.body
   req.body.vendor = req.user.id;
+
+  // Add organizationId for vendor skills
+  if (req.user.userType === 'vendor' && req.user.organizationId) {
+    req.body.organizationId = req.user.organizationId;
+    console.log('🔧 VendorSkillController: Adding organizationId to vendor skill:', req.user.organizationId);
+  }
 
   const skill = await VendorSkill.create(req.body);
 
@@ -141,8 +164,18 @@ exports.deleteVendorSkill = asyncHandler(async (req, res, next) => {
   }
 
   // Check if user is authorized to delete this skill
-  if (skill.vendor.toString() !== req.user.id) {
-    return next(new ErrorResponse('Not authorized to delete this skill', 403));
+  if (req.user.userType === 'vendor') {
+    if (req.user.organizationId) {
+      // Check if skill belongs to the same organization
+      if (skill.organizationId && skill.organizationId.toString() !== req.user.organizationId.toString()) {
+        return next(new ErrorResponse('Not authorized to delete this skill', 403));
+      }
+    } else {
+      // Fallback to vendor-based authorization for vendors without organization
+      if (skill.vendor.toString() !== req.user.id) {
+        return next(new ErrorResponse('Not authorized to delete this skill', 403));
+      }
+    }
   }
 
   // Soft delete by setting isActive to false

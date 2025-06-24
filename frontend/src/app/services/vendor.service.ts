@@ -131,4 +131,24 @@ export class VendorService {
   removeSkill(id: string): Observable<any> {
     return this.http.delete(`${environment.apiUrl}/vendor/niche-skills/${id}`, { headers: this.getAuthHeaders() });
   }
+
+  // Add employee to organization
+  addEmployee(data: any): Observable<any> {
+    return this.http.post(`${environment.apiUrl}/vendor/organization/add-employee`, data, { headers: this.getAuthHeaders() });
+  }
+
+  // Get organization employees
+  getEmployees(): Observable<any> {
+    return this.http.get(`${environment.apiUrl}/vendor/organization/employees`, { headers: this.getAuthHeaders() });
+  }
+
+  // Verify employee OTP
+  verifyEmployeeOTP(data: any): Observable<any> {
+    return this.http.post(`${environment.apiUrl}/vendor/organization/verify-otp`, data);
+  }
+
+  // Resend OTP
+  resendOTP(data: any): Observable<any> {
+    return this.http.post(`${environment.apiUrl}/vendor/organization/resend-otp`, data, { headers: this.getAuthHeaders() });
+  }
 } 

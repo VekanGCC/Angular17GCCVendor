@@ -165,7 +165,8 @@ const getResources = asyncHandler(async (req, res, next) => {
 
   // Only return resources for the logged-in vendor
   if (req.user && req.user.userType === 'vendor') {
-    console.log('🔧 ResourceController: User is vendor, filtering by vendor ID:', req.user.id);
+    console.log('🔧 ResourceController: User is vendor, filtering by organization ID:', req.user.organizationId);
+    
     // If approvedVendorsOnly is true, we need to check if this vendor is approved
     if (approvedVendorsOnly === 'true') {
       console.log('🔧 ResourceController: Approved vendors only filter is active for vendor');
@@ -182,7 +183,7 @@ const getResources = asyncHandler(async (req, res, next) => {
           
           // Check if this vendor has approved skills matching the selected skills
           const vendorApprovedSkills = await VendorSkill.find({ 
-            vendor: req.user.id, 
+            organizationId: req.user.organizationId, 
             status: 'approved',
             skill: { $in: validSkillIds }
           });
@@ -194,43 +195,43 @@ const getResources = asyncHandler(async (req, res, next) => {
             
             if (!hasAllSkills) {
               // Vendor doesn't have all required approved skills
-              query.createdBy = { $in: [] };
+              query.organizationId = { $in: [] };
             } else {
-              // Vendor has all required approved skills
-              query.createdBy = req.user.id;
+              // Vendor has all required approved skills - filter by organization
+              query.organizationId = req.user.organizationId;
             }
           } else {
             // For OR logic, vendor must have ANY of the selected skills approved
             if (vendorApprovedSkills.length === 0) {
               // Vendor has no approved skills matching the selection
-              query.createdBy = { $in: [] };
+              query.organizationId = { $in: [] };
             } else {
-              // Vendor has at least one approved skill matching the selection
-              query.createdBy = req.user.id;
+              // Vendor has at least one approved skill matching the selection - filter by organization
+              query.organizationId = req.user.organizationId;
             }
           }
         } else {
           // No valid skill IDs
-          query.createdBy = { $in: [] };
+          query.organizationId = { $in: [] };
         }
       } else {
         // No skills selected, check if vendor has any approved skills
         const vendorApprovedSkills = await VendorSkill.find({ 
-          vendor: req.user.id, 
+          organizationId: req.user.organizationId, 
           status: 'approved' 
         });
         
         if (vendorApprovedSkills.length === 0) {
           // Vendor has no approved skills
-          query.createdBy = { $in: [] };
+          query.organizationId = { $in: [] };
         } else {
-          // Vendor has approved skills
-          query.createdBy = req.user.id;
+          // Vendor has approved skills - filter by organization
+          query.organizationId = req.user.organizationId;
         }
       }
     } else {
-      // Normal vendor filtering
-      query.createdBy = req.user.id;
+      // Normal vendor filtering - filter by organization
+      query.organizationId = req.user.organizationId;
     }
   }
 
@@ -285,6 +286,12 @@ const getResource = asyncHandler(async (req, res, next) => {
 const createResource = asyncHandler(async (req, res, next) => {
   // Add user to req.body from JWT token
   req.body.createdBy = req.user.id;
+
+  // Add organizationId for vendor resources
+  if (req.user.userType === 'vendor' && req.user.organizationId) {
+    req.body.organizationId = req.user.organizationId;
+    console.log('🔧 ResourceController: Adding organizationId to resource:', req.user.organizationId);
+  }
 
   // Ensure skills is an array and convert string IDs to ObjectIds
   if (req.body.skills) {
