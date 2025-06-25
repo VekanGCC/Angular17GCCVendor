@@ -5,7 +5,9 @@ const {
   getResource,
   createResource,
   updateResource,
-  deleteResource
+  deleteResource,
+  getMatchingRequirementsCount,
+  getMatchingRequirementsCountsBatch
 } = require('../controllers/resourceController');
 const { protect } = require('../middleware/auth');
 
@@ -21,5 +23,12 @@ router.route('/:id')
   .get(getResource)
   .put(updateResource)
   .delete(deleteResource);
+
+// Matching requirements routes
+router.route('/:id/matching-requirements')
+  .get(getMatchingRequirementsCount);
+
+router.route('/matching-requirements/batch')
+  .post(getMatchingRequirementsCountsBatch);
 
 module.exports = router;

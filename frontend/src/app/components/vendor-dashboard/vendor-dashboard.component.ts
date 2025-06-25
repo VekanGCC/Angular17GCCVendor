@@ -163,6 +163,12 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
   requirementsSearchParams: any = {};
   requirementsSortBy: string = 'createdAt';
   requirementsSortOrder: 'asc' | 'desc' = 'desc';
+  
+  // Applications filtering
+  applicationsResourceFilter: string = '';
+
+  // New property
+  currentRequirementsSearchParams: any = {};
 
   constructor(
     private authService: AuthService,
@@ -307,7 +313,8 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
       this.loadVendorResources(),
       this.loadVendorApplications(),
       this.loadVendorRequirements(),
-      this.loadVendorSkills()
+      this.loadVendorSkills(),
+      this.loadVendorUsers()
     ]);
   }
 
@@ -329,6 +336,12 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
         this.vendorResources = response.data;
         console.log('🔧 VendorDashboard: Updated vendorResources:', this.vendorResources);
         
+        // Load application counts for resources
+        await this.loadResourceApplicationCounts();
+        
+        // Load matching requirements counts for resources
+        await this.loadResourceMatchingCounts();
+        
         // Check for pagination data in both 'meta' and 'pagination' fields
         const paginationData = response.meta || response.pagination;
         if (paginationData) {
@@ -346,6 +359,81 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
     } finally {
       this.resourcesPaginationState.isLoading = false;
       this.changeDetectorRef.detectChanges();
+    }
+  }
+
+  private async loadResourceApplicationCounts(): Promise<void> {
+    if (this.vendorResources.length === 0) {
+      console.log('🔧 VendorDashboard: No resources to load application counts for');
+      return;
+    }
+    
+    try {
+      const resourceIds = this.vendorResources.map(resource => resource._id);
+      console.log('🔧 VendorDashboard: Loading application counts for resources:', resourceIds);
+      
+      const response = await this.vendorService.getApplicationCountsForResources(resourceIds).toPromise();
+      
+      if (response && response.success && response.data) {
+        console.log('🔧 VendorDashboard: Application counts response:', response.data);
+        
+        // Update resources with application counts
+        this.vendorResources = this.vendorResources.map(resource => {
+          const count = response.data[resource._id] || 0;
+          console.log(`🔧 VendorDashboard: Resource ${resource.name} (${resource._id}) has ${count} applications`);
+          return {
+            ...resource,
+            applicationCount: count
+          };
+        });
+        
+        console.log('🔧 VendorDashboard: Updated resources with application counts:', this.vendorResources);
+        
+        // Force change detection to ensure UI updates
+        this.changeDetectorRef.detectChanges();
+      } else {
+        console.log('🔧 VendorDashboard: Invalid response for application counts:', response);
+      }
+    } catch (error) {
+      console.error('🔧 VendorDashboard: Error loading application counts for resources:', error);
+    }
+  }
+
+  private async loadResourceMatchingCounts(): Promise<void> {
+    if (this.vendorResources.length === 0) {
+      console.log('🔧 VendorDashboard: No resources to load matching counts for');
+      return;
+    }
+    
+    try {
+      const resourceIds = this.vendorResources.map(resource => resource._id);
+      console.log('🔧 VendorDashboard: Loading matching counts for resources:', resourceIds);
+      
+      const response = await this.vendorService.getMatchingRequirementsCountsBatch(resourceIds).toPromise();
+      
+      if (response && response.success && response.data) {
+        console.log('🔧 VendorDashboard: Matching counts response:', response.data);
+        
+        // Update resources with matching counts
+        this.vendorResources = this.vendorResources.map(resource => {
+          const matchingData = response.data.find((item: any) => item.resourceId === resource._id);
+          const count = matchingData ? matchingData.count : 0;
+          console.log(`🔧 VendorDashboard: Resource ${resource.name} (${resource._id}) has ${count} matching requirements`);
+          return {
+            ...resource,
+            matchingCount: count
+          };
+        });
+        
+        console.log('🔧 VendorDashboard: Updated resources with matching counts:', this.vendorResources);
+        
+        // Force change detection to ensure UI updates
+        this.changeDetectorRef.detectChanges();
+      } else {
+        console.log('🔧 VendorDashboard: Invalid response for matching counts:', response);
+      }
+    } catch (error) {
+      console.error('🔧 VendorDashboard: Error loading matching counts for resources:', error);
     }
   }
 
@@ -376,7 +464,8 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
   }
 
   private async loadVendorRequirements(page: number = 1): Promise<void> {
-    this.loadVendorRequirementsWithFiltersAndSort(page, this.requirementsSortBy, this.requirementsSortOrder, this.requirementsSearchParams);
+    // Use currentRequirementsSearchParams if set
+    this.loadVendorRequirementsWithFiltersAndSort(page, this.requirementsSortBy, this.requirementsSortOrder, this.currentRequirementsSearchParams || this.requirementsSearchParams);
   }
 
   private async loadVendorSkills(): Promise<void> {
@@ -392,6 +481,17 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
       }
     } catch (error: any) {
       console.error('Error loading vendor skills:', error);
+    }
+  }
+
+  private async loadVendorUsers(): Promise<void> {
+    try {
+      await this.vendorManagementService.refreshVendorUsers();
+      this.vendorUsers = this.vendorManagementService.vendorUsers;
+      this.organizationUsers = this.vendorManagementService.vendorUsers;
+      this.changeDetectorRef.detectChanges();
+    } catch (error) {
+      console.error('Error loading vendor users:', error);
     }
   }
 
@@ -487,6 +587,12 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
       if (response && response.success && response.data) {
         this.vendorResources = response.data;
         console.log('🔧 VendorDashboard: Updated vendorResources:', this.vendorResources);
+        
+        // Load application counts for resources
+        await this.loadResourceApplicationCounts();
+        
+        // Load matching requirements counts for resources
+        await this.loadResourceMatchingCounts();
         
         const paginationData = response.meta || response.pagination;
         if (paginationData) {
@@ -615,6 +721,8 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
       this.loadVendorRequirementsWithFiltersAndSort(1, this.requirementsSortBy, this.requirementsSortOrder, this.requirementsSearchParams);
     } else if (tabId === 'resources') {
       this.loadVendorResources();
+    } else if (tabId === 'user-management') {
+      this.loadVendorUsers();
     }
   }
 
@@ -1034,15 +1142,31 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
   onUserAdded(user: any): void {
     console.log('🔧 VendorDashboard: User added:', user);
     
+    // Transform the user data to match VendorUser format
+    const transformedUser: VendorUser = {
+      id: user.employee?.id || user.id,
+      vendorId: user.employee?.organizationId || '',
+      name: `${user.employee?.firstName || ''} ${user.employee?.lastName || ''}`.trim(),
+      email: user.employee?.email || '',
+      role: 'user' as const, // New employees are always users
+      department: 'N/A',
+      phone: '',
+      status: (user.employee?.isActive && user.employee?.isEmailVerified) ? 'active' as const : 'inactive' as const,
+      createdAt: new Date().toISOString(),
+      createdBy: 'System'
+    };
+    
     // Immediately add the new user to local arrays for instant UI update
-    this.vendorUsers = [...this.vendorUsers, user];
-    this.organizationUsers = [...this.organizationUsers, user];
+    this.vendorUsers = [...this.vendorUsers, transformedUser];
+    this.organizationUsers = [...this.organizationUsers, transformedUser];
     
     // Force change detection to ensure immediate UI update
     this.changeDetectorRef.detectChanges();
     
-    // TODO: Refresh users from server to ensure data consistency
-    // this.loadOrganizationUsers();
+    // Refresh users from server to ensure data consistency
+    setTimeout(() => {
+      this.loadVendorUsers();
+    }, 1000);
   }
 
   // Get available menu items based on user role
@@ -1092,5 +1216,42 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
       this.requirementsPaginationState.isLoading = false;
       this.changeDetectorRef.detectChanges();
     }
+  }
+
+  handleApplicationCountClick(resourceId: string): void {
+    console.log('🔧 VendorDashboard: Application count clicked for resource:', resourceId);
+    
+    // Set the resource filter
+    this.applicationsResourceFilter = resourceId;
+    
+    // Switch to applications tab
+    this.activeTab = 'applications';
+    
+    this.changeDetectorRef.detectChanges();
+  }
+
+  handleMatchingCountClick(resourceId: string): void {
+    console.log('🔧 VendorDashboard: Matching count clicked for resource:', resourceId);
+    // Switch to requirements tab and set filter
+    this.activeTab = 'requirements';
+    this.currentRequirementsSearchParams = { resourceId };
+    this.showBrowseRequirementsPage = false;
+    this.selectedRequirementId = '';
+    this.loadVendorRequirementsWithFiltersAndSort(1, this.requirementsSortBy, this.requirementsSortOrder, this.currentRequirementsSearchParams);
+    this.changeDetectorRef.detectChanges();
+  }
+
+  handleClearApplicationsFilter(): void {
+    console.log('🔧 VendorDashboard: Clearing applications filter');
+    this.applicationsResourceFilter = '';
+    this.changeDetectorRef.detectChanges();
+  }
+
+  handleClearRequirementsFilter(): void {
+    console.log('🔧 VendorDashboard: Clearing requirements filter');
+    this.currentRequirementsSearchParams = {};
+    this.requirementsSearchParams = {};
+    this.loadVendorRequirementsWithFiltersAndSort(1, this.requirementsSortBy, this.requirementsSortOrder, {});
+    this.changeDetectorRef.detectChanges();
   }
 }

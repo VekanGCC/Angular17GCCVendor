@@ -38,7 +38,8 @@
           [rowSelection]="'single'"
           [animateRows]="true"
           [enableCellTextSelection]="true"
-          [overlayNoRowsTemplate]="'<span>No resources found</span>'">
+          [overlayNoRowsTemplate]="'<span>No resources found</span>'"
+          (gridReady)="onGridReady($event)">
         </ag-grid-angular>
       </div>
 

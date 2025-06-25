@@ -90,7 +90,9 @@
           (editResource)="handleEditResource($event)"
           (toggleResourceStatus)="handleToggleResourceStatus($event)"
           (pageChange)="onResourcesPageChange($event)"
-          (sortChange)="onResourcesSortChange($event)">
+          (sortChange)="onResourcesSortChange($event)"
+          (applicationCountClick)="handleApplicationCountClick($event)"
+          (matchingCountClick)="handleMatchingCountClick($event)">
         </app-vendor-resources>
 
         <!-- Requirements Tab -->
@@ -99,10 +101,12 @@
           [requirements]="requirements"
           [isLoading]="requirementsPaginationState.isLoading"
           [paginationState]="requirementsPaginationState"
+          [resourceFilter]="currentRequirementsSearchParams?.resourceId || ''"
           (applyResources)="handleApplyResources($event)"
           (pageChange)="onRequirementsPageChange($event)"
           (sortChange)="onRequirementsSortChange($event)"
-          (searchChange)="onRequirementsSearchChange($event)">
+          (searchChange)="onRequirementsSearchChange($event)"
+          (clearFilter)="handleClearRequirementsFilter()">
         </app-vendor-requirements>
 
         <!-- Browse Requirements Page -->
@@ -118,10 +122,12 @@
           [applications]="vendorApplications"
           [isLoading]="applicationsPaginationState.isLoading"
           [paginationState]="applicationsPaginationState"
+          [resourceFilter]="applicationsResourceFilter"
           (updateApplicationStatus)="handleUpdateApplicationStatus($event)"
           (viewApplicationHistory)="handleViewApplicationHistory($event)"
           (pageChange)="onApplicationsPageChange($event)"
-          (sortChange)="onApplicationsSortChange($event)">
+          (sortChange)="onApplicationsSortChange($event)"
+          (clearFilter)="handleClearApplicationsFilter()">
         </app-vendor-applications>
 
         <!-- Skills Management Tab -->

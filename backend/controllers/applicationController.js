@@ -44,24 +44,20 @@ const getApplications = asyncHandler(async (req, res, next) => {
     // Get the vendor user to check if they have an organization
     const vendor = await User.findById(vendorId).lean();
     
-    if (vendor && vendor.userType === 'vendor' && vendor.organizationId) {
-      // Use organization-based filtering for vendors with organizations
-      query.organizationId = vendor.organizationId;
-    } else {
-      // Fallback to user-based filtering for vendors without organization
-      // Find requirements created by this vendor
-      const vendorRequirements = await Requirement.find({ createdBy: vendorId }).select('_id').lean();
-      const requirementIds = vendorRequirements.map(req => req._id);
-      
-      // Find resources owned by this vendor
-      const vendorResources = await Resource.find({ createdBy: vendorId }).select('_id').lean();
-      const resourceIds = vendorResources.map(res => res._id);
-      
-      // Applications where vendor is either requirement owner or resource owner
-      query.$or = [
-        { requirement: { $in: requirementIds } },
-        { resource: { $in: resourceIds } }
-      ];
+    if (vendor && vendor.userType === 'vendor') {
+      if (vendor.organizationId) {
+        // Get resources that belong to the vendor's organization
+        const vendorResources = await Resource.find({ 
+          organizationId: vendor.organizationId 
+        }).select('_id').lean();
+        const vendorResourceIds = vendorResources.map(res => res._id);
+        query.resource = { $in: vendorResourceIds };
+      } else {
+        // Fallback to resource-based filtering for vendors without organization
+        const vendorResources = await Resource.find({ createdBy: vendorId }).select('_id').lean();
+        const vendorResourceIds = vendorResources.map(res => res._id);
+        query.resource = { $in: vendorResourceIds };
+      }
     }
   }
 
@@ -117,17 +113,25 @@ const getVendorApplications = asyncHandler(async (req, res, next) => {
   // Get vendor ID from JWT token
   const vendorId = req.user.id;
 
-  // Build query - filter by organization for vendor applications
+  // Build query - filter by vendor's resources (CORRECTED LOGIC)
   let query = {};
 
-  if (req.user.userType === 'vendor' && req.user.organizationId) {
-    // Filter applications by organization
-    query.organizationId = req.user.organizationId;
-  } else {
-    // Fallback to user-based filtering for vendors without organization
-    const vendorResources = await Resource.find({ createdBy: vendorId }).select('_id name').lean();
-    const resourceIds = vendorResources.map(res => res._id);
-    query.resource = { $in: resourceIds };
+  if (req.user.userType === 'vendor') {
+    // For vendors, we want to show ALL applications for their resources
+    // regardless of the application's organizationId, since applications can come from different clients
+    if (req.user.organizationId) {
+      // Get resources that belong to the vendor's organization
+      const vendorResources = await Resource.find({ 
+        organizationId: req.user.organizationId 
+      }).select('_id').lean();
+      const vendorResourceIds = vendorResources.map(res => res._id);
+      query.resource = { $in: vendorResourceIds };
+    } else {
+      // Fallback to resource-based filtering for vendors without organization
+      const vendorResources = await Resource.find({ createdBy: vendorId }).select('_id').lean();
+      const vendorResourceIds = vendorResources.map(res => res._id);
+      query.resource = { $in: vendorResourceIds };
+    }
   }
 
   if (status) {
@@ -177,17 +181,25 @@ const getClientApplications = asyncHandler(async (req, res, next) => {
   // Get client ID from JWT token
   const clientId = req.user.id;
 
-  // Build query
+  // Build query - filter by client's requirements (CORRECTED LOGIC)
   let query = {};
 
-  // Filter by organization if client belongs to one
-  if (req.user.organizationId) {
-    query.organizationId = req.user.organizationId;
-  } else {
-    // Fallback to requirement-based filtering for clients without organization
-    const clientRequirements = await Requirement.find({ createdBy: clientId }).select('_id').lean();
-    const requirementIds = clientRequirements.map(req => req._id);
-    query.requirement = { $in: requirementIds };
+  // For clients, we want to show ALL applications for their requirements
+  // regardless of the application's organizationId, since applications can come from different vendors
+  if (req.user.userType === 'client') {
+    if (req.user.organizationId) {
+      // Get requirements that belong to the client's organization
+      const clientRequirements = await Requirement.find({ 
+        organizationId: req.user.organizationId 
+      }).select('_id').lean();
+      const clientRequirementIds = clientRequirements.map(req => req._id);
+      query.requirement = { $in: clientRequirementIds };
+    } else {
+      // Fallback to requirement-based filtering for clients without organization
+      const clientRequirements = await Requirement.find({ createdBy: clientId }).select('_id').lean();
+      const clientRequirementIds = clientRequirements.map(req => req._id);
+      query.requirement = { $in: clientRequirementIds };
+    }
   }
 
   if (status) {
@@ -601,8 +613,15 @@ const getApplicationCountsForRequirements = asyncHandler(async (req, res, next) 
 
   // For vendors, filter by their resources
   if (req.user.userType === 'vendor') {
+    // For vendors, we want to count ALL applications for their resources
+    // regardless of the application's organizationId, since applications can come from different clients
     if (req.user.organizationId) {
-      query.organizationId = req.user.organizationId;
+      // Get resources that belong to the vendor's organization
+      const vendorResources = await Resource.find({ 
+        organizationId: req.user.organizationId
+      }).select('_id').lean();
+      const vendorResourceIds = vendorResources.map(res => res._id);
+      query.resource = { $in: vendorResourceIds };
     } else {
       // Fallback to resource-based filtering for vendors without organization
       const vendorResources = await Resource.find({ createdBy: req.user.id }).select('_id').lean();
@@ -640,6 +659,95 @@ const getApplicationCountsForRequirements = asyncHandler(async (req, res, next) 
   );
 });
 
+// @desc    Get application counts for resources
+// @route   GET /api/applications/counts/resources
+// @access  Private
+const getApplicationCountsForResources = asyncHandler(async (req, res, next) => {
+  const { resourceIds } = req.query;
+  
+  if (!resourceIds) {
+    return next(new ErrorResponse('Resource IDs are required', 400));
+  }
+
+  // Parse resource IDs (can be comma-separated string or array)
+  let resourceIdArray;
+  if (typeof resourceIds === 'string') {
+    resourceIdArray = resourceIds.split(',');
+  } else if (Array.isArray(resourceIds)) {
+    resourceIdArray = resourceIds;
+  } else {
+    return next(new ErrorResponse('Invalid resource IDs format', 400));
+  }
+
+  // Build query based on user type
+  let query = { resource: { $in: resourceIdArray } };
+
+  // For vendors, we want to count applications for their resources
+  if (req.user.userType === 'vendor') {
+    // For vendors, we want to count ALL applications for their resources
+    // regardless of the application's organizationId, since applications can come from different clients
+    if (req.user.organizationId) {
+      // Get resources that belong to the vendor's organization
+      const vendorResources = await Resource.find({ 
+        organizationId: req.user.organizationId,
+        _id: { $in: resourceIdArray }
+      }).select('_id').lean();
+      const vendorResourceIds = vendorResources.map(res => res._id);
+      query.resource = { $in: vendorResourceIds };
+    } else {
+      // Fallback to resource-based filtering for vendors without organization
+      const vendorResources = await Resource.find({ createdBy: req.user.id }).select('_id').lean();
+      const vendorResourceIds = vendorResources.map(res => res._id);
+      query.resource = { $in: vendorResourceIds.filter(id => resourceIdArray.includes(id.toString())) };
+    }
+  }
+
+  // For clients, filter by their requirements
+  if (req.user.userType === 'client') {
+    if (req.user.organizationId) {
+      // Get requirements that belong to the client's organization
+      const clientRequirements = await Requirement.find({ 
+        organizationId: req.user.organizationId
+      }).select('_id').lean();
+      const clientRequirementIds = clientRequirements.map(req => req._id);
+      query.requirement = { $in: clientRequirementIds };
+    } else {
+      // Fallback to requirement-based filtering for clients without organization
+      const clientRequirements = await Requirement.find({ createdBy: req.user.id }).select('_id').lean();
+      const clientRequirementIds = clientRequirements.map(req => req._id);
+      query.requirement = { $in: clientRequirementIds };
+    }
+  }
+
+  // Aggregate to get counts for each resource - OPTIMIZED
+  const counts = await Application.aggregate([
+    { $match: query },
+    {
+      $group: {
+        _id: '$resource',
+        count: { $sum: 1 }
+      }
+    }
+  ]).allowDiskUse(true); // Allow disk use for large datasets
+
+  // Convert to object with resource ID as key
+  const countsMap = {};
+  counts.forEach(item => {
+    countsMap[item._id.toString()] = item.count;
+  });
+
+  // Ensure all requested resource IDs are included (with 0 count if no applications)
+  resourceIdArray.forEach(resId => {
+    if (!countsMap[resId]) {
+      countsMap[resId] = 0;
+    }
+  });
+
+  res.status(200).json(
+    ApiResponse.success(countsMap, 'Application counts for resources retrieved successfully')
+  );
+});
+
 module.exports = {
   getApplications,
   getVendorApplications,
@@ -650,5 +758,6 @@ module.exports = {
   updateApplicationStatus,
   updateApplication,
   deleteApplication,
-  getApplicationCountsForRequirements
+  getApplicationCountsForRequirements,
+  getApplicationCountsForResources
 };

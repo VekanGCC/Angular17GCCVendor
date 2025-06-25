@@ -24,10 +24,12 @@ export class VendorApplicationsComponent implements OnInit, OnChanges {
   @Input() applications: Application[] = [];
   @Input() isLoading = false;
   @Input() paginationState!: PaginationState;
+  @Input() resourceFilter: string = '';
   @Output() updateApplicationStatus = new EventEmitter<{applicationId: string, status: string, notes?: string}>();
   @Output() viewApplicationHistory = new EventEmitter<string>();
   @Output() pageChange = new EventEmitter<number>();
   @Output() sortChange = new EventEmitter<{sortBy: string, sortOrder: 'asc' | 'desc'}>();
+  @Output() clearFilter = new EventEmitter<void>();
 
   @ViewChild(AgGridAngular) agGrid!: AgGridAngular;
 
@@ -195,6 +197,19 @@ export class VendorApplicationsComponent implements OnInit, OnChanges {
     }
   };
 
+  // Computed property for filtered applications
+  get filteredApplications(): Application[] {
+    if (!this.resourceFilter) {
+      return this.applications;
+    }
+    return this.applications.filter(app => {
+      if (typeof app.resource === 'string') {
+        return app.resource === this.resourceFilter;
+      }
+      return app.resource?._id === this.resourceFilter;
+    });
+  }
+
   constructor(private changeDetectorRef: ChangeDetectorRef) {}
 
   ngOnInit(): void {
@@ -338,6 +353,11 @@ export class VendorApplicationsComponent implements OnInit, OnChanges {
 
   onPageChange(page: number): void {
     this.pageChange.emit(page);
+  }
+
+  onClearFilter(): void {
+    console.log('🔧 VendorApplications: Clearing filter');
+    this.clearFilter.emit();
   }
 
   trackById(index: number, item: Application): string {

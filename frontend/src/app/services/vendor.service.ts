@@ -112,6 +112,30 @@ export class VendorService {
     );
   }
 
+  // Get application counts for resources
+  getApplicationCountsForResources(resourceIds: string[]): Observable<any> {
+    const params = new HttpParams().set('resourceIds', resourceIds.join(','));
+    return this.http.get(`${environment.apiUrl}/applications/counts/resources`, { 
+      headers: this.getAuthHeaders(),
+      params 
+    });
+  }
+
+  // Get matching requirements count for a resource
+  getMatchingRequirementsCount(resourceId: string): Observable<any> {
+    return this.http.get(`${environment.apiUrl}/resources/${resourceId}/matching-requirements`, { 
+      headers: this.getAuthHeaders() 
+    });
+  }
+
+  // Get matching requirements counts for multiple resources (batch)
+  getMatchingRequirementsCountsBatch(resourceIds: string[]): Observable<any> {
+    return this.http.post(`${environment.apiUrl}/resources/matching-requirements/batch`, 
+      { resourceIds }, 
+      { headers: this.getAuthHeaders() }
+    );
+  }
+
   // Get vendor analytics
   getAnalytics(): Observable<any> {
     return this.http.get(`${environment.apiUrl}/vendor/analytics`, { headers: this.getAuthHeaders() });

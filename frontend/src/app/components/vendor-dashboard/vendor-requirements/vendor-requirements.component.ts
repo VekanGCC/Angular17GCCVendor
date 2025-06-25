@@ -28,10 +28,12 @@ export class VendorRequirementsComponent implements OnInit, OnChanges, OnDestroy
   @Input() requirements: Requirement[] = [];
   @Input() isLoading = false;
   @Input() paginationState!: PaginationState;
+  @Input() resourceFilter: string = '';
   @Output() applyResources = new EventEmitter<string>();
   @Output() pageChange = new EventEmitter<number>();
   @Output() sortChange = new EventEmitter<{sortBy: string, sortOrder: 'asc' | 'desc'}>();
   @Output() searchChange = new EventEmitter<any>();
+  @Output() clearFilter = new EventEmitter<void>();
 
   icons = {
     search: 'assets/icons/lucide/lucide/search.svg',
@@ -333,6 +335,7 @@ export class VendorRequirementsComponent implements OnInit, OnChanges, OnDestroy
     this.minDuration = '';
     this.maxDuration = '';
     this.emitSearchChange();
+    this.clearFilter.emit();
   }
 
   removeSearchTerm(): void {

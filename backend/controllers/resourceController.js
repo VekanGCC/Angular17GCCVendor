@@ -418,10 +418,160 @@ const deleteResource = asyncHandler(async (req, res, next) => {
   );
 });
 
+// @desc    Get matching requirements count for a resource
+// @route   GET /api/resources/:id/matching-requirements
+// @access  Private
+const getMatchingRequirementsCount = asyncHandler(async (req, res, next) => {
+  const resourceId = req.params.id;
+  
+  console.log('🔧 ResourceController: Getting matching requirements count for resource:', resourceId);
+
+  // Get the resource
+  const resource = await Resource.findById(resourceId)
+    .populate('skills', 'name')
+    .populate('category', 'name');
+
+  if (!resource) {
+    return next(new ErrorResponse('Resource not found', 404));
+  }
+
+  // Get the Requirement model
+  const Requirement = require('../models/Requirement');
+
+  // Build matching criteria for requirements
+  const matchingCriteria = {
+    status: 'active' // Only active requirements
+  };
+
+  // 1. Skills matching - requirement must have ALL skills that the resource has
+  if (resource.skills && resource.skills.length > 0) {
+    const resourceSkillIds = resource.skills.map(skill => skill._id);
+    matchingCriteria.skills = { $all: resourceSkillIds };
+  }
+
+  // 2. Experience matching - resource experience must be more than requirement minYears
+  if (resource.experience && resource.experience.years) {
+    matchingCriteria['experience.minYears'] = { $lte: resource.experience.years };
+  }
+
+  // 3. Budget matching - resource charge must be equal to or lesser than requirement budget
+  if (resource.rate && resource.rate.hourly) {
+    matchingCriteria['budget.charge'] = { $gte: resource.rate.hourly };
+  }
+
+  // 4. Availability matching - resource available date must be before requirement start date
+  if (resource.availability && resource.availability.start_date) {
+    matchingCriteria.startDate = { $gte: resource.availability.start_date };
+  }
+
+  console.log('🔧 ResourceController: Matching criteria:', JSON.stringify(matchingCriteria, null, 2));
+
+  // Get matching requirements
+  const matchingRequirements = await Requirement.find(matchingCriteria)
+    .populate('skills', 'name')
+    .populate('category', 'name')
+    .populate('client', 'firstName lastName email');
+
+  console.log('🔧 ResourceController: Found', matchingRequirements.length, 'matching requirements');
+
+  res.status(200).json(
+    ApiResponse.success({
+      count: matchingRequirements.length,
+      requirements: matchingRequirements
+    }, 'Matching requirements count retrieved successfully')
+  );
+});
+
+// @desc    Get matching requirements counts for multiple resources (BATCH)
+// @route   POST /api/resources/matching-requirements/batch
+// @access  Private
+const getMatchingRequirementsCountsBatch = asyncHandler(async (req, res, next) => {
+  const { resourceIds } = req.body;
+  
+  console.log('🔧 ResourceController: Getting matching requirements counts for resources:', resourceIds);
+
+  if (!resourceIds || !Array.isArray(resourceIds)) {
+    return next(new ErrorResponse('Resource IDs array is required', 400));
+  }
+
+  // Get the Requirement model
+  const Requirement = require('../models/Requirement');
+
+  const results = [];
+
+  for (const resourceId of resourceIds) {
+    try {
+      // Get the resource
+      const resource = await Resource.findById(resourceId)
+        .populate('skills', 'name')
+        .populate('category', 'name');
+
+      if (!resource) {
+        results.push({
+          resourceId,
+          count: 0,
+          error: 'Resource not found'
+        });
+        continue;
+      }
+
+      // Build matching criteria for requirements
+      const matchingCriteria = {
+        status: 'active' // Only active requirements
+      };
+
+      // 1. Skills matching - requirement must have ALL skills that the resource has
+      if (resource.skills && resource.skills.length > 0) {
+        const resourceSkillIds = resource.skills.map(skill => skill._id);
+        matchingCriteria.skills = { $all: resourceSkillIds };
+      }
+
+      // 2. Experience matching - resource experience must be more than requirement minYears
+      if (resource.experience && resource.experience.years) {
+        matchingCriteria['experience.minYears'] = { $lte: resource.experience.years };
+      }
+
+      // 3. Budget matching - resource charge must be equal to or lesser than requirement budget
+      if (resource.rate && resource.rate.hourly) {
+        matchingCriteria['budget.charge'] = { $gte: resource.rate.hourly };
+      }
+
+      // 4. Availability matching - resource available date must be before requirement start date
+      if (resource.availability && resource.availability.start_date) {
+        matchingCriteria.startDate = { $gte: resource.availability.start_date };
+      }
+
+      // Get matching requirements count
+      const matchingCount = await Requirement.countDocuments(matchingCriteria);
+
+      results.push({
+        resourceId,
+        count: matchingCount
+      });
+
+    } catch (error) {
+      console.error('🔧 ResourceController: Error processing resource:', resourceId, error);
+      results.push({
+        resourceId,
+        count: 0,
+        error: error.message
+      });
+    }
+  }
+
+  console.log('🔧 ResourceController: Batch results:', results);
+
+  res.status(200).json(
+    ApiResponse.success(results, 'Matching requirements counts retrieved successfully')
+  );
+});
+
 module.exports = {
   getResources,
   getResource,
   createResource,
   updateResource,
-  deleteResource
+  deleteResource,
+  getMatchingRequirementsCount,
+  getMatchingRequirementsCountsBatch
 };

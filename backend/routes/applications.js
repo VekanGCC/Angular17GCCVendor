@@ -10,7 +10,8 @@ const {
   updateApplicationStatus,
   updateApplication,
   deleteApplication,
-  getApplicationCountsForRequirements
+  getApplicationCountsForRequirements,
+  getApplicationCountsForResources
 } = require('../controllers/applicationController');
 const { protect, authorize } = require('../middleware/auth');
 
@@ -28,6 +29,7 @@ router.get('/client', authorize('client'), getClientApplications);
 
 // Application counts route
 router.get('/counts/requirements', getApplicationCountsForRequirements);
+router.get('/counts/resources', getApplicationCountsForResources);
 
 router.route('/:id')
   .get(getApplication)

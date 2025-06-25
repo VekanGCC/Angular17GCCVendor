@@ -35,7 +35,39 @@ export class VendorManagementService {
       const response = await this.apiService.getVendorUsers().toPromise();
       if (response && response.success && response.data) {
         console.log('✅ Loaded vendor users:', response.data.length);
-        this.vendorUsersSubject.next(response.data);
+        
+        // Debug: Log the actual status values from backend
+        response.data.forEach((user: any, index: number) => {
+          console.log(`👤 User ${index + 1}: ${user.firstName} ${user.lastName} - Backend status: "${user.status}"`);
+        });
+        
+        // Transform the vendor API response to match VendorUser format
+        const transformedUsers = response.data.map((user: any) => {
+          // Map backend fields to frontend status
+          // User is active if isActive is true AND isEmailVerified is true
+          let frontendStatus: 'active' | 'inactive';
+          if (user.isActive && user.isEmailVerified) {
+            frontendStatus = 'active';
+          } else {
+            frontendStatus = 'inactive';
+          }
+
+          return {
+            id: user._id || user.id,
+            vendorId: user.organizationId || '',
+            name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+            email: user.email || '',
+            role: user.organizationRole === 'vendor_owner' ? 'admin' : 
+                  user.organizationRole === 'vendor_employee' ? 'user' : 'user',
+            department: user.department || 'N/A',
+            phone: user.phone || '',
+            status: frontendStatus,
+            createdAt: user.createdAt || new Date().toISOString(),
+            createdBy: user.createdBy || 'System'
+          };
+        });
+        
+        this.vendorUsersSubject.next(transformedUsers);
       } else {
         console.log('⚠️ No vendor users data received');
         this.vendorUsersSubject.next([]);
@@ -128,6 +160,10 @@ export class VendorManagementService {
   async toggleUserStatus(userId: string, currentStatus: VendorUser['status']): Promise<void> {
     const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
     await this.updateUserStatus(userId, newStatus);
+  }
+
+  async refreshVendorUsers(): Promise<void> {
+    await this.loadVendorUsers();
   }
 
   get vendorUsers(): VendorUser[] {

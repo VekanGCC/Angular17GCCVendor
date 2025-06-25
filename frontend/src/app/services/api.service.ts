@@ -476,7 +476,7 @@ export class ApiService {
   // Vendor User APIs
   getVendorUsers(): Observable<any> {
     console.log('👥 API: Fetching vendor users...');
-    return this.get('/admin/users?userType=vendor');
+    return this.get('/vendor/organization/employees');
   }
 
   createVendorUser(user: any): Observable<any> {

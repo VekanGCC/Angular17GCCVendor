@@ -50,7 +50,7 @@ const addEmployee = asyncHandler(async (req, res, next) => {
     gstNumber: 'N/A', // Employee doesn't need GST
     serviceType: 'Employee',
     isEmailVerified: false,
-    status: 'pending_otp' // Will be activated after OTP verification
+    isActive: true // Employee is active but needs email verification
   });
 
   // Generate OTP for email verification
@@ -78,7 +78,8 @@ const addEmployee = asyncHandler(async (req, res, next) => {
         email: employee.email,
         firstName: employee.firstName,
         lastName: employee.lastName,
-        status: employee.status
+        isActive: employee.isActive,
+        isEmailVerified: employee.isEmailVerified
       },
       otp: otp // Remove this in production
     }
@@ -97,7 +98,7 @@ const getEmployees = asyncHandler(async (req, res, next) => {
   const employees = await User.find({
     organizationId: req.user.organizationId,
     userType: 'vendor'
-  }).select('firstName lastName email phone organizationRole status createdAt');
+  }).select('firstName lastName email phone organizationRole isActive isEmailVerified approvalStatus createdAt');
 
   res.status(200).json({
     success: true,
@@ -138,7 +139,6 @@ const verifyEmployeeOTP = asyncHandler(async (req, res, next) => {
 
   // Activate user account
   user.isEmailVerified = true;
-  user.status = 'active';
   await user.save();
 
   res.status(200).json({
@@ -150,7 +150,8 @@ const verifyEmployeeOTP = asyncHandler(async (req, res, next) => {
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
-        status: user.status
+        isActive: user.isActive,
+        isEmailVerified: user.isEmailVerified
       }
     }
   });

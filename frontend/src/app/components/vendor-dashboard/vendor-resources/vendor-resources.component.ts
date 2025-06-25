@@ -40,6 +40,11 @@ export class VendorResourcesComponent implements OnInit {
   @Output() toggleResourceStatus = new EventEmitter<{resourceId: string, currentStatus: 'active' | 'inactive'}>();
   @Output() pageChange = new EventEmitter<number>();
   @Output() sortChange = new EventEmitter<{sortBy: string, sortOrder: 'asc' | 'desc'}>();
+  @Output() applicationCountClick = new EventEmitter<string>();
+  @Output() matchingCountClick = new EventEmitter<string>();
+
+  // AG Grid API reference
+  private gridApi: any;
 
   // AG Grid properties
   columnDefs: ColDef[] = [
@@ -167,12 +172,68 @@ export class VendorResourcesComponent implements OnInit {
       }
     },
     {
+      headerName: 'Applications',
+      field: 'applicationCount',
+      flex: 1,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
+      sortable: false,
+      filter: false,
+      cellRenderer: (params: any) => {
+        const count = params.data.applicationCount || 0;
+        const resourceId = params.data._id;
+        const countClass = count > 0 ? 'bg-blue-100 text-blue-800 hover:bg-blue-200 cursor-pointer' : 'bg-gray-100 text-gray-600';
+        
+        return `
+          <div class="flex items-center justify-start">
+            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${countClass} transition-colors"
+                  id="app-count-${resourceId}">
+              ${count}
+            </span>
+          </div>
+        `;
+      },
+      onCellClicked: (params: any) => {
+        const count = params.data.applicationCount || 0;
+        if (count > 0) {
+          this.onApplicationCountClick(params.data._id);
+        }
+      }
+    },
+    {
+      headerName: 'Matching',
+      field: 'matchingCount',
+      flex: 1,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
+      sortable: false,
+      filter: false,
+      cellRenderer: (params: any) => {
+        const count = params.data.matchingCount || 0;
+        const resourceId = params.data._id;
+        const countClass = count > 0 ? 'bg-blue-100 text-blue-800 hover:bg-blue-200 cursor-pointer' : 'bg-gray-100 text-gray-600';
+        
+        return `
+          <div class="flex items-center justify-start">
+            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${countClass} transition-colors"
+                  id="matching-count-${resourceId}">
+              ${count}
+            </span>
+          </div>
+        `;
+      },
+      onCellClicked: (params: any) => {
+        const count = params.data.matchingCount || 0;
+        if (count > 0) {
+          this.onMatchingCountClick(params.data._id);
+        }
+      }
+    },
+    {
       headerName: 'Actions',
       field: 'actions',
       flex: 1,
       sortable: false,
       filter: false,
-      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
+      cellStyle: { display: 'flex', items: 'center', justifyContent: 'flex-start' },
       cellRenderer: (params: any) => {
         const resource = params.data;
         const isActive = this.isResourceActive(resource);
@@ -198,23 +259,21 @@ export class VendorResourcesComponent implements OnInit {
         setTimeout(() => {
           const toggleBtn = document.getElementById(`toggle-${resource._id}`);
           const editBtn = document.getElementById(`edit-${resource._id}`);
-          const downloadBtn = document.getElementById(`download-${resource._id}`);
           
           if (toggleBtn) {
-            toggleBtn.addEventListener('click', () => this.onToggleResourceStatus(resource));
+            toggleBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              this.onToggleResourceStatus(resource);
+            });
           }
           
           if (editBtn) {
-            editBtn.addEventListener('click', () => this.onEditResource(resource));
-          }
-          
-          if (downloadBtn && resource.attachment) {
-            downloadBtn.addEventListener('click', () => {
-              console.log('🔍 DEBUG: Download button clicked for resource:', resource._id);
-              this.downloadAttachment(resource);
+            editBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              this.onEditResource(resource);
             });
           }
-        });
+        }, 0);
         
         return html;
       }
@@ -248,9 +307,18 @@ export class VendorResourcesComponent implements OnInit {
   }
 
   ngOnChanges(): void {
-    console.log('🔧 VendorResourcesComponent: ngOnChanges called');
-    console.log('🔧 VendorResourcesComponent: Resources updated:', this.resources);
-    console.log('🔧 VendorResourcesComponent: Pagination state:', this.paginationState);
+    // This will be called whenever the @Input properties change
+    console.log('🔧 VendorResources: Resources data changed:', this.resources);
+    
+    // Force grid refresh if needed
+    if (this.gridApi) {
+      this.gridApi.setRowData(this.resources);
+    }
+  }
+
+  onGridReady(params: any): void {
+    this.gridApi = params.api;
+    console.log('🔧 VendorResources: Grid ready, API captured');
   }
 
   onSortChanged(event: SortChangedEvent): void {
@@ -392,5 +460,15 @@ export class VendorResourcesComponent implements OnInit {
         console.error('Error downloading file:', error);
       }
     );
+  }
+
+  onApplicationCountClick(resourceId: string): void {
+    console.log('🔧 VendorResources: Application count clicked for resource:', resourceId);
+    this.applicationCountClick.emit(resourceId);
+  }
+
+  onMatchingCountClick(resourceId: string): void {
+    console.log('🔧 VendorResources: Matching count clicked for resource:', resourceId);
+    this.matchingCountClick.emit(resourceId);
   }
 } 
