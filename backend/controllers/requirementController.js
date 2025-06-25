@@ -460,6 +460,214 @@ const getMatchingResourcesCountsBatch = asyncHandler(async (req, res, next) => {
   );
 });
 
+// @desc    Get matching resources details for a requirement
+// @route   GET /api/client/matching-resources/:requirementId
+// @access  Private
+const getMatchingResourcesDetails = asyncHandler(async (req, res, next) => {
+  const requirementId = req.params.requirementId;
+  
+  // Get pagination parameters
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+  const skip = (page - 1) * limit;
+  
+  console.log('🔧 RequirementController: Getting matching resources details for requirement:', requirementId, 'page:', page, 'limit:', limit);
+  console.log('🔧 RequirementController: User info:', {
+    userType: req.user.userType,
+    userId: req.user.id,
+    organizationId: req.user.organizationId
+  });
+
+  // Get the requirement
+  const requirement = await Requirement.findById(requirementId)
+    .populate('skills', 'name')
+    .populate('category', 'name');
+
+  if (!requirement) {
+    return next(new ErrorResponse('Requirement not found', 404));
+  }
+
+  console.log('🔧 RequirementController: Found requirement:', {
+    _id: requirement._id,
+    title: requirement.title,
+    createdBy: requirement.createdBy,
+    organizationId: requirement.organizationId
+  });
+
+  // Verify the requirement belongs to the client
+  // Check if user created the requirement OR if it belongs to their organization
+  const isOwner = requirement.createdBy.toString() === req.user.id;
+  const isOrganizationMember = requirement.organizationId && 
+                              req.user.organizationId && 
+                              requirement.organizationId.toString() === req.user.organizationId.toString();
+  
+  console.log('🔧 RequirementController: Authorization check:', {
+    isOwner,
+    isOrganizationMember,
+    requirementCreatedBy: requirement.createdBy.toString(),
+    currentUserId: req.user.id,
+    requirementOrgId: requirement.organizationId?.toString(),
+    userOrgId: req.user.organizationId?.toString()
+  });
+
+  if (!isOwner && !isOrganizationMember) {
+    return next(new ErrorResponse('Access denied - You can only view matching resources for your own requirements or requirements in your organization', 403));
+  }
+
+  // Build matching criteria
+  const matchingCriteria = {};
+
+  // 1. Skills matching
+  const requirementSkills = requirement.skills.map(skill => skill._id);
+  const minSkillsToMatch = Math.min(requirementSkills.length, 3); // Max 3 skills to match
+  
+  if (requirementSkills.length > 0) {
+    matchingCriteria.skills = { $in: requirementSkills };
+  }
+
+  // 2. Budget matching (resource cost should be less than requirement budget)
+  if (requirement.budget && requirement.budget.charge) {
+    matchingCriteria['rate.hourly'] = { $lte: requirement.budget.charge };
+  }
+
+  // 3. Availability matching (resource should be available before requirement start date)
+  if (requirement.startDate) {
+    matchingCriteria['availability.start_date'] = { $lte: requirement.startDate };
+  }
+
+  // 4. Resource should be active
+  matchingCriteria.status = 'active';
+
+  // 5. Resource should be available
+  matchingCriteria['availability.status'] = { $in: ['available', 'partially_available'] };
+
+  // Get total count first
+  const totalMatchingResources = await Resource.find(matchingCriteria)
+    .populate('skills', 'name')
+    .populate('category', 'name')
+    .populate('createdBy', 'firstName lastName email')
+    .populate('organizationId', 'name')
+    .lean();
+
+  // Filter by exact skills matching
+  const filteredResources = totalMatchingResources.filter(resource => {
+    const resourceSkillIds = resource.skills.map(skill => skill._id.toString());
+    const requirementSkillIds = requirementSkills.map(skill => skill.toString());
+    
+    // Count how many requirement skills are present in resource
+    const matchingSkills = requirementSkillIds.filter(skillId => 
+      resourceSkillIds.includes(skillId)
+    );
+    
+    // Check if we have the minimum required skills
+    if (matchingSkills.length < minSkillsToMatch) {
+      return false;
+    }
+
+    // Check experience years matching - resource should have equal or more years than requirement
+    const requirementMinYears = requirement.experience?.minYears || 0;
+    const resourceYears = resource.experience?.years || 0;
+    
+    if (resourceYears < requirementMinYears) {
+      return false;
+    }
+
+    return true;
+  });
+
+  // Additional filtering for budget and availability
+  const finalMatchingResources = filteredResources.filter(resource => {
+    // Budget check
+    if (requirement.budget && requirement.budget.charge && resource.rate && resource.rate.hourly) {
+      if (resource.rate.hourly > requirement.budget.charge) {
+        return false;
+      }
+    }
+
+    // Availability check
+    if (requirement.startDate && resource.availability && resource.availability.start_date) {
+      if (new Date(resource.availability.start_date) > new Date(requirement.startDate)) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+
+  // Calculate match percentage for each resource
+  const resourcesWithMatchPercentage = finalMatchingResources.map(resource => {
+    const resourceSkillIds = resource.skills.map(skill => skill._id.toString());
+    const requirementSkillIds = requirementSkills.map(skill => skill.toString());
+    
+    const matchingSkills = requirementSkillIds.filter(skillId => 
+      resourceSkillIds.includes(skillId)
+    );
+    
+    const matchPercentage = Math.round((matchingSkills.length / requirementSkills.length) * 100);
+    
+    return {
+      ...resource,
+      // Add vendor information from createdBy and organizationId
+      vendor: {
+        firstName: resource.createdBy?.firstName || '',
+        lastName: resource.createdBy?.lastName || '',
+        email: resource.createdBy?.email || '',
+        organizationName: resource.organizationId?.name || 'N/A'
+      },
+      matchPercentage,
+      matchingSkills: matchingSkills.length,
+      totalRequiredSkills: requirementSkills.length
+    };
+  });
+
+  // Sort by match percentage (highest first)
+  resourcesWithMatchPercentage.sort((a, b) => b.matchPercentage - a.matchPercentage);
+
+  // Apply pagination
+  const totalCount = resourcesWithMatchPercentage.length;
+  const paginatedResources = resourcesWithMatchPercentage.slice(skip, skip + limit);
+  const totalPages = Math.ceil(totalCount / limit);
+
+  console.log('🔧 RequirementController: Pagination info:', {
+    totalCount,
+    page,
+    limit,
+    skip,
+    totalPages,
+    returnedCount: paginatedResources.length
+  });
+
+  res.status(200).json(
+    ApiResponse.success({
+      requirement: {
+        _id: requirement._id,
+        title: requirement.title,
+        description: requirement.description,
+        skills: requirement.skills,
+        budget: requirement.budget,
+        startDate: requirement.startDate,
+        experience: requirement.experience,
+        category: requirement.category
+      },
+      matchingResources: paginatedResources,
+      totalCount,
+      pagination: {
+        currentPage: page,
+        pageSize: limit,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1
+      },
+      matchingCriteria: {
+        minSkillsToMatch,
+        maxBudget: requirement.budget?.charge,
+        requiredStartDate: requirement.startDate,
+        minExperienceYears: requirement.experience?.minYears
+      }
+    }, 'Matching resources details retrieved successfully')
+  );
+});
+
 module.exports = {
   getRequirements,
   getRequirement,
@@ -468,5 +676,6 @@ module.exports = {
   updateRequirementStatus,
   deleteRequirement,
   getMatchingResourcesCount,
-  getMatchingResourcesCountsBatch
+  getMatchingResourcesCountsBatch,
+  getMatchingResourcesDetails
 };

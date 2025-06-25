@@ -31,6 +31,7 @@ import { AddUserModalComponent } from '../modals/add-user-modal/add-user-modal.c
 import { AddSkillModalComponent } from '../modals/add-skill-modal/add-skill-modal.component';
 import { PaginationComponent } from '../pagination/pagination.component';
 import { ApplyResourcesPageComponent } from './apply-resources-page/apply-resources-page.component';
+import { MatchingResourcesComponent } from './matching-resources/matching-resources.component';
 
 @Component({
   selector: 'app-client-dashboard',
@@ -54,7 +55,8 @@ import { ApplyResourcesPageComponent } from './apply-resources-page/apply-resour
     AddUserModalComponent,
     AddSkillModalComponent,
     PaginationComponent,
-    ApplyResourcesPageComponent
+    ApplyResourcesPageComponent,
+    MatchingResourcesComponent
   ],
   templateUrl: './client-dashboard.component.html',
   styleUrls: ['./client-dashboard.component.css']
@@ -68,7 +70,7 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
   clientRequirements: Requirement[] = [];
   clientApplications: Application[] = [];
   organizationUsers: User[] = [];
-  activeTab: 'overview' | 'requirements' | 'resources' | 'applications' | 'profile' | 'user-management' | 'apply-resources' = 'overview';
+  activeTab: 'overview' | 'requirements' | 'resources' | 'applications' | 'profile' | 'user-management' | 'apply-resources' | 'matching-resources' = 'overview';
   showRequirementModal = false;
   showCloseRequirementModal = false;
   showEditRequirementModal = false;
@@ -121,6 +123,9 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
   
   // Mobile sidebar state
   isSidebarOpen = false;
+
+  // Matching resources state
+  currentRequirementId: string = '';
 
   stats = [
     { 
@@ -196,7 +201,7 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
 
     // Check for tab query parameter (for returning from apply resources page)
     this.route.queryParams.subscribe(params => {
-      if (params['tab'] && ['overview', 'requirements', 'resources', 'applications', 'profile'].includes(params['tab'])) {
+      if (params['tab'] && ['overview', 'requirements', 'resources', 'applications', 'profile', 'matching-resources'].includes(params['tab'])) {
         this.activeTab = params['tab'];
         console.log('Set active tab from query params:', this.activeTab);
       }
@@ -226,8 +231,8 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
   private initializeActiveTab(): void {
     // Get the fragment from the URL
     this.route.fragment.subscribe(fragment => {
-      if (fragment && ['overview', 'requirements', 'resources', 'applications', 'profile', 'user-management', 'apply-resources'].includes(fragment)) {
-        this.activeTab = fragment as 'overview' | 'requirements' | 'resources' | 'applications' | 'profile' | 'user-management' | 'apply-resources';
+      if (fragment && ['overview', 'requirements', 'resources', 'applications', 'profile', 'user-management', 'apply-resources', 'matching-resources'].includes(fragment)) {
+        this.activeTab = fragment as 'overview' | 'requirements' | 'resources' | 'applications' | 'profile' | 'user-management' | 'apply-resources' | 'matching-resources';
         console.log('Restored active tab from URL:', this.activeTab);
       } else {
         // Default to overview if no valid fragment
@@ -419,15 +424,17 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
   onViewMatchingResources(requirementId: string): void {
     console.log('🔧 ClientDashboard: Viewing matching resources for requirement:', requirementId);
     
-    // Switch to resources tab
-    this.activeTab = 'resources';
-    this.updateUrlFragment('resources');
+    // Set the current requirement ID and switch to matching resources tab
+    this.currentRequirementId = requirementId;
+    this.activeTab = 'matching-resources';
+    this.updateUrlFragment('matching-resources');
     
-    // Set the requirement filter for resources
-    this.currentSearchParams = { requirementId };
+    console.log('🔧 ClientDashboard: Updated state:', {
+      currentRequirementId: this.currentRequirementId,
+      activeTab: this.activeTab
+    });
     
-    // Reload resources with the filter using the API service
-    this.loadResourcesWithSearch(this.currentSearchParams, 1);
+    this.changeDetectorRef.detectChanges();
   }
 
   onApplicationsPageChange(page: number): void {
@@ -520,7 +527,7 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
     this.stats[3].value = this.clientApplications.filter(a => a.status === 'accepted').length;
   }
 
-  setActiveTab(tab: 'overview' | 'requirements' | 'resources' | 'applications' | 'profile' | 'user-management' | 'apply-resources'): void {
+  setActiveTab(tab: 'overview' | 'requirements' | 'resources' | 'applications' | 'profile' | 'user-management' | 'apply-resources' | 'matching-resources'): void {
     console.log('Setting active tab to:', tab);
     this.activeTab = tab;
     this.updateUrlFragment(tab);
@@ -838,6 +845,20 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
     console.log('🔧 ClientDashboard: Navigating back to browse resources');
     this.activeTab = 'resources';
     this.changeDetectorRef.detectChanges();
+  }
+
+  navigateBackToRequirements(): void {
+    console.log('🔧 ClientDashboard: Navigating back to requirements');
+    this.activeTab = 'requirements';
+    this.currentRequirementId = '';
+    this.updateUrlFragment('requirements');
+    this.changeDetectorRef.detectChanges();
+  }
+
+  onApplyResourceFromMatching(resourceId: string): void {
+    console.log('🔧 ClientDashboard: Applying resource from matching resources:', resourceId);
+    // Navigate to apply resources page with the specific resource
+    this.applyResource(resourceId);
   }
 
   // User Management Methods

@@ -103,6 +103,15 @@ export class ClientService {
     });
   }
 
+  // Get matching resources details for a requirement
+  getMatchingResourcesDetails(requirementId: string, page: number = 1, limit: number = 10): Observable<any> {
+    const params = new HttpParams()
+      .set('page', page.toString())
+      .set('limit', limit.toString());
+    
+    return this.http.get(`${this.apiUrl}/matching-resources/${requirementId}`, { params });
+  }
+
   // Get client analytics
   getAnalytics(): Observable<any> {
     return this.http.get(`${this.apiUrl}/analytics`);

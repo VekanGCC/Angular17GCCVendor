@@ -13,6 +13,7 @@ const {
   updateUserStatus
 } = require('../controllers/clientController');
 const { createApplication } = require('../controllers/applicationController');
+const { getMatchingResourcesDetails } = require('../controllers/requirementController');
 const { protect, authorize } = require('../middleware/auth');
 
 // Public routes - no authentication required
@@ -33,6 +34,9 @@ router.post('/applications', authorize('client'), createApplication);
 router.get('/organization/users', authorize('client'), getOrganizationUsers);
 router.post('/organization/users', authorize('client'), addOrganizationUser);
 router.put('/organization/users/:userId/status', authorize('client'), updateUserStatus);
+
+// Matching resources route
+router.get('/matching-resources/:requirementId', authorize('client'), getMatchingResourcesDetails);
 
 // Registration routes
 router.post('/complete-registration', authorize('client'), completeRegistration);

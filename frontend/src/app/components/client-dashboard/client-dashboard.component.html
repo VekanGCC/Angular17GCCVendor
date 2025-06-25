@@ -140,6 +140,14 @@
           [selectedResourceIds]="selectedResourceIds"
           (navigateBack)="navigateBackToBrowse()">
         </app-apply-resources-page>
+
+        <!-- Matching Resources Tab -->
+        <app-matching-resources 
+          *ngIf="activeTab === 'matching-resources'"
+          [requirementId]="currentRequirementId"
+          (navigateBack)="navigateBackToRequirements()"
+          (onApplyResource)="onApplyResourceFromMatching($event)">
+        </app-matching-resources>
         
         <!-- Profile Tab -->
         <app-profile-dashboard 
