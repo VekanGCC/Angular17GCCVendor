@@ -201,7 +201,8 @@ const getClientApplications = asyncHandler(async (req, res, next) => {
     limit = 10, 
     sortBy = 'createdAt', 
     sortOrder = 'desc',
-    status
+    status,
+    requirementId
   } = req.query;
 
   // Get client ID from JWT token
@@ -222,6 +223,11 @@ const getClientApplications = asyncHandler(async (req, res, next) => {
 
   if (status) {
     query.status = status;
+  }
+
+  // Filter by specific requirement if provided
+  if (requirementId) {
+    query.requirement = requirementId;
   }
 
   // Execute query with pagination
@@ -579,6 +585,91 @@ const deleteApplication = asyncHandler(async (req, res, next) => {
   );
 });
 
+// @desc    Get application counts for requirements
+// @route   GET /api/applications/counts/requirements
+// @access  Private
+const getApplicationCountsForRequirements = asyncHandler(async (req, res, next) => {
+  const { requirementIds } = req.query;
+  
+  if (!requirementIds) {
+    return next(new ErrorResponse('Requirement IDs are required', 400));
+  }
+
+  // Parse requirement IDs (can be comma-separated string or array)
+  let requirementIdArray;
+  if (typeof requirementIds === 'string') {
+    requirementIdArray = requirementIds.split(',');
+  } else if (Array.isArray(requirementIds)) {
+    requirementIdArray = requirementIds;
+  } else {
+    return next(new ErrorResponse('Invalid requirement IDs format', 400));
+  }
+
+  // Build query based on user type
+  let query = { requirement: { $in: requirementIdArray } };
+
+  // For clients, we want to count ALL applications for their requirements
+  // regardless of organizationId, since applications can come from different vendors
+  if (req.user.userType === 'client') {
+    // For clients, we only need to ensure the requirements belong to them
+    // The applications can be from any vendor/organization
+    if (req.user.organizationId) {
+      // Get requirements that belong to the client's organization
+      const clientRequirements = await Requirement.find({ 
+        organizationId: req.user.organizationId,
+        _id: { $in: requirementIdArray }
+      }).select('_id');
+      const clientRequirementIds = clientRequirements.map(req => req._id);
+      query.requirement = { $in: clientRequirementIds };
+    } else {
+      // Fallback to requirement-based filtering for clients without organization
+      const clientRequirements = await Requirement.find({ createdBy: req.user.id }).select('_id');
+      const clientRequirementIds = clientRequirements.map(req => req._id);
+      query.requirement = { $in: clientRequirementIds.filter(id => requirementIdArray.includes(id.toString())) };
+    }
+  }
+
+  // For vendors, filter by their resources
+  if (req.user.userType === 'vendor') {
+    if (req.user.organizationId) {
+      query.organizationId = req.user.organizationId;
+    } else {
+      // Fallback to resource-based filtering for vendors without organization
+      const vendorResources = await Resource.find({ createdBy: req.user.id }).select('_id');
+      const vendorResourceIds = vendorResources.map(res => res._id);
+      query.resource = { $in: vendorResourceIds };
+    }
+  }
+
+  // Aggregate to get counts for each requirement
+  const counts = await Application.aggregate([
+    { $match: query },
+    {
+      $group: {
+        _id: '$requirement',
+        count: { $sum: 1 }
+      }
+    }
+  ]);
+
+  // Convert to object with requirement ID as key
+  const countsMap = {};
+  counts.forEach(item => {
+    countsMap[item._id.toString()] = item.count;
+  });
+
+  // Ensure all requested requirement IDs are included (with 0 count if no applications)
+  requirementIdArray.forEach(reqId => {
+    if (!countsMap[reqId]) {
+      countsMap[reqId] = 0;
+    }
+  });
+
+  res.status(200).json(
+    ApiResponse.success(countsMap, 'Application counts retrieved successfully')
+  );
+});
+
 module.exports = {
   getApplications,
   getVendorApplications,
@@ -588,5 +679,6 @@ module.exports = {
   createApplication,
   updateApplicationStatus,
   updateApplication,
-  deleteApplication
+  deleteApplication,
+  getApplicationCountsForRequirements
 };

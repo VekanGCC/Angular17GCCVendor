@@ -23,6 +23,7 @@ export class ClientService {
     if (params.status) httpParams = httpParams.set('status', params.status);
     if (params.category) httpParams = httpParams.set('category', params.category);
     if (params.priority) httpParams = httpParams.set('priority', params.priority);
+    if (params.requirementId) httpParams = httpParams.set('requirementId', params.requirementId);
     
     return httpParams;
   }
@@ -81,6 +82,63 @@ export class ClientService {
   // Get application history
   getApplicationHistory(applicationId: string): Observable<any> {
     return this.http.get(`${environment.apiUrl}/applications/${applicationId}/history`);
+  }
+
+  // Get application counts for requirements
+  getApplicationCountsForRequirements(requirementIds: string[]): Observable<any> {
+    const params = new HttpParams().set('requirementIds', requirementIds.join(','));
+    return this.http.get(`${environment.apiUrl}/applications/counts/requirements`, { params });
+  }
+
+  // Get matching resources count for a requirement
+  getMatchingResourcesCount(requirementId: string): Observable<any> {
+    return this.http.get(`${environment.apiUrl}/requirements/${requirementId}/matching-resources`);
+  }
+
+  // Get matching resources counts for multiple requirements
+  getMatchingResourcesCountsForRequirements(requirementIds: string[]): Observable<any> {
+    // For now, we'll make individual calls for each requirement
+    // In the future, we can optimize this with a batch endpoint
+    const requests = requirementIds.map(id => this.getMatchingResourcesCount(id));
+    return new Observable(observer => {
+      const results: any = {};
+      let completed = 0;
+      
+      requests.forEach((request, index) => {
+        request.subscribe({
+          next: (response) => {
+            if (response.success) {
+              results[requirementIds[index]] = response.data.count;
+            } else {
+              results[requirementIds[index]] = 0;
+            }
+            completed++;
+            
+            if (completed === requests.length) {
+              observer.next({
+                success: true,
+                data: results,
+                message: 'Matching resources counts retrieved successfully'
+              });
+              observer.complete();
+            }
+          },
+          error: (error) => {
+            results[requirementIds[index]] = 0;
+            completed++;
+            
+            if (completed === requests.length) {
+              observer.next({
+                success: true,
+                data: results,
+                message: 'Matching resources counts retrieved successfully'
+              });
+              observer.complete();
+            }
+          }
+        });
+      });
+    });
   }
 
   // Get client analytics

@@ -70,7 +70,9 @@
           (openCloseRequirementModal)="openCloseRequirementModal($event)"
           (openEditRequirementModal)="openEditRequirementModal($event)"
           (pageChange)="onRequirementsPageChange($event)"
-          (sortChange)="onRequirementsSortChange($event)">
+          (sortChange)="onRequirementsSortChange($event)"
+          (viewApplications)="onViewApplications($event)"
+          (viewMatchingResources)="onViewMatchingResources($event)">
         </app-client-requirements>
 
         <!-- Resources Tab -->
@@ -91,10 +93,13 @@
           [applications]="clientApplications"
           [isLoading]="applicationsPaginationState.isLoading"
           [paginationState]="applicationsPaginationState"
+          [currentFilter]="currentApplicationFilter"
           (updateApplicationStatus)="handleUpdateApplicationStatus($event)"
           (viewApplicationHistory)="handleViewApplicationHistory($event)"
           (viewApplicationDetails)="handleViewApplicationDetails($event)"
-          (pageChange)="onApplicationsPageChange($event)">
+          (pageChange)="onApplicationsPageChange($event)"
+          (sortChange)="onApplicationsSortChange($event)"
+          (clearFilter)="onClearApplicationFilter()">
         </app-client-applications>
 
         <!-- User Management Tab -->

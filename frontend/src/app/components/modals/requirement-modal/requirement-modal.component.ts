@@ -40,6 +40,9 @@ export class RequirementModalComponent implements OnInit, OnChanges {
     'expert'
   ];
 
+  // Get today's date in YYYY-MM-DD format for date input min attribute
+  today = new Date().toISOString().split('T')[0];
+
   constructor(
     private fb: FormBuilder,
     private authService: AuthService,
@@ -56,6 +59,7 @@ export class RequirementModalComponent implements OnInit, OnChanges {
         level: ['', Validators.required]
       }),
       location: ['', Validators.required],
+      startDate: [this.today, Validators.required],
       duration: [6, [Validators.required, Validators.min(1), Validators.max(36)]],
       budget: [50, [Validators.required, Validators.min(1), Validators.max(500)]],
       description: ['', Validators.required]
@@ -158,6 +162,7 @@ export class RequirementModalComponent implements OnInit, OnChanges {
       title: this.requirement.title,
       category: (this.requirement.category as any)?._id || this.requirement.category, // Handle both object and string
       location: (this.requirement.location as any)?.city || this.requirement.location,
+      startDate: this.requirement.startDate ? new Date(this.requirement.startDate).toISOString().split('T')[0] : '',
       duration: parseInt(this.requirement.duration),
       budget: (this.requirement.budget as any)?.charge || this.requirement.budget || 50,
       description: this.requirement.description
@@ -225,6 +230,7 @@ export class RequirementModalComponent implements OnInit, OnChanges {
                          this.requirementForm.get('category')?.valid &&
                          this.requirementForm.get('experience')?.valid &&
                          this.requirementForm.get('location')?.valid &&
+                         this.requirementForm.get('startDate')?.valid &&
                          this.requirementForm.get('duration')?.valid &&
                          this.requirementForm.get('budget')?.valid &&
                          this.requirementForm.get('description')?.valid;
@@ -295,8 +301,10 @@ export class RequirementModalComponent implements OnInit, OnChanges {
         clientName: user.businessInfo?.companyName || 'Unknown Company',
         status: 'open' as const,
         createdBy: user._id,
-        startDate: new Date().toISOString(),
-        endDate: new Date(Date.now() + formValue.duration * 30 * 24 * 60 * 60 * 1000).toISOString()
+        startDate: formValue.startDate ? new Date(formValue.startDate).toISOString() : new Date().toISOString(),
+        endDate: formValue.startDate ? 
+          new Date(new Date(formValue.startDate).getTime() + formValue.duration * 30 * 24 * 60 * 60 * 1000).toISOString() :
+          new Date(Date.now() + formValue.duration * 30 * 24 * 60 * 60 * 1000).toISOString()
       };
 
       console.log('🔧 RequirementModal: Final requirement data being sent:', requirementData);

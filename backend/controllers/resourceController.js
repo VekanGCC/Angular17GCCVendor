@@ -20,7 +20,8 @@ const getResources = asyncHandler(async (req, res, next) => {
     maxExperience,
     minRate,
     maxRate,
-    approvedVendorsOnly
+    approvedVendorsOnly,
+    requirementId
   } = req.query;
 
   console.log('🔧 ResourceController: Query parameters received:', req.query);
@@ -80,6 +81,53 @@ const getResources = asyncHandler(async (req, res, next) => {
     }
     if (maxRate) {
       query['rate.hourly'].$lte = parseInt(maxRate);
+    }
+  }
+
+  // Filter by requirement matching
+  if (requirementId) {
+    console.log('🔧 ResourceController: Filtering resources for requirement:', requirementId);
+    
+    // Get the requirement to extract matching criteria
+    const Requirement = require('../models/Requirement');
+    const requirement = await Requirement.findById(requirementId)
+      .populate('skills', 'name')
+      .populate('category', 'name');
+
+    if (requirement) {
+      // 1. Skills matching
+      const requirementSkills = requirement.skills.map(skill => skill._id);
+      const minSkillsToMatch = Math.min(requirementSkills.length, 3); // Max 3 skills to match
+      
+      if (requirementSkills.length > 0) {
+        query.skills = { $in: requirementSkills };
+      }
+
+      // 2. Budget matching (resource cost should be less than requirement budget)
+      if (requirement.budget && requirement.budget.charge) {
+        query['rate.hourly'] = { ...query['rate.hourly'], $lte: requirement.budget.charge };
+      }
+
+      // 3. Availability matching (resource should be available before requirement start date)
+      if (requirement.startDate) {
+        query['availability.start_date'] = { $lte: requirement.startDate };
+      }
+
+      // 4. Experience years matching (resource should have equal or more years than requirement)
+      if (requirement.experience && requirement.experience.minYears) {
+        query['experience.years'] = { $gte: requirement.experience.minYears };
+      }
+
+      // 5. Resource should be active
+      query.status = 'active';
+
+      // 6. Resource should be available
+      query['availability.status'] = { $in: ['available', 'partially_available'] };
+
+      console.log('🔧 ResourceController: Requirement matching criteria applied');
+    } else {
+      console.log('🔧 ResourceController: Requirement not found, returning empty result');
+      query._id = { $in: [] }; // Return no results if requirement not found
     }
   }
 

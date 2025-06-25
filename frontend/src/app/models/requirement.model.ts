@@ -36,4 +36,6 @@ export interface Requirement {
     filename?: string;
     path?: string;
   };
+  applicationCount?: number;
+  matchingResourcesCount?: number;
 }

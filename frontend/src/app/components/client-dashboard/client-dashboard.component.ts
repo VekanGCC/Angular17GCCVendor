@@ -18,7 +18,8 @@ import { ClientApplicationsComponent } from './client-applications/client-applic
 import { ClientUserManagementComponent } from './client-user-management/client-user-management.component';
 import { ApplicationHistoryModalComponent, ApplicationHistoryEntry } from '../modals/application-history-modal/application-history-modal.component';
 import { ApplicationDetailsModalComponent } from '../modals/application-details-modal/application-details-modal.component';
-import { Subscription } from 'rxjs';
+import { Subscription, forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { ProfileDashboardComponent } from '../profile/profile-dashboard.component';
 import { ApiService } from '../../services/api.service';
 import { PaginationState } from '../../models/pagination.model';
@@ -116,6 +117,7 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
   currentSearchParams: any = {};
 
   selectedResourceIds: string[] = [];
+  currentApplicationFilter: any = {};
 
   stats = [
     { 
@@ -251,6 +253,7 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
   private loadRequirements(page: number = 1): void {
     this.requirementsPaginationState.isLoading = true;
     const params = { page, limit: this.requirementsPaginationState.pageSize };
+    
     this.clientService.getRequirements(params).subscribe({
       next: (response) => {
         console.log('Requirements loaded:', response);
@@ -274,13 +277,75 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
             this.updateRequirementsPagination(paginationData);
           }
           
+          // Load counts using forkJoin to wait for all data
+          this.loadRequirementsWithCounts();
+          
           this.updateStats();
         }
       },
       error: (error) => {
         console.error('Error loading requirements:', error);
+        this.requirementsPaginationState.isLoading = false;
+        this.changeDetectorRef.detectChanges();
+      }
+    });
+  }
+
+  private loadRequirementsWithCounts(): void {
+    if (this.clientRequirements.length === 0) {
+      this.requirementsPaginationState.isLoading = false;
+      this.changeDetectorRef.detectChanges();
+      return;
+    }
+    
+    const requirementIds = this.clientRequirements.map(req => req._id);
+    console.log('🔧 ClientDashboard: Loading counts for requirements:', requirementIds);
+    
+    // Use forkJoin to wait for both counts to be loaded
+    forkJoin({
+      applicationCounts: this.clientService.getApplicationCountsForRequirements(requirementIds).pipe(
+        catchError(error => {
+          console.error('🔧 ClientDashboard: Error loading application counts:', error);
+          return of({ success: false, data: {} });
+        })
+      ),
+      matchingResourcesCounts: this.clientService.getMatchingResourcesCountsForRequirements(requirementIds).pipe(
+        catchError(error => {
+          console.error('🔧 ClientDashboard: Error loading matching resources counts:', error);
+          return of({ success: false, data: {} });
+        })
+      )
+    }).subscribe({
+      next: (results) => {
+        console.log('🔧 ClientDashboard: All counts loaded:', results);
+        
+        // Update requirements with application counts
+        if (results.applicationCounts.success && results.applicationCounts.data) {
+          this.clientRequirements = this.clientRequirements.map(req => ({
+            ...req,
+            applicationCount: results.applicationCounts.data[req._id] || 0
+          }));
+        }
+        
+        // Update requirements with matching resources counts
+        if (results.matchingResourcesCounts.success && results.matchingResourcesCounts.data) {
+          this.clientRequirements = this.clientRequirements.map(req => ({
+            ...req,
+            matchingResourcesCount: results.matchingResourcesCounts.data[req._id] || 0
+          }));
+        }
+        
+        // Update the main requirements array
+        this.requirements = [...this.clientRequirements];
+        
+        console.log('🔧 ClientDashboard: Final requirements with counts:', this.clientRequirements);
+        
+        // Complete loading
+        this.requirementsPaginationState.isLoading = false;
+        this.changeDetectorRef.detectChanges();
       },
-      complete: () => {
+      error: (error) => {
+        console.error('🔧 ClientDashboard: Error loading counts:', error);
         this.requirementsPaginationState.isLoading = false;
         this.changeDetectorRef.detectChanges();
       }
@@ -334,8 +399,41 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
     // You can implement sorting logic here if needed
   }
 
+  onViewApplications(requirementId: string): void {
+    console.log('🔧 ClientDashboard: Viewing applications for requirement:', requirementId);
+    
+    // Switch to applications tab
+    this.activeTab = 'applications';
+    this.updateUrlFragment('applications');
+    
+    // Set the requirement filter for applications
+    this.currentApplicationFilter = { requirementId };
+    
+    // Reload applications with the filter
+    this.loadApplicationsWithFilter();
+  }
+
+  onViewMatchingResources(requirementId: string): void {
+    console.log('🔧 ClientDashboard: Viewing matching resources for requirement:', requirementId);
+    
+    // Switch to resources tab
+    this.activeTab = 'resources';
+    this.updateUrlFragment('resources');
+    
+    // Set the requirement filter for resources
+    this.currentSearchParams = { requirementId };
+    
+    // Reload resources with the filter using the API service
+    this.loadResourcesWithSearch(this.currentSearchParams, 1);
+  }
+
   onApplicationsPageChange(page: number): void {
     this.loadApplications(page);
+  }
+
+  onApplicationsSortChange(sortData: {sortBy: string, sortOrder: 'asc' | 'desc'}): void {
+    console.log('Applications sort change:', sortData);
+    // You can implement sorting logic here if needed
   }
 
   onResourcesPageChange(page: number): void {
@@ -522,9 +620,11 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
           // Reload requirements to ensure UI shows the latest data
           this.loadRequirements(this.requirementsPaginationState.currentPage);
           this.closeEditRequirementModal();
+          
+          // Force change detection to ensure UI updates immediately
+          this.changeDetectorRef.detectChanges();
         }
         this.isLoading = false;
-        this.changeDetectorRef.detectChanges();
       },
       error: (error) => {
         console.error('Error updating requirement:', error);
@@ -809,5 +909,44 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
         this.changeDetectorRef.detectChanges();
       }
     });
+  }
+
+  private loadApplicationsWithFilter(): void {
+    this.applicationsPaginationState.isLoading = true;
+    const params = { 
+      page: 1, 
+      limit: this.applicationsPaginationState.pageSize,
+      ...this.currentApplicationFilter
+    };
+    
+    this.clientService.getApplications(params).subscribe({
+      next: (response) => {
+        if (response.success && response.data) {
+          this.applications = response.data;
+          this.clientApplications = response.data;
+          
+          // Update pagination state
+          const paginationData = response.pagination || response.meta;
+          if (paginationData) {
+            this.updateApplicationsPagination(paginationData);
+          }
+          
+          this.updateStats();
+        }
+      },
+      error: (error) => {
+        console.error('Error loading applications with filter:', error);
+      },
+      complete: () => {
+        this.applicationsPaginationState.isLoading = false;
+        this.changeDetectorRef.detectChanges();
+      }
+    });
+  }
+
+  onClearApplicationFilter(): void {
+    console.log('🔧 ClientDashboard: Clearing application filter');
+    this.currentApplicationFilter = {};
+    this.loadApplications(1);
   }
 }

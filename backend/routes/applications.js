@@ -9,7 +9,8 @@ const {
   createApplication,
   updateApplicationStatus,
   updateApplication,
-  deleteApplication
+  deleteApplication,
+  getApplicationCountsForRequirements
 } = require('../controllers/applicationController');
 const { protect, authorize } = require('../middleware/auth');
 
@@ -24,6 +25,9 @@ router.route('/')
 // User-specific application routes
 router.get('/vendor', authorize('vendor'), getVendorApplications);
 router.get('/client', authorize('client'), getClientApplications);
+
+// Application counts route
+router.get('/counts/requirements', getApplicationCountsForRequirements);
 
 router.route('/:id')
   .get(getApplication)

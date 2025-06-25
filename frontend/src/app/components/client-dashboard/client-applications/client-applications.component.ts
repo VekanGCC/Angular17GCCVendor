@@ -32,11 +32,13 @@ export class ClientApplicationsComponent implements OnInit, OnChanges {
     hasNextPage: false,
     hasPreviousPage: false
   };
+  @Input() currentFilter: any = {};
   @Output() updateApplicationStatus = new EventEmitter<{applicationId: string, status: string, notes?: string}>();
   @Output() viewApplicationHistory = new EventEmitter<string>();
   @Output() viewApplicationDetails = new EventEmitter<Application>();
   @Output() sortChange = new EventEmitter<{sortBy: string, sortOrder: 'asc' | 'desc'}>();
   @Output() pageChange = new EventEmitter<number>();
+  @Output() clearFilter = new EventEmitter<void>();
 
   @ViewChild(AgGridAngular) agGrid!: AgGridAngular;
 

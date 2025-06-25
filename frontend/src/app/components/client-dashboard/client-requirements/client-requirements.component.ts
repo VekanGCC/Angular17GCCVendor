@@ -38,6 +38,8 @@ export class ClientRequirementsComponent implements OnInit, OnChanges {
   @Output() openEditRequirementModal = new EventEmitter<Requirement>();
   @Output() pageChange = new EventEmitter<number>();
   @Output() sortChange = new EventEmitter<{sortBy: string, sortOrder: 'asc' | 'desc'}>();
+  @Output() viewApplications = new EventEmitter<string>();
+  @Output() viewMatchingResources = new EventEmitter<string>();
 
   columnDefs: ColDef[] = [
     {
@@ -178,6 +180,64 @@ export class ClientRequirementsComponent implements OnInit, OnChanges {
         const status = params.data.status || 'unknown';
         const statusClass = this.getStatusClass(status);
         return `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusClass}">${status}</span>`;
+      }
+    },
+    {
+      headerName: 'Applications',
+      field: 'applicationCount',
+      flex: 1,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
+      sortable: false,
+      filter: false,
+      cellRenderer: (params: any) => {
+        const count = params.data.applicationCount || 0;
+        const countClass = count > 0 ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600';
+        const cursorClass = count > 0 ? 'cursor-pointer hover:bg-blue-200' : 'cursor-default';
+        
+        const button = document.createElement('button');
+        button.className = `inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${countClass} ${cursorClass} transition-colors`;
+        button.innerHTML = `${count}`;
+        button.id = `app-count-${params.data._id}`;
+        button.title = count > 0 ? `View ${count} application(s) for this requirement` : 'No applications';
+        
+        // Add click event listener if there are applications
+        if (count > 0) {
+          button.addEventListener('click', (event) => {
+            event.stopPropagation();
+            this.viewApplications.emit(params.data._id);
+          });
+        }
+        
+        return button;
+      }
+    },
+    {
+      headerName: 'Matching Resources',
+      field: 'matchingResourcesCount',
+      flex: 1,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
+      sortable: false,
+      filter: false,
+      cellRenderer: (params: any) => {
+        const count = params.data.matchingResourcesCount || 0;
+        const countClass = count > 0 ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600';
+        const cursorClass = count > 0 ? 'cursor-pointer hover:bg-green-200' : 'cursor-default';
+        
+        const button = document.createElement('button');
+        button.className = `inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${countClass} ${cursorClass} transition-colors`;
+        button.innerHTML = `${count}`;
+        button.id = `resource-count-${params.data._id}`;
+        button.title = count > 0 ? `View ${count} matching resource(s) for this requirement` : 'No matching resources';
+        
+        // Add click event listener if there are matching resources
+        if (count > 0) {
+          button.addEventListener('click', (event) => {
+            event.stopPropagation();
+            this.viewMatchingResources.emit(params.data._id);
+          });
+        }
+        
+        return button;
       }
     },
     {

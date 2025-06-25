@@ -2,6 +2,7 @@ const Requirement = require('../models/Requirement');
 const asyncHandler = require('../utils/asyncHandler');
 const ErrorResponse = require('../utils/errorResponse');
 const ApiResponse = require('../models/ApiResponse');
+const Resource = require('../models/Resource');
 
 // @desc    Get all requirements
 // @route   GET /api/requirements
@@ -299,11 +300,131 @@ const deleteRequirement = asyncHandler(async (req, res, next) => {
   );
 });
 
+// @desc    Get matching resources count for a requirement
+// @route   GET /api/requirements/:id/matching-resources
+// @access  Private
+const getMatchingResourcesCount = asyncHandler(async (req, res, next) => {
+  const requirement = await Requirement.findById(req.params.id)
+    .populate('skills', 'name')
+    .populate('category', 'name');
+
+  if (!requirement) {
+    return next(new ErrorResponse('Requirement not found', 404));
+  }
+
+  // Build matching criteria
+  const matchingCriteria = {};
+
+  // 1. Skills matching
+  const requirementSkills = requirement.skills.map(skill => skill._id);
+  const minSkillsToMatch = Math.min(requirementSkills.length, 3); // Max 3 skills to match
+  
+  if (requirementSkills.length > 0) {
+    matchingCriteria.skills = { $in: requirementSkills };
+  }
+
+  // 2. Budget matching (resource cost should be less than requirement budget)
+  if (requirement.budget && requirement.budget.charge) {
+    matchingCriteria['rate.hourly'] = { $lte: requirement.budget.charge };
+  }
+
+  // 3. Availability matching (resource should be available before requirement start date)
+  if (requirement.startDate) {
+    matchingCriteria['availability.start_date'] = { $lte: requirement.startDate };
+  }
+
+  // 4. Resource should be active
+  matchingCriteria.status = 'active';
+
+  // 5. Resource should be available
+  matchingCriteria['availability.status'] = { $in: ['available', 'partially_available'] };
+
+  console.log('🔧 RequirementController: Matching criteria:', JSON.stringify(matchingCriteria, null, 2));
+
+  // Get matching resources
+  const matchingResources = await Resource.find(matchingCriteria)
+    .populate('skills', 'name')
+    .populate('category', 'name');
+
+  console.log('🔧 RequirementController: Found matching resources:', matchingResources.length);
+
+  // Filter by exact skills matching
+  const filteredResources = matchingResources.filter(resource => {
+    const resourceSkillIds = resource.skills.map(skill => skill._id.toString());
+    const requirementSkillIds = requirementSkills.map(skill => skill.toString());
+    
+    // Count how many requirement skills are present in resource
+    const matchingSkills = requirementSkillIds.filter(skillId => 
+      resourceSkillIds.includes(skillId)
+    );
+    
+    // Check if we have the minimum required skills
+    if (matchingSkills.length < minSkillsToMatch) {
+      return false;
+    }
+
+    // Check experience years matching - resource should have equal or more years than requirement
+    const requirementMinYears = requirement.experience?.minYears || 0;
+    const resourceYears = resource.experience?.years || 0;
+    
+    if (resourceYears < requirementMinYears) {
+      return false;
+    }
+
+    return true;
+  });
+
+  console.log('🔧 RequirementController: After skills filtering:', filteredResources.length);
+
+  // Additional filtering for budget and availability
+  const finalMatchingResources = filteredResources.filter(resource => {
+    // Budget check
+    if (requirement.budget && requirement.budget.charge && resource.rate && resource.rate.hourly) {
+      if (resource.rate.hourly > requirement.budget.charge) {
+        return false;
+      }
+    }
+
+    // Availability check
+    if (requirement.startDate && resource.availability && resource.availability.start_date) {
+      if (new Date(resource.availability.start_date) > new Date(requirement.startDate)) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+
+  console.log('🔧 RequirementController: Final matching resources:', finalMatchingResources.length);
+  console.log('🔧 RequirementController: Experience matching criteria - Required min years:', requirement.experience?.minYears);
+
+  res.status(200).json(
+    ApiResponse.success({
+      count: finalMatchingResources.length,
+      requirement: {
+        _id: requirement._id,
+        title: requirement.title,
+        skills: requirement.skills,
+        budget: requirement.budget,
+        startDate: requirement.startDate,
+        experience: requirement.experience
+      },
+      matchingCriteria: {
+        minSkillsToMatch,
+        maxBudget: requirement.budget?.charge,
+        requiredStartDate: requirement.startDate,
+        minExperienceYears: requirement.experience?.minYears
+      }
+    }, 'Matching resources count retrieved successfully')
+  );
+});
+
 module.exports = {
   getRequirements,
   getRequirement,
   createRequirement,
   updateRequirement,
   updateRequirementStatus,
-  deleteRequirement
+  deleteRequirement,
+  getMatchingResourcesCount
 };

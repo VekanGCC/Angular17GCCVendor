@@ -6,7 +6,8 @@ const {
   createRequirement,
   updateRequirement,
   updateRequirementStatus,
-  deleteRequirement
+  deleteRequirement,
+  getMatchingResourcesCount
 } = require('../controllers/requirementController');
 const { protect } = require('../middleware/auth');
 
@@ -25,5 +26,8 @@ router.route('/:id')
 
 router.route('/:id/status')
   .put(updateRequirementStatus);
+
+router.route('/:id/matching-resources')
+  .get(getMatchingResourcesCount);
 
 module.exports = router;
