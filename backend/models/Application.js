@@ -74,4 +74,14 @@ applicationSchema.index({ updatedBy: 1 });
 applicationSchema.index({ createdAt: -1 });
 applicationSchema.index({ organizationId: 1 });
 
+// Compound indexes for common query patterns
+applicationSchema.index({ organizationId: 1, status: 1, createdAt: -1 });
+applicationSchema.index({ organizationId: 1, requirement: 1, status: 1 });
+applicationSchema.index({ organizationId: 1, resource: 1, status: 1 });
+applicationSchema.index({ requirement: 1, status: 1, createdAt: -1 });
+applicationSchema.index({ resource: 1, status: 1, createdAt: -1 });
+applicationSchema.index({ createdBy: 1, status: 1, createdAt: -1 });
+applicationSchema.index({ organizationId: 1, 'availability.startDate': 1 });
+applicationSchema.index({ status: 1, 'proposedRate.amount': 1 });
+
 module.exports = mongoose.model('Application', applicationSchema);

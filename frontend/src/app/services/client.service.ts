@@ -97,47 +97,9 @@ export class ClientService {
 
   // Get matching resources counts for multiple requirements
   getMatchingResourcesCountsForRequirements(requirementIds: string[]): Observable<any> {
-    // For now, we'll make individual calls for each requirement
-    // In the future, we can optimize this with a batch endpoint
-    const requests = requirementIds.map(id => this.getMatchingResourcesCount(id));
-    return new Observable(observer => {
-      const results: any = {};
-      let completed = 0;
-      
-      requests.forEach((request, index) => {
-        request.subscribe({
-          next: (response) => {
-            if (response.success) {
-              results[requirementIds[index]] = response.data.count;
-            } else {
-              results[requirementIds[index]] = 0;
-            }
-            completed++;
-            
-            if (completed === requests.length) {
-              observer.next({
-                success: true,
-                data: results,
-                message: 'Matching resources counts retrieved successfully'
-              });
-              observer.complete();
-            }
-          },
-          error: (error) => {
-            results[requirementIds[index]] = 0;
-            completed++;
-            
-            if (completed === requests.length) {
-              observer.next({
-                success: true,
-                data: results,
-                message: 'Matching resources counts retrieved successfully'
-              });
-              observer.complete();
-            }
-          }
-        });
-      });
+    // Use the new batch endpoint for better performance
+    return this.http.post(`${environment.apiUrl}/requirements/matching-resources/batch`, {
+      requirementIds
     });
   }
 

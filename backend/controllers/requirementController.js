@@ -25,8 +25,6 @@ const getRequirements = asyncHandler(async (req, res, next) => {
     maxDuration
   } = req.query;
 
-  console.log('🔧 RequirementController: Query parameters received:', req.query);
-
   // Build query
   let query = {};
 
@@ -99,55 +97,16 @@ const getRequirements = asyncHandler(async (req, res, next) => {
     }
   }
 
-  console.log('🔧 RequirementController: Final query:', JSON.stringify(query, null, 2));
-
-  // Execute query with pagination
+  // Execute query with pagination - OPTIMIZED
   const requirements = await Requirement.find(query)
-    .populate('category')
-    .populate('skills')
+    .populate('category', 'name description') // Only select needed fields
+    .populate('skills', 'name description')   // Only select needed fields
     .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
-    .limit(limit * 1)
-    .skip((page - 1) * limit);
-
-  console.log('🔧 Backend: Retrieved requirements:', JSON.stringify(requirements, null, 2));
-  console.log('🔧 Backend: First requirement skills:', requirements[0]?.skills);
-  console.log('🔧 Backend: First requirement category:', requirements[0]?.category);
-
-  // Debug: Check if referenced documents exist
-  if (requirements.length > 0) {
-    const firstReq = requirements[0];
-    console.log('🔧 Backend: Checking if category exists:', firstReq.category);
-    console.log('🔧 Backend: Checking if skills exist:', firstReq.skills);
-    
-    // Check if category exists
-    const Category = require('../models/Category');
-    const categoryExists = await Category.findById(firstReq.category);
-    console.log('🔧 Backend: Category exists:', categoryExists ? 'YES' : 'NO');
-    if (categoryExists) {
-      console.log('🔧 Backend: Category data:', categoryExists);
-    }
-    
-    // Check if skills exist
-    const AdminSkill = require('../models/AdminSkill');
-    for (let i = 0; i < firstReq.skills.length; i++) {
-      const skillExists = await AdminSkill.findById(firstReq.skills[i]);
-      console.log(`🔧 Backend: Skill ${i} (${firstReq.skills[i]}) exists:`, skillExists ? 'YES' : 'NO');
-      if (skillExists) {
-        console.log(`🔧 Backend: Skill ${i} data:`, skillExists);
-      }
-    }
-    
-    // Try manual population
-    console.log('🔧 Backend: Trying manual population...');
-    const manualPopulated = await Requirement.findById(firstReq._id)
-      .populate('category')
-      .populate('skills');
-    console.log('🔧 Backend: Manual populated result:', JSON.stringify(manualPopulated, null, 2));
-  }
+    .limit(parseInt(limit))
+    .skip((parseInt(page) - 1) * parseInt(limit))
+    .lean(); // Use lean() for better performance when you don't need Mongoose documents
 
   const total = await Requirement.countDocuments(query);
-
-  console.log('🔧 RequirementController: Found', requirements.length, 'requirements out of', total, 'total');
 
   res.status(200).json(
     ApiResponse.success(
@@ -157,7 +116,7 @@ const getRequirements = asyncHandler(async (req, res, next) => {
         page: parseInt(page),
         limit: parseInt(limit),
         total,
-        pages: Math.ceil(total / limit)
+        pages: Math.ceil(total / parseInt(limit))
       }
     )
   );
@@ -339,14 +298,11 @@ const getMatchingResourcesCount = asyncHandler(async (req, res, next) => {
   // 5. Resource should be available
   matchingCriteria['availability.status'] = { $in: ['available', 'partially_available'] };
 
-  console.log('🔧 RequirementController: Matching criteria:', JSON.stringify(matchingCriteria, null, 2));
-
   // Get matching resources
   const matchingResources = await Resource.find(matchingCriteria)
     .populate('skills', 'name')
-    .populate('category', 'name');
-
-  console.log('🔧 RequirementController: Found matching resources:', matchingResources.length);
+    .populate('category', 'name')
+    .lean();
 
   // Filter by exact skills matching
   const filteredResources = matchingResources.filter(resource => {
@@ -374,8 +330,6 @@ const getMatchingResourcesCount = asyncHandler(async (req, res, next) => {
     return true;
   });
 
-  console.log('🔧 RequirementController: After skills filtering:', filteredResources.length);
-
   // Additional filtering for budget and availability
   const finalMatchingResources = filteredResources.filter(resource => {
     // Budget check
@@ -394,9 +348,6 @@ const getMatchingResourcesCount = asyncHandler(async (req, res, next) => {
 
     return true;
   });
-
-  console.log('🔧 RequirementController: Final matching resources:', finalMatchingResources.length);
-  console.log('🔧 RequirementController: Experience matching criteria - Required min years:', requirement.experience?.minYears);
 
   res.status(200).json(
     ApiResponse.success({
@@ -419,6 +370,96 @@ const getMatchingResourcesCount = asyncHandler(async (req, res, next) => {
   );
 });
 
+// @desc    Get matching resources counts for multiple requirements (BATCH)
+// @route   POST /api/requirements/matching-resources/batch
+// @access  Private
+const getMatchingResourcesCountsBatch = asyncHandler(async (req, res, next) => {
+  const { requirementIds } = req.body;
+
+  if (!requirementIds || !Array.isArray(requirementIds) || requirementIds.length === 0) {
+    return next(new ErrorResponse('Requirement IDs array is required', 400));
+  }
+
+  // Limit batch size to prevent abuse
+  if (requirementIds.length > 100) {
+    return next(new ErrorResponse('Batch size cannot exceed 100 requirements', 400));
+  }
+
+  // Get all requirements in one query
+  const requirements = await Requirement.find({ 
+    _id: { $in: requirementIds },
+    ...(req.user.userType === 'client' ? { organizationId: req.user.organizationId } : {})
+  })
+    .populate('skills', 'name')
+    .populate('category', 'name')
+    .lean();
+
+  const results = {};
+
+  // Process each requirement
+  for (const requirement of requirements) {
+    // Build matching criteria
+    const matchingCriteria = {};
+
+    // 1. Skills matching
+    const requirementSkills = requirement.skills.map(skill => skill._id);
+    const minSkillsToMatch = Math.min(requirementSkills.length, 3);
+    
+    if (requirementSkills.length > 0) {
+      matchingCriteria.skills = { $in: requirementSkills };
+    }
+
+    // 2. Budget matching
+    if (requirement.budget && requirement.budget.charge) {
+      matchingCriteria['rate.hourly'] = { $lte: requirement.budget.charge };
+    }
+
+    // 3. Availability matching
+    if (requirement.startDate) {
+      matchingCriteria['availability.start_date'] = { $lte: requirement.startDate };
+    }
+
+    // 4. Resource should be active and available
+    matchingCriteria.status = 'active';
+    matchingCriteria['availability.status'] = { $in: ['available', 'partially_available'] };
+
+    // Get matching resources count
+    const matchingResources = await Resource.find(matchingCriteria)
+      .populate('skills', 'name')
+      .lean();
+
+    // Filter by exact skills matching and experience
+    const filteredCount = matchingResources.filter(resource => {
+      const resourceSkillIds = resource.skills.map(skill => skill._id.toString());
+      const requirementSkillIds = requirementSkills.map(skill => skill.toString());
+      
+      const matchingSkills = requirementSkillIds.filter(skillId => 
+        resourceSkillIds.includes(skillId)
+      );
+      
+      if (matchingSkills.length < minSkillsToMatch) {
+        return false;
+      }
+
+      // Check experience years
+      const requirementMinYears = requirement.experience?.minYears || 0;
+      const resourceYears = resource.experience?.years || 0;
+      
+      if (resourceYears < requirementMinYears) {
+        return false;
+      }
+
+      return true;
+    }).length;
+
+    results[requirement._id.toString()] = filteredCount;
+  }
+
+  res.status(200).json(
+    ApiResponse.success(results, 'Matching resources counts retrieved successfully')
+  );
+});
+
 module.exports = {
   getRequirements,
   getRequirement,
@@ -426,5 +467,6 @@ module.exports = {
   updateRequirement,
   updateRequirementStatus,
   deleteRequirement,
-  getMatchingResourcesCount
+  getMatchingResourcesCount,
+  getMatchingResourcesCountsBatch
 };

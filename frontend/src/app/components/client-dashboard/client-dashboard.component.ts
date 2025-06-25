@@ -118,6 +118,9 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
 
   selectedResourceIds: string[] = [];
   currentApplicationFilter: any = {};
+  
+  // Mobile sidebar state
+  isSidebarOpen = false;
 
   stats = [
     { 
@@ -522,6 +525,9 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
     this.activeTab = tab;
     this.updateUrlFragment(tab);
     
+    // Close sidebar on mobile when switching tabs
+    this.closeSidebar();
+    
     // Reload data when switching to certain tabs
     switch (tab) {
       case 'requirements':
@@ -879,15 +885,8 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
 
   onUserAdded(user: any): void {
     console.log('🔧 ClientDashboard: User added:', user);
-    
-    // Immediately add the new user to local arrays for instant UI update
-    this.organizationUsers = [...this.organizationUsers, user];
-    
-    // Force change detection to ensure immediate UI update
-    this.changeDetectorRef.detectChanges();
-    
-    // Refresh users from server to ensure data consistency
     this.loadOrganizationUsers();
+    this.showAddUserModal = false;
   }
 
   private loadOrganizationUsers(): void {
@@ -948,5 +947,28 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
     console.log('🔧 ClientDashboard: Clearing application filter');
     this.currentApplicationFilter = {};
     this.loadApplications(1);
+  }
+
+  // Mobile sidebar methods
+  toggleSidebar(): void {
+    this.isSidebarOpen = !this.isSidebarOpen;
+    this.updateBodyScroll();
+    this.changeDetectorRef.detectChanges();
+  }
+
+  closeSidebar(): void {
+    this.isSidebarOpen = false;
+    this.updateBodyScroll();
+    this.changeDetectorRef.detectChanges();
+  }
+
+  private updateBodyScroll(): void {
+    if (typeof document !== 'undefined') {
+      if (this.isSidebarOpen) {
+        document.body.classList.add('sidebar-open');
+      } else {
+        document.body.classList.remove('sidebar-open');
+      }
+    }
   }
 }

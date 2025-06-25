@@ -7,7 +7,8 @@ const {
   updateRequirement,
   updateRequirementStatus,
   deleteRequirement,
-  getMatchingResourcesCount
+  getMatchingResourcesCount,
+  getMatchingResourcesCountsBatch
 } = require('../controllers/requirementController');
 const { protect } = require('../middleware/auth');
 
@@ -29,5 +30,8 @@ router.route('/:id/status')
 
 router.route('/:id/matching-resources')
   .get(getMatchingResourcesCount);
+
+router.route('/matching-resources/batch')
+  .post(getMatchingResourcesCountsBatch);
 
 module.exports = router;

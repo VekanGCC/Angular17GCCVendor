@@ -1,56 +1,79 @@
 <app-layout>
   <div class="flex h-screen bg-gray-50">
+    <!-- Mobile Menu Button -->
+    <div class="lg:hidden fixed top-20 left-4 z-50">
+      <button
+        (click)="toggleSidebar()"
+        class="bg-white p-2 rounded-lg shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors">
+        <img 
+          [src]="'assets/icons/lucide/lucide/' + (isSidebarOpen ? 'x' : 'menu') + '.svg'" 
+          class="w-5 h-5 text-gray-600" 
+          [alt]="isSidebarOpen ? 'Close menu' : 'Open menu'">
+      </button>
+    </div>
+
     <!-- Sidebar -->
-    <div class="w-64 bg-white shadow-sm border-r border-gray-200 flex flex-col">
+    <div 
+      [class]="'bg-white shadow-sm border-r border-gray-200 flex flex-col transition-all duration-300 ease-in-out ' + 
+        (isSidebarOpen ? 'w-64 translate-x-0' : 'w-64 -translate-x-full') + 
+        ' lg:translate-x-0 lg:relative fixed lg:static top-0 left-0 h-full z-40'">
+      
       <!-- Header -->
-      <div class="p-6 border-b border-gray-200">
+      <div class="p-4 lg:p-6 border-b border-gray-200">
         <div class="flex items-center justify-between">
-          <div>
-            <h1 class="text-xl font-bold text-gray-900">Client Portal</h1>
-            <p class="text-sm text-gray-600 mt-1">{{currentUser?.firstName}} {{currentUser?.lastName}}</p>
+          <div class="flex-1">
+            <h1 class="text-lg lg:text-xl font-bold text-gray-900">Client Portal</h1>
+            <p class="text-xs lg:text-sm text-gray-600 mt-1">{{currentUser?.firstName}} {{currentUser?.lastName}}</p>
           </div>
           <button
             (click)="openRequirementModal()"
-            class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-2 rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all duration-200">
+            class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-2 rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all duration-200 flex-shrink-0">
             <img src="assets/icons/lucide/lucide/plus.svg" class="w-4 h-4" alt="Plus">
           </button>
         </div>
       </div>
 
       <!-- Navigation Menu -->
-      <nav class="flex-1 p-4 space-y-2">
+      <nav class="flex-1 p-4 space-y-2 overflow-y-auto">
         <button
           *ngFor="let tab of getAvailableMenuItems()"
           (click)="setActiveTab(tab.id)"
-          [class]="'w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ' + 
+          [class]="'w-full flex items-center px-3 lg:px-4 py-2 lg:py-3 text-left rounded-lg transition-colors text-sm lg:text-base ' + 
             (activeTab === tab.id
               ? 'bg-purple-50 text-purple-700 border border-purple-200'
               : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900')">
-          <img [src]="'assets/icons/lucide/lucide/' + tab.icon" class="w-5 h-5 mr-3" [alt]="tab.label">
-          <span class="font-medium">{{tab.label}}</span>
+          <img [src]="'assets/icons/lucide/lucide/' + tab.icon" class="w-4 h-4 lg:w-5 lg:h-5 mr-2 lg:mr-3 flex-shrink-0" [alt]="tab.label">
+          <span class="font-medium truncate">{{tab.label}}</span>
         </button>
       </nav>
 
       <!-- Stats Summary -->
       <div class="p-4 border-t border-gray-200">
-        <div class="space-y-3">
+        <div class="space-y-2 lg:space-y-3">
           <div *ngFor="let stat of stats" class="flex items-center justify-between">
-            <div class="flex items-center">
-              <div [class]="'p-2 rounded-lg ' + stat.bg">
-                <img [src]="'assets/icons/lucide/lucide/' + stat.icon + '.svg'" [class]="'w-4 h-4 ' + stat.color" [alt]="stat.title">
+            <div class="flex items-center min-w-0 flex-1">
+              <div [class]="'p-1.5 lg:p-2 rounded-lg flex-shrink-0 ' + stat.bg">
+                <img [src]="'assets/icons/lucide/lucide/' + stat.icon + '.svg'" [class]="'w-3 h-3 lg:w-4 lg:h-4 ' + stat.color" [alt]="stat.title">
               </div>
-              <span class="ml-3 text-sm font-medium text-gray-700">{{stat.title}}</span>
+              <span class="ml-2 lg:ml-3 text-xs lg:text-sm font-medium text-gray-700 truncate">{{stat.title}}</span>
             </div>
-            <span class="text-lg font-bold text-gray-900">{{stat.value}}</span>
+            <span class="text-sm lg:text-lg font-bold text-gray-900 flex-shrink-0">{{stat.value}}</span>
           </div>
         </div>
       </div>
     </div>
 
+    <!-- Mobile Overlay -->
+    <div 
+      *ngIf="isSidebarOpen" 
+      (click)="closeSidebar()"
+      class="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-30">
+    </div>
+
     <!-- Main Content -->
-    <div class="flex-1 flex flex-col overflow-hidden">
+    <div class="flex-1 flex flex-col overflow-hidden w-full lg:w-auto">
       <!-- Main Content Area -->
-      <div class="flex-1 overflow-y-auto">
+      <div class="flex-1 overflow-y-auto p-4 lg:p-6">
         <!-- Overview Tab -->
         <app-client-overview 
           *ngIf="activeTab === 'overview'"

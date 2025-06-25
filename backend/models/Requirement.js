@@ -136,6 +136,16 @@ requirementSchema.index({ organizationId: 1 });
 requirementSchema.index({ assignedTo: 1 });
 requirementSchema.index({ createdAt: -1 });
 
+// Compound indexes for common query patterns
+requirementSchema.index({ organizationId: 1, status: 1, createdAt: -1 });
+requirementSchema.index({ organizationId: 1, category: 1, status: 1 });
+requirementSchema.index({ 'budget.charge': 1, status: 1 });
+requirementSchema.index({ duration: 1, status: 1 });
+requirementSchema.index({ title: 'text', description: 'text' }); // Text search index
+requirementSchema.index({ organizationId: 1, 'skills': 1, status: 1 });
+requirementSchema.index({ startDate: 1, status: 1 });
+requirementSchema.index({ priority: 1, status: 1, createdAt: -1 });
+
 // Pre-save middleware to debug budget field
 requirementSchema.pre('save', function(next) {
   console.log('🔧 Backend Model: Pre-save budget field:', this.budget);

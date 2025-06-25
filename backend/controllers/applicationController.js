@@ -42,20 +42,19 @@ const getApplications = asyncHandler(async (req, res, next) => {
   // For vendor-specific applications
   if (vendorId) {
     // Get the vendor user to check if they have an organization
-    const vendor = await User.findById(vendorId);
+    const vendor = await User.findById(vendorId).lean();
     
     if (vendor && vendor.userType === 'vendor' && vendor.organizationId) {
       // Use organization-based filtering for vendors with organizations
       query.organizationId = vendor.organizationId;
-      console.log('🔧 ApplicationController: Filtering vendor applications by organization ID:', vendor.organizationId);
     } else {
       // Fallback to user-based filtering for vendors without organization
       // Find requirements created by this vendor
-      const vendorRequirements = await Requirement.find({ createdBy: vendorId }).select('_id');
+      const vendorRequirements = await Requirement.find({ createdBy: vendorId }).select('_id').lean();
       const requirementIds = vendorRequirements.map(req => req._id);
       
       // Find resources owned by this vendor
-      const vendorResources = await Resource.find({ createdBy: vendorId }).select('_id');
+      const vendorResources = await Resource.find({ createdBy: vendorId }).select('_id').lean();
       const resourceIds = vendorResources.map(res => res._id);
       
       // Applications where vendor is either requirement owner or resource owner
@@ -69,22 +68,23 @@ const getApplications = asyncHandler(async (req, res, next) => {
   // For client-specific applications
   if (clientId) {
     // Find requirements created by this client
-    const clientRequirements = await Requirement.find({ createdBy: clientId }).select('_id');
+    const clientRequirements = await Requirement.find({ createdBy: clientId }).select('_id').lean();
     const requirementIds = clientRequirements.map(req => req._id);
     
     // Applications where client is the requirement owner
     query.requirement = { $in: requirementIds };
   }
 
-  // Execute query with pagination
+  // Execute query with pagination - OPTIMIZED
   const applications = await Application.find(query)
     .populate('requirement', 'title status priority')
     .populate('resource', 'name status category')
     .populate('createdBy', 'firstName lastName email')
     .populate('updatedBy', 'firstName lastName email')
     .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
-    .limit(limit * 1)
-    .skip((page - 1) * limit);
+    .limit(parseInt(limit))
+    .skip((parseInt(page) - 1) * parseInt(limit))
+    .lean();
 
   const total = await Application.countDocuments(query);
 
@@ -96,7 +96,7 @@ const getApplications = asyncHandler(async (req, res, next) => {
         page: parseInt(page),
         limit: parseInt(limit),
         total,
-        pages: Math.ceil(total / limit)
+        pages: Math.ceil(total / parseInt(limit))
       }
     )
   );
@@ -117,30 +117,16 @@ const getVendorApplications = asyncHandler(async (req, res, next) => {
   // Get vendor ID from JWT token
   const vendorId = req.user.id;
 
-  // Debug logging
-  console.log('=== Vendor Applications Debug ===');
-  console.log('Vendor ID:', vendorId);
-  console.log('Vendor User Type:', req.user.userType);
-  console.log('Vendor Organization ID:', req.user.organizationId);
-
   // Build query - filter by organization for vendor applications
   let query = {};
 
   if (req.user.userType === 'vendor' && req.user.organizationId) {
     // Filter applications by organization
     query.organizationId = req.user.organizationId;
-    console.log('🔧 ApplicationController: Filtering by organization ID:', req.user.organizationId);
   } else {
     // Fallback to user-based filtering for vendors without organization
-    const vendorResources = await Resource.find({ createdBy: vendorId }).select('_id name');
+    const vendorResources = await Resource.find({ createdBy: vendorId }).select('_id name').lean();
     const resourceIds = vendorResources.map(res => res._id);
-    
-    console.log('Vendor Resources Count:', vendorResources.length);
-    console.log('Vendor Resource IDs:', resourceIds);
-    vendorResources.forEach((res, index) => {
-      console.log(`Resource ${index + 1}:`, { id: res._id, name: res.name });
-    });
-    
     query.resource = { $in: resourceIds };
   }
 
@@ -148,33 +134,16 @@ const getVendorApplications = asyncHandler(async (req, res, next) => {
     query.status = status;
   }
 
-  console.log('Query:', JSON.stringify(query, null, 2));
-
-  // Execute query with pagination
+  // Execute query with pagination - OPTIMIZED
   const applications = await Application.find(query)
     .populate('requirement', 'title status priority createdBy')
     .populate('resource', 'name status category createdBy')
     .populate('createdBy', 'firstName lastName email')
     .populate('updatedBy', 'firstName lastName email')
     .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
-    .limit(limit * 1)
-    .skip((page - 1) * limit);
-
-  console.log('Applications Found:', applications.length);
-  applications.forEach((app, index) => {
-    console.log(`Application ${index + 1}:`, {
-      id: app._id,
-      resourceId: app.resource._id,
-      resourceName: app.resource.name,
-      resourceOwner: app.resource.createdBy,
-      requirementId: app.requirement._id,
-      requirementTitle: app.requirement.title,
-      requirementOwner: app.requirement.createdBy,
-      applicationCreator: app.createdBy._id,
-      organizationId: app.organizationId
-    });
-  });
-  console.log('================================');
+    .limit(parseInt(limit))
+    .skip((parseInt(page) - 1) * parseInt(limit))
+    .lean();
 
   const total = await Application.countDocuments(query);
 
@@ -186,7 +155,7 @@ const getVendorApplications = asyncHandler(async (req, res, next) => {
         page: parseInt(page),
         limit: parseInt(limit),
         total,
-        pages: Math.ceil(total / limit)
+        pages: Math.ceil(total / parseInt(limit))
       }
     )
   );
@@ -216,7 +185,7 @@ const getClientApplications = asyncHandler(async (req, res, next) => {
     query.organizationId = req.user.organizationId;
   } else {
     // Fallback to requirement-based filtering for clients without organization
-    const clientRequirements = await Requirement.find({ createdBy: clientId }).select('_id');
+    const clientRequirements = await Requirement.find({ createdBy: clientId }).select('_id').lean();
     const requirementIds = clientRequirements.map(req => req._id);
     query.requirement = { $in: requirementIds };
   }
@@ -230,15 +199,16 @@ const getClientApplications = asyncHandler(async (req, res, next) => {
     query.requirement = requirementId;
   }
 
-  // Execute query with pagination
+  // Execute query with pagination - OPTIMIZED
   const applications = await Application.find(query)
     .populate('requirement', 'title status priority')
     .populate('resource', 'name status category')
     .populate('createdBy', 'firstName lastName email')
     .populate('updatedBy', 'firstName lastName email')
     .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
-    .limit(limit * 1)
-    .skip((page - 1) * limit);
+    .limit(parseInt(limit))
+    .skip((parseInt(page) - 1) * parseInt(limit))
+    .lean();
 
   const total = await Application.countDocuments(query);
 
@@ -250,7 +220,7 @@ const getClientApplications = asyncHandler(async (req, res, next) => {
         page: parseInt(page),
         limit: parseInt(limit),
         total,
-        pages: Math.ceil(total / limit)
+        pages: Math.ceil(total / parseInt(limit))
       }
     )
   );
@@ -618,12 +588,12 @@ const getApplicationCountsForRequirements = asyncHandler(async (req, res, next) 
       const clientRequirements = await Requirement.find({ 
         organizationId: req.user.organizationId,
         _id: { $in: requirementIdArray }
-      }).select('_id');
+      }).select('_id').lean();
       const clientRequirementIds = clientRequirements.map(req => req._id);
       query.requirement = { $in: clientRequirementIds };
     } else {
       // Fallback to requirement-based filtering for clients without organization
-      const clientRequirements = await Requirement.find({ createdBy: req.user.id }).select('_id');
+      const clientRequirements = await Requirement.find({ createdBy: req.user.id }).select('_id').lean();
       const clientRequirementIds = clientRequirements.map(req => req._id);
       query.requirement = { $in: clientRequirementIds.filter(id => requirementIdArray.includes(id.toString())) };
     }
@@ -635,13 +605,13 @@ const getApplicationCountsForRequirements = asyncHandler(async (req, res, next) 
       query.organizationId = req.user.organizationId;
     } else {
       // Fallback to resource-based filtering for vendors without organization
-      const vendorResources = await Resource.find({ createdBy: req.user.id }).select('_id');
+      const vendorResources = await Resource.find({ createdBy: req.user.id }).select('_id').lean();
       const vendorResourceIds = vendorResources.map(res => res._id);
       query.resource = { $in: vendorResourceIds };
     }
   }
 
-  // Aggregate to get counts for each requirement
+  // Aggregate to get counts for each requirement - OPTIMIZED
   const counts = await Application.aggregate([
     { $match: query },
     {
@@ -650,7 +620,7 @@ const getApplicationCountsForRequirements = asyncHandler(async (req, res, next) 
         count: { $sum: 1 }
       }
     }
-  ]);
+  ]).allowDiskUse(true); // Allow disk use for large datasets
 
   // Convert to object with requirement ID as key
   const countsMap = {};
