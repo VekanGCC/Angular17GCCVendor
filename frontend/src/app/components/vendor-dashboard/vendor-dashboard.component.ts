@@ -32,6 +32,7 @@ import { LayoutComponent } from '../layout/layout.component';
 import { PaginationState, PaginationParams } from '../../models/pagination.model';
 import { PaginationComponent } from '../pagination/pagination.component';
 import { BrowseRequirementsPageComponent } from './browse-requirements-page/browse-requirements-page.component';
+import { MatchingRequirementsComponent } from './matching-requirements/matching-requirements.component';
 
 @Component({
   selector: 'app-vendor-dashboard',
@@ -54,7 +55,8 @@ import { BrowseRequirementsPageComponent } from './browse-requirements-page/brow
     AddVendorSkillModalComponent,
     ApplicationDetailsModalComponent,
     PaginationComponent,
-    BrowseRequirementsPageComponent
+    BrowseRequirementsPageComponent,
+    MatchingRequirementsComponent
   ],
   templateUrl: './vendor-dashboard.component.html',
   styleUrls: ['./vendor-dashboard.component.css']
@@ -155,6 +157,10 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
 
   // Browse requirements page properties
   showBrowseRequirementsPage = false;
+
+  // Matching requirements page properties
+  showMatchingRequirementsPage = false;
+  selectedResourceId = '';
 
   // Resource Modal handlers
   resourceToEdit: Resource | null = null;
@@ -867,6 +873,7 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
     console.log('Editing resource:', resource);
     this.resourceToEdit = resource;
     this.showResourceModal = true;
+    this.changeDetectorRef.detectChanges();
   }
 
   handleToggleResourceStatus(data: {resourceId: string, currentStatus: 'active' | 'inactive'}): void {
@@ -1045,6 +1052,7 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
     this.selectedApplicationId = '';
     this.applicationHistory = [];
     this.isLoadingHistory = false;
+    this.changeDetectorRef.detectChanges();
   }
 
   closeApplyModal(): void {
@@ -1091,11 +1099,13 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
   // Resource Modal handlers
   onOpenResourceModal(): void {
     this.showResourceModal = true;
+    this.changeDetectorRef.detectChanges();
   }
 
   onCloseResourceModal(): void {
     this.showResourceModal = false;
     this.resourceToEdit = null; // Clear the resource being edited
+    this.changeDetectorRef.detectChanges();
     // Refresh resources data after modal is closed
     this.loadVendorResources(this.resourcesPaginationState.currentPage);
   }
@@ -1110,10 +1120,12 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
   // Vendor Skill Modal handlers
   onOpenAddVendorSkillModal(): void {
     this.showAddVendorSkillModal = true;
+    this.changeDetectorRef.detectChanges();
   }
 
   onCloseAddVendorSkillModal(): void {
     this.showAddVendorSkillModal = false;
+    this.changeDetectorRef.detectChanges();
   }
 
   onVendorSkillAdded(skill: any): void {
@@ -1232,12 +1244,28 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
 
   handleMatchingCountClick(resourceId: string): void {
     console.log('🔧 VendorDashboard: Matching count clicked for resource:', resourceId);
-    // Switch to requirements tab and set filter
-    this.activeTab = 'requirements';
-    this.currentRequirementsSearchParams = { resourceId };
+    // Show matching requirements page for this resource
+    this.selectedResourceId = resourceId;
+    this.showMatchingRequirementsPage = true;
     this.showBrowseRequirementsPage = false;
     this.selectedRequirementId = '';
-    this.loadVendorRequirementsWithFiltersAndSort(1, this.requirementsSortBy, this.requirementsSortOrder, this.currentRequirementsSearchParams);
+    this.changeDetectorRef.detectChanges();
+  }
+
+  onMatchingRequirementsBack(): void {
+    console.log('🔧 VendorDashboard: Navigating back from matching requirements');
+    this.showMatchingRequirementsPage = false;
+    this.selectedResourceId = '';
+    this.changeDetectorRef.detectChanges();
+  }
+
+  handleApplyRequirement(requirementId: string): void {
+    console.log('🔧 VendorDashboard: Applying to requirement:', requirementId);
+    // Switch to requirements tab and show the apply modal
+    this.activeTab = 'requirements';
+    this.selectedRequirementId = requirementId;
+    this.showMatchingRequirementsPage = false;
+    this.showBrowseRequirementsPage = true;
     this.changeDetectorRef.detectChanges();
   }
 

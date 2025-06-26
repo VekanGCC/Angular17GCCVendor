@@ -7,7 +7,8 @@ const {
   updateResource,
   deleteResource,
   getMatchingRequirementsCount,
-  getMatchingRequirementsCountsBatch
+  getMatchingRequirementsCountsBatch,
+  getMatchingRequirementsDetails
 } = require('../controllers/resourceController');
 const { protect } = require('../middleware/auth');
 
@@ -27,6 +28,9 @@ router.route('/:id')
 // Matching requirements routes
 router.route('/:id/matching-requirements')
   .get(getMatchingRequirementsCount);
+
+router.route('/:id/matching-requirements/details')
+  .get(getMatchingRequirementsDetails);
 
 router.route('/matching-requirements/batch')
   .post(getMatchingRequirementsCountsBatch);

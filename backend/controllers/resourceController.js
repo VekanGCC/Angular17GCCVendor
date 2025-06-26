@@ -440,13 +440,12 @@ const getMatchingRequirementsCount = asyncHandler(async (req, res, next) => {
 
   // Build matching criteria for requirements
   const matchingCriteria = {
-    status: 'active' // Only active requirements
+    status: 'open' // Only open requirements
   };
 
-  // 1. Skills matching - requirement must have ALL skills that the resource has
+  // 1. Skills matching - requirement should have at least some skills that resource has
   if (resource.skills && resource.skills.length > 0) {
-    const resourceSkillIds = resource.skills.map(skill => skill._id);
-    matchingCriteria.skills = { $all: resourceSkillIds };
+    matchingCriteria.skills = { $exists: true, $ne: [] };
   }
 
   // 2. Experience matching - resource experience must be more than requirement minYears
@@ -464,20 +463,28 @@ const getMatchingRequirementsCount = asyncHandler(async (req, res, next) => {
     matchingCriteria.startDate = { $gte: resource.availability.start_date };
   }
 
-  console.log('🔧 ResourceController: Matching criteria:', JSON.stringify(matchingCriteria, null, 2));
-
-  // Get matching requirements
-  const matchingRequirements = await Requirement.find(matchingCriteria)
+  // Get all possible requirements
+  const totalMatchingRequirements = await Requirement.find(matchingCriteria)
     .populate('skills', 'name')
-    .populate('category', 'name')
-    .populate('client', 'firstName lastName email');
+    .lean();
 
-  console.log('🔧 ResourceController: Found', matchingRequirements.length, 'matching requirements');
+  // Filter by strict skill match: resource must have all skills required by the requirement
+  const filteredRequirements = totalMatchingRequirements.filter(requirement => {
+    const requirementSkillIds = requirement.skills.map(skill => skill._id.toString());
+    const resourceSkillIds = resource.skills.map(skill => skill._id.toString());
+    const hasAllRequiredSkills = requirementSkillIds.every(skillId =>
+      resourceSkillIds.includes(skillId)
+    );
+    return hasAllRequiredSkills;
+  });
+
+  const matchingCount = filteredRequirements.length;
+  console.log('🔧 ResourceController: Found', matchingCount, 'matching requirements (strict skill match)');
 
   res.status(200).json(
     ApiResponse.success({
-      count: matchingRequirements.length,
-      requirements: matchingRequirements
+      count: matchingCount,
+      requirements: []
     }, 'Matching requirements count retrieved successfully')
   );
 });
@@ -517,13 +524,14 @@ const getMatchingRequirementsCountsBatch = asyncHandler(async (req, res, next) =
 
       // Build matching criteria for requirements
       const matchingCriteria = {
-        status: 'active' // Only active requirements
+        status: 'open' // Only open requirements
       };
 
-      // 1. Skills matching - requirement must have ALL skills that the resource has
+      // 1. Skills matching - requirement should have at least some skills that resource has
       if (resource.skills && resource.skills.length > 0) {
-        const resourceSkillIds = resource.skills.map(skill => skill._id);
-        matchingCriteria.skills = { $all: resourceSkillIds };
+        // For resource-to-requirement matching, we want requirements that have at least one skill
+        // that matches the resource's skills. We'll filter this more precisely later.
+        matchingCriteria.skills = { $exists: true, $ne: [] };
       }
 
       // 2. Experience matching - resource experience must be more than requirement minYears
@@ -543,6 +551,8 @@ const getMatchingRequirementsCountsBatch = asyncHandler(async (req, res, next) =
 
       // Get matching requirements count
       const matchingCount = await Requirement.countDocuments(matchingCriteria);
+
+      console.log('🔧 ResourceController: Found', matchingCount, 'matching requirements for resource:', resourceId);
 
       results.push({
         resourceId,
@@ -566,6 +576,240 @@ const getMatchingRequirementsCountsBatch = asyncHandler(async (req, res, next) =
   );
 });
 
+// @desc    Get matching requirements details for a resource
+// @route   GET /api/resources/:id/matching-requirements/details
+// @access  Private
+const getMatchingRequirementsDetails = asyncHandler(async (req, res, next) => {
+  const resourceId = req.params.id;
+  
+  // Get pagination parameters
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+  const skip = (page - 1) * limit;
+  
+  console.log('🔧 ResourceController: Getting matching requirements details for resource:', resourceId, 'page:', page, 'limit:', limit);
+  console.log('🔧 ResourceController: User info:', {
+    userType: req.user.userType,
+    userId: req.user.id,
+    organizationId: req.user.organizationId
+  });
+
+  // Get the resource
+  const resource = await Resource.findById(resourceId)
+    .populate('skills', 'name')
+    .populate('category', 'name');
+
+  if (!resource) {
+    return next(new ErrorResponse('Resource not found', 404));
+  }
+
+  console.log('🔧 ResourceController: Found resource:', {
+    _id: resource._id,
+    name: resource.name,
+    createdBy: resource.createdBy,
+    organizationId: resource.organizationId
+  });
+
+  // Verify the resource belongs to the vendor
+  // Check if user created the resource OR if it belongs to their organization
+  const isOwner = resource.createdBy.toString() === req.user.id;
+  const isOrganizationMember = resource.organizationId && 
+                              req.user.organizationId && 
+                              resource.organizationId.toString() === req.user.organizationId.toString();
+  
+  console.log('🔧 ResourceController: Authorization check:', {
+    isOwner,
+    isOrganizationMember,
+    resourceCreatedBy: resource.createdBy.toString(),
+    currentUserId: req.user.id,
+    resourceOrgId: resource.organizationId?.toString(),
+    userOrgId: req.user.organizationId?.toString()
+  });
+
+  if (!isOwner && !isOrganizationMember) {
+    return next(new ErrorResponse('Access denied - You can only view matching requirements for your own resources or resources in your organization', 403));
+  }
+
+  // Get the Requirement model
+  const Requirement = require('../models/Requirement');
+
+  // Build matching criteria for requirements
+  const matchingCriteria = {
+    status: 'open' // Only open requirements
+  };
+
+  // 1. Skills matching - requirement should have at least some skills that resource has
+  // We'll do this filtering after the initial query for better performance
+  if (resource.skills && resource.skills.length > 0) {
+    // For resource-to-requirement matching, we want requirements that have at least one skill
+    // that matches the resource's skills. We'll filter this more precisely later.
+    matchingCriteria.skills = { $exists: true, $ne: [] };
+  }
+
+  // 2. Experience matching - resource experience must be more than requirement minYears
+  if (resource.experience && resource.experience.years) {
+    matchingCriteria['experience.minYears'] = { $lte: resource.experience.years };
+  }
+
+  // 3. Budget matching - resource charge must be equal to or lesser than requirement budget
+  if (resource.rate && resource.rate.hourly) {
+    matchingCriteria['budget.charge'] = { $gte: resource.rate.hourly };
+  }
+
+  // 4. Availability matching - resource available date must be before requirement start date
+  if (resource.availability && resource.availability.start_date) {
+    matchingCriteria.startDate = { $gte: resource.availability.start_date };
+  }
+
+  // Get total count first
+  const totalMatchingRequirements = await Requirement.find(matchingCriteria)
+    .populate('skills', 'name')
+    .populate('category', 'name')
+    .populate('client', 'firstName lastName email')
+    .populate('organizationId', 'name')
+    .lean();
+
+  console.log('🔧 ResourceController: Initial query returned', totalMatchingRequirements.length, 'requirements');
+
+  // Filter by skills matching - strict approach: resource must have all skills required by the requirement
+  const filteredRequirements = totalMatchingRequirements.filter(requirement => {
+    const requirementSkillIds = requirement.skills.map(skill => skill._id.toString());
+    const resourceSkillIds = resource.skills.map(skill => skill._id.toString());
+    
+    console.log('🔧 ResourceController: Checking requirement:', requirement.title);
+    console.log('🔧 ResourceController: Resource skills (IDs):', resourceSkillIds);
+    console.log('🔧 ResourceController: Requirement skills (IDs):', requirementSkillIds);
+    console.log('🔧 ResourceController: Resource skills (names):', resource.skills.map(s => s.name));
+    console.log('🔧 ResourceController: Requirement skills (names):', requirement.skills.map(s => s.name));
+    
+    // Resource must have ALL skills required by the requirement
+    const hasAllRequiredSkills = requirementSkillIds.every(skillId =>
+      resourceSkillIds.includes(skillId)
+    );
+    
+    console.log('🔧 ResourceController: Has all required skills:', hasAllRequiredSkills);
+    
+    if (!hasAllRequiredSkills) {
+      console.log('🔧 ResourceController: Requirement rejected - missing skills');
+      return false;
+    }
+
+    // Check experience years matching - resource should have equal or more years than requirement
+    const requirementMinYears = requirement.experience?.minYears || 0;
+    const resourceYears = resource.experience?.years || 0;
+    
+    console.log('🔧 ResourceController: Experience check - Resource years:', resourceYears, 'Requirement min years:', requirementMinYears);
+    
+    if (resourceYears < requirementMinYears) {
+      console.log('🔧 ResourceController: Requirement rejected - insufficient experience');
+      return false;
+    }
+
+    console.log('🔧 ResourceController: Requirement passed all checks');
+    return true;
+  });
+
+  console.log('🔧 ResourceController: After skills filtering:', filteredRequirements.length, 'requirements');
+
+  // Additional filtering for budget and availability
+  const finalMatchingRequirements = filteredRequirements.filter(requirement => {
+    // Budget check
+    if (requirement.budget && requirement.budget.charge && resource.rate && resource.rate.hourly) {
+      if (resource.rate.hourly > requirement.budget.charge) {
+        return false;
+      }
+    }
+
+    // Availability check
+    if (requirement.startDate && resource.availability && resource.availability.start_date) {
+      if (new Date(resource.availability.start_date) > new Date(requirement.startDate)) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+
+  console.log('🔧 ResourceController: After budget/availability filtering:', finalMatchingRequirements.length, 'requirements');
+
+  // Calculate match percentage for each requirement
+  const requirementsWithMatchPercentage = finalMatchingRequirements.map(requirement => {
+    const requirementSkillIds = requirement.skills.map(skill => skill._id.toString());
+    const resourceSkillIds = resource.skills.map(skill => skill._id.toString());
+    
+    const matchingSkills = resourceSkillIds.filter(skillId => 
+      requirementSkillIds.includes(skillId)
+    );
+    
+    // Calculate match percentage based on how well the resource's skills match the requirement's needs
+    const resourceSkillMatchPercentage = matchingSkills.length / resourceSkillIds.length;
+    const requirementSkillMatchPercentage = matchingSkills.length / requirementSkillIds.length;
+    
+    // Use the higher percentage to show the best match
+    const matchPercentage = Math.round(Math.max(resourceSkillMatchPercentage, requirementSkillMatchPercentage) * 100);
+    
+    return {
+      ...requirement,
+      // Add client information from client and organizationId
+      client: {
+        firstName: requirement.client?.firstName || '',
+        lastName: requirement.client?.lastName || '',
+        email: requirement.client?.email || '',
+        organizationName: requirement.organizationId?.name || 'N/A'
+      },
+      matchPercentage,
+      matchingSkills: matchingSkills.length,
+      totalRequiredSkills: requirementSkillIds.length // Show requirement's total skills
+    };
+  });
+
+  // Sort by match percentage (highest first)
+  requirementsWithMatchPercentage.sort((a, b) => b.matchPercentage - a.matchPercentage);
+
+  // Apply pagination
+  const totalCount = requirementsWithMatchPercentage.length;
+  const paginatedRequirements = requirementsWithMatchPercentage.slice(skip, skip + limit);
+  const totalPages = Math.ceil(totalCount / limit);
+
+  console.log('🔧 ResourceController: Pagination info:', {
+    totalCount,
+    page,
+    limit,
+    skip,
+    totalPages,
+    returnedCount: paginatedRequirements.length
+  });
+
+  res.status(200).json(
+    ApiResponse.success({
+      resource: {
+        _id: resource._id,
+        name: resource.name,
+        description: resource.description,
+        skills: resource.skills,
+        experience: resource.experience,
+        rate: resource.rate,
+        category: resource.category
+      },
+      matchingRequirements: paginatedRequirements,
+      totalCount,
+      pagination: {
+        currentPage: page,
+        pageSize: limit,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1
+      },
+      matchingCriteria: {
+        minSkillsToMatch: resource.skills?.length || 0,
+        maxBudget: resource.rate?.hourly,
+        requiredStartDate: resource.availability?.start_date,
+        minExperienceYears: resource.experience?.years
+      }
+    }, 'Matching requirements details retrieved successfully')
+  );
+});
+
 module.exports = {
   getResources,
   getResource,
@@ -573,5 +817,6 @@ module.exports = {
   updateResource,
   deleteResource,
   getMatchingRequirementsCount,
-  getMatchingRequirementsCountsBatch
+  getMatchingRequirementsCountsBatch,
+  getMatchingRequirementsDetails
 };

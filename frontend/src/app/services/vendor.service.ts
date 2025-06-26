@@ -136,6 +136,26 @@ export class VendorService {
     );
   }
 
+  // Get detailed matching requirements for a specific resource
+  getMatchingRequirementsDetails(resourceId: string, page: number = 1, limit: number = 10): Observable<any> {
+    const params = new HttpParams()
+      .set('page', page.toString())
+      .set('limit', limit.toString());
+    
+    return this.http.get(`${environment.apiUrl}/resources/${resourceId}/matching-requirements/details`, { 
+      headers: this.getAuthHeaders(),
+      params 
+    }).pipe(
+      tap((response: any) => {
+        console.log('🔧 VendorService: Matching requirements details response:', response);
+      }),
+      catchError(error => {
+        console.error('🔧 VendorService: Error in getMatchingRequirementsDetails:', error);
+        throw error;
+      })
+    );
+  }
+
   // Get vendor analytics
   getAnalytics(): Observable<any> {
     return this.http.get(`${environment.apiUrl}/vendor/analytics`, { headers: this.getAuthHeaders() });

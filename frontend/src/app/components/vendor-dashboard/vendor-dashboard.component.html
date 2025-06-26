@@ -82,7 +82,7 @@
 
         <!-- Resources Tab -->
         <app-vendor-resources 
-          *ngIf="activeTab === 'resources'"
+          *ngIf="activeTab === 'resources' && !showMatchingRequirementsPage"
           [resources]="vendorResources"
           [isLoading]="resourcesPaginationState.isLoading"
           [paginationState]="resourcesPaginationState"
@@ -94,6 +94,14 @@
           (applicationCountClick)="handleApplicationCountClick($event)"
           (matchingCountClick)="handleMatchingCountClick($event)">
         </app-vendor-resources>
+
+        <!-- Matching Requirements Page -->
+        <app-matching-requirements
+          *ngIf="activeTab === 'resources' && showMatchingRequirementsPage"
+          [resourceId]="selectedResourceId"
+          (navigateBack)="onMatchingRequirementsBack()"
+          (onApplyRequirement)="handleApplyRequirement($event)">
+        </app-matching-requirements>
 
         <!-- Requirements Tab -->
         <app-vendor-requirements 

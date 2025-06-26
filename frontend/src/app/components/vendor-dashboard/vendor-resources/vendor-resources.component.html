@@ -27,20 +27,22 @@
 
       <!-- AG Grid -->
       <div *ngIf="!isLoading && resources.length > 0" class="ag-grid-container">
-        <ag-grid-angular 
-          class="ag-theme-alpine w-full"
-          [rowData]="resources" 
-          [columnDefs]="columnDefs"
-          [defaultColDef]="defaultColDef" 
-          [pagination]="false" 
-          [gridOptions]="gridOptions"
-          [domLayout]="'autoHeight'"
-          [rowSelection]="'single'"
-          [animateRows]="true"
-          [enableCellTextSelection]="true"
-          [overlayNoRowsTemplate]="'<span>No resources found</span>'"
-          (gridReady)="onGridReady($event)">
-        </ag-grid-angular>
+        <div class="overflow-x-auto">
+          <ag-grid-angular 
+            class="ag-theme-alpine w-full min-w-[1200px]"
+            [rowData]="resources" 
+            [columnDefs]="columnDefs"
+            [defaultColDef]="defaultColDef" 
+            [pagination]="false" 
+            [gridOptions]="gridOptions"
+            [domLayout]="'autoHeight'"
+            [rowSelection]="'single'"
+            [animateRows]="true"
+            [enableCellTextSelection]="true"
+            [overlayNoRowsTemplate]="'<span>No resources found</span>'"
+            (gridReady)="onGridReady($event)">
+          </ag-grid-angular>
+        </div>
       </div>
 
       <!-- Custom Pagination -->

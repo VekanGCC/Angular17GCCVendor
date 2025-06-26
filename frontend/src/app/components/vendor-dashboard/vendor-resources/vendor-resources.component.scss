@@ -3,6 +3,33 @@
   // Add any specific styles here if needed
 }
 
+// AG Grid Container with horizontal scroll
+.ag-grid-container {
+  .overflow-x-auto {
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+    
+    // Custom scrollbar styling
+    &::-webkit-scrollbar {
+      height: 8px;
+    }
+    
+    &::-webkit-scrollbar-track {
+      background: #f1f5f9;
+      border-radius: 4px;
+    }
+    
+    &::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+      
+      &:hover {
+        background: #94a3b8;
+      }
+    }
+  }
+}
+
 // AG Grid Custom Styles
 .ag-theme-alpine {
   --ag-font-size: 14px;
@@ -16,6 +43,12 @@
   --ag-selected-row-background-color: #dbeafe;
   --ag-cell-horizontal-border: solid #e5e7eb;
   --ag-cell-horizontal-border-width: 1px;
+  
+  // Ensure minimum width for proper display
+  min-width: 1200px;
+  
+  // Remove border radius from grid since container has it
+  border-radius: 0;
 }
 
 // Custom cell styles
