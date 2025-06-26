@@ -652,6 +652,21 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
     this.updateRequirement(requirement._id, requirement);
   }
 
+  handleRequirementCreated(requirement: Requirement): void {
+    console.log('🔧 ClientDashboard: New requirement created:', requirement);
+    // Close the modal
+    this.showRequirementModal = false;
+    
+    // Reload requirements to show the new requirement
+    this.loadRequirements(this.requirementsPaginationState.currentPage);
+    
+    // Update stats to reflect the new requirement
+    this.updateStats();
+    
+    // Force change detection to ensure UI updates immediately
+    this.changeDetectorRef.detectChanges();
+  }
+
   // Application status management
   handleUpdateApplicationStatus(data: {applicationId: string, status: string, notes?: string}): void {
     console.log('Updating application status:', data);

@@ -78,7 +78,7 @@
 
 <section id="features" class="features-section section">
   <div class="container">
-    <div class="section-header text-center">
+    <div class="section-header">
       <h2>Why Choose TechConnect?</h2>
       <p class="section-subtitle">
         A comprehensive platform designed to streamline IT vendor-client relationships
@@ -89,7 +89,7 @@
       <button class="tab-btn" [class.active]="featuresActiveTab === 'vendor'" (click)="setFeaturesActiveTab('vendor')">For Vendors</button>
     </div>
     <div class="features-grid" *ngIf="featuresActiveTab === 'client'">
-      <div class="feature-card card">
+      <div class="feature-card">
         <div class="feature-icon" style="background-color: var(--primary-100);">
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--primary-600)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
@@ -100,7 +100,7 @@
         <p>Access a network of pre-vetted IT service providers with verified credentials, experience, and track records.</p>
       </div>
       
-      <div class="feature-card card">
+      <div class="feature-card">
         <div class="feature-icon" style="background-color: var(--secondary-100);">
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--secondary-600)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="3"></circle>
@@ -111,7 +111,7 @@
         <p>Our intelligent algorithm matches you with vendors based on your specific requirements, industry, and project scope.</p>
       </div>
       
-      <div class="feature-card card">
+      <div class="feature-card">
         <div class="feature-icon" style="background-color: var(--accent-100);">
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent-600)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
@@ -123,7 +123,7 @@
         <p>Clear, upfront pricing with detailed breakdowns. No hidden fees or surprise costs in your vendor engagements.</p>
       </div>
       
-      <div class="feature-card card">
+      <div class="feature-card">
         <div class="feature-icon" style="background-color: var(--success-100);">
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--success-500)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
@@ -133,7 +133,7 @@
         <p>All vendors undergo rigorous compliance checks including security certifications, insurance, and legal requirements.</p>
       </div>
       
-      <div class="feature-card card">
+      <div class="feature-card">
         <div class="feature-icon" style="background-color: var(--warning-100);">
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--warning-500)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
@@ -146,7 +146,7 @@
         <p>Access vendors across multiple IT domains including development, cybersecurity, cloud services, and managed IT.</p>
       </div>
       
-      <div class="feature-card card">
+      <div class="feature-card">
         <div class="feature-icon" style="background-color: var(--error-100);">
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--error-500)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
@@ -158,7 +158,7 @@
     </div>
 
     <div class="features-grid" *ngIf="featuresActiveTab === 'vendor'">
-      <div class="feature-card card">
+      <div class="feature-card">
         <div class="feature-icon" style="background-color: var(--primary-100);">
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--primary-600)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="8" r="7"></circle>
@@ -169,7 +169,7 @@
         <p>Stand out with our verified vendor badge, showcasing your credibility and trustworthiness to potential clients.</p>
       </div>
       
-      <div class="feature-card card">
+      <div class="feature-card">
         <div class="feature-icon" style="background-color: var(--secondary-100);">
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--secondary-600)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
@@ -180,7 +180,7 @@
         <p>Receive pre-qualified project opportunities matched to your expertise and preferences.</p>
       </div>
       
-      <div class="feature-card card">
+      <div class="feature-card">
         <div class="feature-icon" style="background-color: var(--accent-100);">
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent-600)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M20.2 7.8l-7.7 7.7-4-4-5.7 5.7"></path>
@@ -191,7 +191,7 @@
         <p>Expand your client base and increase revenue through our platform's extensive network of businesses.</p>
       </div>
       
-      <div class="feature-card card">
+      <div class="feature-card">
         <div class="feature-icon" style="background-color: var(--success-100);">
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--success-500)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
@@ -203,7 +203,7 @@
         <p>Access integrated tools for seamless project management, communication, and payment processing.</p>
       </div>
       
-      <div class="feature-card card">
+      <div class="feature-card">
         <div class="feature-icon" style="background-color: var(--warning-100);">
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--warning-500)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path>
@@ -214,7 +214,7 @@
         <p>Track your success with detailed analytics on project performance, client satisfaction, and revenue.</p>
       </div>
       
-      <div class="feature-card card">
+      <div class="feature-card">
         <div class="feature-icon" style="background-color: var(--error-100);">
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--error-500)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -233,7 +233,7 @@
 
 <section id="how-it-works" class="how-it-works-section section section-alt">
   <div class="container">
-    <div class="section-header text-center">
+    <div class="section-header">
       <h2>How TechConnect Works</h2>
       <p class="section-subtitle">
         Our streamlined process makes it easy to find and connect with the right IT partners.
@@ -327,13 +327,13 @@
   </div>
 </section>
 
-<section id="testimonials" class="section testimonials">
+<section id="testimonials" class="testimonials section">
   <div class="container">
-    <div class="section-title animate-on-scroll">
+    <div class="section-header">
       <h2>What Our Users Say</h2>
-      <p>Hear from the clients and vendors who have transformed their IT partnerships through our platform.</p>
+      <p class="section-subtitle">Hear from the clients and vendors who have transformed their IT partnerships through our platform.</p>
     </div>
-    <div class="testimonial-slider animate-on-scroll">
+    <div class="testimonial-slider">
       <div class="testimonial-navigation">
         <button (click)="prevTestimonial()" class="nav-btn prev">
           <span class="arrow-left"></span>
@@ -382,9 +382,9 @@
         <div class="link-group">
           <h4>Platform</h4>
           <ul>
-            <li><a href="#">How it Works</a></li>
-            <li><a href="#">For Vendors</a></li>
-            <li><a href="#">For Clients</a></li>
+            <li><a href="#how-it-works">How it Works</a></li>
+            <li><a href="#features">For Vendors</a></li>
+            <li><a href="#features">For Clients</a></li>
             <li><a href="#">Pricing</a></li>
           </ul>
         </div>

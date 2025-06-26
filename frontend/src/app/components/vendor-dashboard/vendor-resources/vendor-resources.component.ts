@@ -5,9 +5,9 @@ import { AllCommunityModule } from 'ag-grid-community';
 ModuleRegistry.registerModules([AllCommunityModule]);
 
 // Angular
-import { Component, Input, Output, EventEmitter, OnInit } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit, OnChanges, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { AgGridModule } from 'ag-grid-angular';
+import { AgGridAngular, AgGridModule } from 'ag-grid-angular';
 import { ColDef, ValueGetterParams } from 'ag-grid-community';
 import { Resource } from '../../../models/resource.model';
 import { PaginationState, PaginationParams } from '../../../models/pagination.model';
@@ -22,7 +22,7 @@ import { ApiService } from '../../../services/api.service';
   templateUrl: './vendor-resources.component.html',
   styleUrls: ['./vendor-resources.component.scss']
 })
-export class VendorResourcesComponent implements OnInit {
+export class VendorResourcesComponent implements OnInit, OnChanges {
   @Input() resources: Resource[] = [];
   @Input() isLoading = false;
   @Input() paginationState: PaginationState = {
@@ -42,8 +42,7 @@ export class VendorResourcesComponent implements OnInit {
   @Output() applicationCountClick = new EventEmitter<string>();
   @Output() matchingCountClick = new EventEmitter<string>();
 
-  // AG Grid API reference
-  private gridApi: any;
+  @ViewChild(AgGridAngular) agGrid!: AgGridAngular;
 
   // AG Grid properties
   columnDefs: ColDef[] = [
@@ -299,19 +298,33 @@ export class VendorResourcesComponent implements OnInit {
     console.log('🔧 VendorResourcesComponent: ngOnInit called');
   }
 
-  ngOnChanges(): void {
+  ngOnChanges(changes: any): void {
     // This will be called whenever the @Input properties change
     console.log('🔧 VendorResources: Resources data changed:', this.resources);
     
-    // Force grid refresh if needed
-    if (this.gridApi) {
-      this.gridApi.setRowData(this.resources);
+    // If resources data changed, refresh the grid
+    if (changes['resources'] && this.agGrid && this.agGrid.api) {
+      console.log('🔧 VendorResources: Resources changed, refreshing grid');
+      this.refreshGridData();
+    }
+  }
+
+  private refreshGridData(): void {
+    if (this.agGrid && this.agGrid.api) {
+      // Force AG Grid to refresh all data
+      this.agGrid.api.refreshCells({ force: true });
+      console.log('🔧 VendorResources: Grid data refreshed');
     }
   }
 
   onGridReady(params: any): void {
-    this.gridApi = params.api;
     console.log('🔧 VendorResources: Grid ready, API captured');
+    
+    // Set initial data if resources are already available
+    if (this.resources && this.resources.length > 0) {
+      console.log('🔧 VendorResources: Setting initial data in grid');
+      this.refreshGridData();
+    }
   }
 
   onPageChange(page: number): void {

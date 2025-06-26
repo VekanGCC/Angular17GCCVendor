@@ -26,9 +26,11 @@ export class ResourceModalComponent implements OnInit {
   availableCategories: Category[] = [];
   isSubmitting = false;
   isEditMode = false;
+  formPopulated = false; // Flag to prevent multiple population calls
   
   // File upload properties
   selectedFile: File | null = null;
+  existingFile: any = null; // Track existing file when editing
   fileError: string | null = null;
   readonly maxFileSize = 5 * 1024 * 1024; // 5MB
   readonly allowedFileTypes = ['.pdf', '.doc', '.docx'];
@@ -70,51 +72,12 @@ export class ResourceModalComponent implements OnInit {
 
   ngOnInit(): void {
     this.isEditMode = !!this.resourceToEdit;
-    this.initializeForm();
     this.loadSkills();
     this.loadCategories();
-    
-    if (this.isEditMode && this.resourceToEdit) {
-      this.populateFormWithResource(this.resourceToEdit);
-    }
   }
 
   initializeForm(): void {
-    // Load available skills from admin service
-    this.apiService.getActiveSkills().subscribe({
-      next: (response) => {
-        console.log('Resource Modal: Skills response:', response);
-        if (response.success) {
-          this.availableSkills = response.data;
-          console.log('Resource Modal: Available skills loaded:', this.availableSkills);
-          console.log('Resource Modal: First skill example:', this.availableSkills[0]);
-          console.log('Resource Modal: First skill properties:', Object.keys(this.availableSkills[0] || {}));
-          console.log('Resource Modal: First skill _id:', (this.availableSkills[0] as any)?._id);
-          console.log('Resource Modal: First skill id:', this.availableSkills[0]?.id);
-        } else {
-          console.error('Resource Modal: Failed to load skills:', response.message);
-        }
-      },
-      error: (error) => {
-        console.error('Resource Modal: Error loading skills:', error);
-      }
-    });
-
-    // Load available categories from API service (public endpoint)
-    this.apiService.getActiveCategories().subscribe({
-      next: (response) => {
-        console.log('Resource Modal: Categories response:', response);
-        if (response.success) {
-          this.availableCategories = response.data;
-          console.log('Resource Modal: Available categories:', this.availableCategories);
-        } else {
-          console.error('Resource Modal: Failed to load categories:', response.message);
-        }
-      },
-      error: (error) => {
-        console.error('Resource Modal: Error loading categories:', error);
-      }
-    });
+    // This method is no longer needed as we moved the logic to loadSkills and loadCategories
   }
 
   loadSkills(): void {
@@ -125,10 +88,11 @@ export class ResourceModalComponent implements OnInit {
         if (response.success) {
           this.availableSkills = response.data;
           console.log('Resource Modal: Available skills loaded:', this.availableSkills);
-          console.log('Resource Modal: First skill example:', this.availableSkills[0]);
-          console.log('Resource Modal: First skill properties:', Object.keys(this.availableSkills[0] || {}));
-          console.log('Resource Modal: First skill _id:', (this.availableSkills[0] as any)?._id);
-          console.log('Resource Modal: First skill id:', this.availableSkills[0]?.id);
+          
+          // If we're in edit mode and have a resource to edit, populate the form now
+          if (this.isEditMode && this.resourceToEdit && !this.formPopulated) {
+            this.tryPopulateForm();
+          }
         } else {
           console.error('Resource Modal: Failed to load skills:', response.message);
         }
@@ -147,6 +111,11 @@ export class ResourceModalComponent implements OnInit {
         if (response.success) {
           this.availableCategories = response.data;
           console.log('Resource Modal: Available categories:', this.availableCategories);
+          
+          // If we're in edit mode and have a resource to edit, populate the form now
+          if (this.isEditMode && this.resourceToEdit && !this.formPopulated) {
+            this.tryPopulateForm();
+          }
         } else {
           console.error('Resource Modal: Failed to load categories:', response.message);
         }
@@ -155,6 +124,14 @@ export class ResourceModalComponent implements OnInit {
         console.error('Resource Modal: Error loading categories:', error);
       }
     });
+  }
+
+  tryPopulateForm(): void {
+    // Only populate if both skills and categories are loaded and we haven't populated yet
+    if (this.availableSkills.length > 0 && this.availableCategories.length > 0 && !this.formPopulated) {
+      this.populateFormWithResource(this.resourceToEdit!);
+      this.formPopulated = true;
+    }
   }
 
   get skills(): FormArray {
@@ -237,12 +214,90 @@ export class ResourceModalComponent implements OnInit {
         // Update existing resource
         console.log('🔧 ResourceModal: Updating resource with data:', resourceData);
         
+        // First, update the resource data
         this.apiService.updateResource(this.resourceToEdit._id, resourceData).subscribe({
           next: (response) => {
             console.log('🔧 ResourceModal: Resource updated successfully:', response);
-            this.isSubmitting = false;
-            this.close.emit();
-            console.log('✅ Resource updated successfully!');
+            
+            // If a new file is selected, upload it
+            if (this.selectedFile) {
+              console.log('🔧 ResourceModal: Uploading new file for resource:', this.resourceToEdit?._id);
+              
+              this.apiService.uploadFile(this.selectedFile, 'resource', this.resourceToEdit!._id, {
+                category: 'document',
+                description: `Resource document for: ${resourceData.name}`,
+                isPublic: false
+              }).subscribe({
+                next: (fileResponse) => {
+                  console.log('🔧 ResourceModal: File upload successful:', fileResponse);
+                  
+                  if (fileResponse.success && fileResponse.data) {
+                    // Update the resource with file information
+                    const updateData = {
+                      attachment: {
+                        fileId: fileResponse.data._id,
+                        filename: fileResponse.data.filename,
+                        path: fileResponse.data.path,
+                        originalName: fileResponse.data.originalName,
+                        fileSize: fileResponse.data.size,
+                        fileType: fileResponse.data.mimetype
+                      }
+                    };
+                    
+                    console.log('🔧 ResourceModal: Updating resource with file info:', updateData);
+                    
+                    this.apiService.updateResource(this.resourceToEdit!._id, updateData).subscribe({
+                      next: (updateResponse) => {
+                        console.log('🔧 ResourceModal: Resource updated with file info:', updateResponse);
+                        this.isSubmitting = false;
+                        this.close.emit();
+                        console.log('✅ Resource updated successfully with file attachment!');
+                      },
+                      error: (error) => {
+                        console.error('🔧 ResourceModal: Error updating resource with file info:', error);
+                        this.isSubmitting = false;
+                        console.error('❌ Resource updated but failed to attach file. Please try again.');
+                      }
+                    });
+                  } else {
+                    console.error('🔧 ResourceModal: File upload failed:', fileResponse);
+                    this.isSubmitting = false;
+                    console.error('❌ Resource updated but file upload failed. Please try again.');
+                  }
+                },
+                error: (error) => {
+                  console.error('🔧 ResourceModal: File upload error:', error);
+                  this.isSubmitting = false;
+                  console.error('❌ Resource updated but file upload failed. Please try again.');
+                }
+              });
+            } else if (this.existingFile === null && this.resourceToEdit?.attachment) {
+              // Existing file was removed, update resource to remove attachment
+              console.log('🔧 ResourceModal: Removing existing file from resource:', this.resourceToEdit._id);
+              
+              const updateData = {
+                attachment: null
+              };
+              
+              this.apiService.updateResource(this.resourceToEdit._id, updateData).subscribe({
+                next: (updateResponse) => {
+                  console.log('🔧 ResourceModal: Resource updated with file removed:', updateResponse);
+                  this.isSubmitting = false;
+                  this.close.emit();
+                  console.log('✅ Resource updated successfully with file removed!');
+                },
+                error: (error) => {
+                  console.error('🔧 ResourceModal: Error removing file from resource:', error);
+                  this.isSubmitting = false;
+                  console.error('❌ Resource updated but failed to remove file. Please try again.');
+                }
+              });
+            } else {
+              // No new file selected and no existing file removed, update is complete
+              this.isSubmitting = false;
+              this.close.emit();
+              console.log('✅ Resource updated successfully!');
+            }
           },
           error: (error) => {
             console.error('🔧 ResourceModal: Resource update error:', error);
@@ -371,6 +426,12 @@ export class ResourceModalComponent implements OnInit {
     }
   }
 
+  removeExistingFile(): void {
+    this.existingFile = null;
+    this.fileError = null;
+    console.log('🔧 ResourceModal: Existing file removed');
+  }
+
   onClose(): void {
     this.close.emit();
   }
@@ -397,6 +458,15 @@ export class ResourceModalComponent implements OnInit {
       this.skills.push(this.fb.control('', Validators.required));
     }
     
+    // Format the start date if it exists
+    let formattedStartDate = '';
+    if (resource.availability?.start_date) {
+      const startDate = new Date(resource.availability.start_date);
+      if (!isNaN(startDate.getTime())) {
+        formattedStartDate = startDate.toISOString().split('T')[0];
+      }
+    }
+    
     // Populate the form with resource data
     this.resourceForm.patchValue({
       name: resource.name || '',
@@ -414,7 +484,7 @@ export class ResourceModalComponent implements OnInit {
       availability: {
         status: resource.availability?.status || 'available',
         hours_per_week: resource.availability?.hours_per_week || 40,
-        start_date: resource.availability?.start_date || ''
+        start_date: formattedStartDate
       },
       rate: {
         hourly: resource.rate?.hourly || 50,
@@ -424,6 +494,15 @@ export class ResourceModalComponent implements OnInit {
       status: resource.status || 'active'
     });
     
+    // Set existing file if available
+    if (resource.attachment) {
+      this.existingFile = resource.attachment;
+      console.log('🔧 ResourceModal: Existing file found:', this.existingFile);
+    }
+    
     console.log('🔧 ResourceModal: Form populated with resource data');
+    console.log('🔧 ResourceModal: Category set to:', resource.category?._id || resource.category);
+    console.log('🔧 ResourceModal: Skills set to:', resource.skills);
+    console.log('🔧 ResourceModal: Start date set to:', formattedStartDate);
   }
 }

@@ -26,6 +26,7 @@ export class RequirementModalComponent implements OnInit, OnChanges {
   requirementForm: FormGroup;
   availableSkills: AdminSkill[] = [];
   availableCategories: any[] = [];
+  formPopulated = false; // Flag to prevent multiple population calls
   
   // File upload properties
   selectedFile: File | null = null;
@@ -56,12 +57,23 @@ export class RequirementModalComponent implements OnInit, OnChanges {
       skills: this.fb.array([this.fb.control('', Validators.required)]),
       experience: this.fb.group({
         minYears: [1, [Validators.required, Validators.min(0), Validators.max(50)]],
-        level: ['', Validators.required]
+        level: ['junior', Validators.required]
       }),
       location: ['', Validators.required],
-      startDate: [this.today, Validators.required],
-      duration: [6, [Validators.required, Validators.min(1), Validators.max(36)]],
-      budget: [50, [Validators.required, Validators.min(1), Validators.max(500)]],
+      timeline: this.fb.group({
+        duration: [6, [Validators.required, Validators.min(1), Validators.max(36)]],
+        start_date: [this.today, Validators.required]
+      }),
+      budget: this.fb.group({
+        charge: [50, [Validators.required, Validators.min(1), Validators.max(500)]],
+        currency: ['USD'],
+        type: ['hourly']
+      }),
+      work_preference: this.fb.group({
+        remote: [true],
+        onsite: [true],
+        hybrid: [true]
+      }),
       description: ['', Validators.required]
     });
   }
@@ -80,9 +92,8 @@ export class RequirementModalComponent implements OnInit, OnChanges {
           console.log('🔧 RequirementModal: Available skills loaded:', this.availableSkills.length);
           
           // After skills are loaded, populate the form if in edit mode
-          if (this.mode === 'edit' && this.requirement) {
-            console.log('🔧 RequirementModal: Populating form after skills load');
-            this.populateForm();
+          if (this.mode === 'edit' && this.requirement && !this.formPopulated) {
+            this.tryPopulateForm();
           }
         } else {
           console.error('🔧 RequirementModal: Failed to load skills:', response);
@@ -100,6 +111,11 @@ export class RequirementModalComponent implements OnInit, OnChanges {
         if (response.success) {
           this.availableCategories = response.data;
           console.log('🔧 RequirementModal: Available categories:', this.availableCategories);
+          
+          // After categories are loaded, populate the form if in edit mode
+          if (this.mode === 'edit' && this.requirement && !this.formPopulated) {
+            this.tryPopulateForm();
+          }
         } else {
           console.error('🔧 RequirementModal: Failed to load categories:', response.message);
         }
@@ -108,20 +124,25 @@ export class RequirementModalComponent implements OnInit, OnChanges {
         console.error('🔧 RequirementModal: Error loading categories:', error);
       }
     });
+  }
 
-    // If not in edit mode, we don't need to wait for skills to load
-    if (this.mode !== 'edit') {
-      // If in edit mode, populate the form after skills are loaded (handled above)
-      // If in create mode, form is already initialized with defaults
+  tryPopulateForm(): void {
+    // Only populate if both skills and categories are loaded and we haven't populated yet
+    if (this.availableSkills.length > 0 && this.availableCategories.length > 0 && !this.formPopulated) {
+      this.populateForm();
+      this.formPopulated = true;
     }
   }
 
   ngOnChanges(changes: SimpleChanges): void {
     // Handle when requirement input changes (e.g., when modal opens with new requirement)
     if (changes['requirement'] && changes['requirement'].currentValue && this.mode === 'edit') {
+      // Reset the formPopulated flag when a new requirement is provided
+      this.formPopulated = false;
+      
       // If skills are already loaded, populate form immediately
-      if (this.availableSkills.length > 0) {
-        this.populateForm();
+      if (this.availableSkills.length > 0 && this.availableCategories.length > 0) {
+        this.tryPopulateForm();
       }
       // If skills are not loaded yet, populateForm will be called after skills load in ngOnInit
     }
@@ -162,9 +183,20 @@ export class RequirementModalComponent implements OnInit, OnChanges {
       title: this.requirement.title,
       category: (this.requirement.category as any)?._id || this.requirement.category, // Handle both object and string
       location: (this.requirement.location as any)?.city || this.requirement.location,
-      startDate: this.requirement.startDate ? new Date(this.requirement.startDate).toISOString().split('T')[0] : '',
-      duration: parseInt(this.requirement.duration),
-      budget: (this.requirement.budget as any)?.charge || this.requirement.budget || 50,
+      timeline: {
+        duration: parseInt(this.requirement.duration) || 6,
+        start_date: this.requirement.startDate ? new Date(this.requirement.startDate).toISOString().split('T')[0] : this.today
+      },
+      budget: {
+        charge: (this.requirement.budget as any)?.charge || this.requirement.budget?.charge || 50,
+        currency: (this.requirement.budget as any)?.currency || 'USD',
+        type: (this.requirement.budget as any)?.type || 'hourly'
+      },
+      work_preference: {
+        remote: true,
+        onsite: true,
+        hybrid: true
+      },
       description: this.requirement.description
     });
 
@@ -198,6 +230,10 @@ export class RequirementModalComponent implements OnInit, OnChanges {
     return this.requirementForm.get('experience') as FormGroup;
   }
 
+  get timeline(): FormGroup {
+    return this.requirementForm.get('timeline') as FormGroup;
+  }
+
   addSkill(): void {
     console.log('🔧 RequirementModal: Adding new skill field');
     this.skills.push(this.fb.control('')); // Remove Validators.required initially
@@ -225,15 +261,34 @@ export class RequirementModalComponent implements OnInit, OnChanges {
     console.log('🔧 RequirementModal: Form errors:', this.requirementForm.errors);
     console.log('🔧 RequirementModal: Budget field errors:', this.requirementForm.get('budget')?.errors);
 
+    // Debug: Check each field's validity
+    console.log('🔧 RequirementModal: Form validation check:');
+    console.log('  - title valid:', this.requirementForm.get('title')?.valid, 'errors:', this.requirementForm.get('title')?.errors);
+    console.log('  - category valid:', this.requirementForm.get('category')?.valid, 'errors:', this.requirementForm.get('category')?.errors);
+    console.log('  - experience valid:', this.requirementForm.get('experience')?.valid, 'errors:', this.requirementForm.get('experience')?.errors);
+    console.log('  - location valid:', this.requirementForm.get('location')?.valid, 'errors:', this.requirementForm.get('location')?.errors);
+    console.log('  - timeline valid:', this.requirementForm.get('timeline')?.valid, 'errors:', this.requirementForm.get('timeline')?.errors);
+    console.log('  - budget valid:', this.requirementForm.get('budget')?.valid, 'errors:', this.requirementForm.get('budget')?.errors);
+    console.log('  - description valid:', this.requirementForm.get('description')?.valid, 'errors:', this.requirementForm.get('description')?.errors);
+    console.log('  - skills valid:', this.requirementForm.get('skills')?.valid, 'errors:', this.requirementForm.get('skills')?.errors);
+    
+    // Check individual skills
+    const skillsArray = this.requirementForm.get('skills') as FormArray;
+    for (let i = 0; i < skillsArray.length; i++) {
+      console.log(`  - skill[${i}] valid:`, skillsArray.at(i).valid, 'value:', skillsArray.at(i).value, 'errors:', skillsArray.at(i).errors);
+    }
+
     // Check if the main form fields are valid (excluding skills array)
     const mainFormValid = this.requirementForm.get('title')?.valid &&
                          this.requirementForm.get('category')?.valid &&
                          this.requirementForm.get('experience')?.valid &&
                          this.requirementForm.get('location')?.valid &&
-                         this.requirementForm.get('startDate')?.valid &&
-                         this.requirementForm.get('duration')?.valid &&
+                         this.requirementForm.get('timeline')?.valid &&
                          this.requirementForm.get('budget')?.valid &&
                          this.requirementForm.get('description')?.valid;
+
+    console.log('🔧 RequirementModal: Main form valid:', mainFormValid);
+    console.log('🔧 RequirementModal: Overall form valid:', this.requirementForm.valid);
 
     if (mainFormValid) {
       const user = this.authService.currentUser;
@@ -291,20 +346,18 @@ export class RequirementModalComponent implements OnInit, OnChanges {
           country: 'USA',
           remote: true
         },
-        duration: formValue.duration,
+        duration: formValue.timeline.duration,
         budget: {
-          charge: formValue.budget,
-          currency: 'USD',
-          type: 'hourly'
+          charge: formValue.budget.charge,
+          currency: formValue.budget.currency,
+          type: formValue.budget.type
         },
         clientId: user._id,
         clientName: user.businessInfo?.companyName || 'Unknown Company',
         status: 'open' as const,
         createdBy: user._id,
-        startDate: formValue.startDate ? new Date(formValue.startDate).toISOString() : new Date().toISOString(),
-        endDate: formValue.startDate ? 
-          new Date(new Date(formValue.startDate).getTime() + formValue.duration * 30 * 24 * 60 * 60 * 1000).toISOString() :
-          new Date(Date.now() + formValue.duration * 30 * 24 * 60 * 60 * 1000).toISOString()
+        startDate: formValue.timeline.start_date ? new Date(formValue.timeline.start_date).toISOString() : new Date().toISOString(),
+        endDate: this.calculateEndDate(formValue.timeline.start_date, formValue.timeline.duration)
       };
 
       console.log('🔧 RequirementModal: Final requirement data being sent:', requirementData);
@@ -418,6 +471,19 @@ export class RequirementModalComponent implements OnInit, OnChanges {
                       this.apiService.updateRequirement(requirementId, updateData).subscribe({
                         next: (updateResponse: any) => {
                           console.log('🔧 RequirementModal: Requirement updated with file info:', updateResponse);
+                          // Emit the created requirement with file attachment
+                          const createdRequirement: Requirement = {
+                            ...response.data,
+                            attachment: {
+                              fileId: fileResponse.data._id,
+                              filename: fileResponse.data.filename,
+                              path: fileResponse.data.path,
+                              originalName: fileResponse.data.originalName,
+                              fileSize: fileResponse.data.size,
+                              fileType: fileResponse.data.mimetype
+                            }
+                          };
+                          this.confirm.emit(createdRequirement);
                           this.close.emit();
                           console.log('✅ Requirement created successfully with file attachment!');
                         },
@@ -439,6 +505,8 @@ export class RequirementModalComponent implements OnInit, OnChanges {
               } else {
                 // No file selected, requirement creation is complete
                 console.log('🔧 RequirementModal: Requirement created without file attachment');
+                // Emit the created requirement
+                this.confirm.emit(response.data);
                 this.close.emit();
                 console.log('✅ Requirement created successfully!');
               }
@@ -573,5 +641,37 @@ export class RequirementModalComponent implements OnInit, OnChanges {
 
   getSkillId(skill: any): string {
     return skill._id || skill.id || '';
+  }
+
+  // Debug method to check form validity
+  checkFormValidity(): void {
+    console.log('🔧 RequirementModal: === FORM VALIDITY CHECK ===');
+    console.log('Overall form valid:', this.requirementForm.valid);
+    console.log('Form value:', this.requirementForm.value);
+    console.log('Form errors:', this.requirementForm.errors);
+    
+    const fields = ['title', 'category', 'experience', 'location', 'timeline', 'budget', 'description', 'skills'];
+    fields.forEach(field => {
+      const control = this.requirementForm.get(field);
+      console.log(`${field}: valid=${control?.valid}, value=${control?.value}, errors=${JSON.stringify(control?.errors)}`);
+    });
+    
+    // Check skills array specifically
+    const skillsArray = this.requirementForm.get('skills') as FormArray;
+    console.log('Skills array length:', skillsArray.length);
+    for (let i = 0; i < skillsArray.length; i++) {
+      const skillControl = skillsArray.at(i);
+      console.log(`Skill[${i}]: valid=${skillControl.valid}, value="${skillControl.value}", errors=${JSON.stringify(skillControl.errors)}`);
+    }
+  }
+
+  private calculateEndDate(startDate: string | null, duration: number): string {
+    if (!startDate || !duration) {
+      console.error('🔧 RequirementModal: Invalid start date or duration');
+      return new Date().toISOString();
+    }
+
+    const endDate = new Date(new Date(startDate).getTime() + duration * 30 * 24 * 60 * 60 * 1000);
+    return endDate.toISOString();
   }
 }

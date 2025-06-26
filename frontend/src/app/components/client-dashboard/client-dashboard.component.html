@@ -160,7 +160,8 @@
   <!-- Requirement Modal -->
   <app-requirement-modal 
     *ngIf="showRequirementModal" 
-    (close)="showRequirementModal = false">
+    (close)="showRequirementModal = false"
+    (confirm)="handleRequirementCreated($event)">
   </app-requirement-modal>
 
   <!-- Close Requirement Modal -->
