@@ -8,7 +8,7 @@ ModuleRegistry.registerModules([AllCommunityModule]);
 import { Component, Input, Output, EventEmitter, OnInit, OnChanges, SimpleChanges, ViewChild, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AgGridModule, AgGridAngular } from 'ag-grid-angular';
-import { ColDef, ValueGetterParams, SortChangedEvent } from 'ag-grid-community';
+import { ColDef, ValueGetterParams } from 'ag-grid-community';
 import { Application } from '../../../models/application.model';
 import { PaginationState } from '../../../models/pagination.model';
 import { PaginationComponent } from '../../pagination/pagination.component';
@@ -28,7 +28,6 @@ export class VendorApplicationsComponent implements OnInit, OnChanges {
   @Output() updateApplicationStatus = new EventEmitter<{applicationId: string, status: string, notes?: string}>();
   @Output() viewApplicationHistory = new EventEmitter<string>();
   @Output() pageChange = new EventEmitter<number>();
-  @Output() sortChange = new EventEmitter<{sortBy: string, sortOrder: 'asc' | 'desc'}>();
   @Output() clearFilter = new EventEmitter<void>();
 
   @ViewChild(AgGridAngular) agGrid!: AgGridAngular;
@@ -39,7 +38,8 @@ export class VendorApplicationsComponent implements OnInit, OnChanges {
       headerName: 'Application ID', 
       field: '_id', 
       flex: 1,
-      sortable: true,
+      sortable: false,
+      filter: false,
       cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       cellRenderer: (params: any) => {
         const appId = params.data._id;
@@ -50,7 +50,8 @@ export class VendorApplicationsComponent implements OnInit, OnChanges {
       headerName: 'Resource', 
       field: 'resource.name', 
       flex: 2,
-      sortable: true,
+      sortable: false,
+      filter: false,
       cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       valueGetter: (params: any) => {
         if (typeof params.data.resource === 'string') {
@@ -67,7 +68,8 @@ export class VendorApplicationsComponent implements OnInit, OnChanges {
       headerName: 'Requirement', 
       field: 'requirement.title', 
       flex: 2,
-      sortable: true,
+      sortable: false,
+      filter: false,
       cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       valueGetter: (params: any) => {
         if (typeof params.data.requirement === 'string') {
@@ -84,7 +86,8 @@ export class VendorApplicationsComponent implements OnInit, OnChanges {
       headerName: 'Status', 
       field: 'status', 
       flex: 1,
-      sortable: true,
+      sortable: false,
+      filter: false,
       cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       cellRenderer: (params: any) => {
         const status = params.data.status;
@@ -102,7 +105,8 @@ export class VendorApplicationsComponent implements OnInit, OnChanges {
       headerName: 'Applied Date', 
       field: 'createdAt', 
       flex: 1,
-      sortable: true,
+      sortable: false,
+      filter: false,
       cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       cellRenderer: (params: any) => {
         const date = params.data.createdAt;
@@ -179,8 +183,8 @@ export class VendorApplicationsComponent implements OnInit, OnChanges {
 
   defaultColDef = { 
     resizable: true, 
-    sortable: true, 
-    filter: true,
+    sortable: false, 
+    filter: false,
     flex: 1,
     minWidth: 100
   };
@@ -191,10 +195,7 @@ export class VendorApplicationsComponent implements OnInit, OnChanges {
       minWidth: 100,
     },
     rowHeight: 60,
-    tooltipShowDelay: 500,
-    onSortChanged: (event: SortChangedEvent) => {
-      this.onSortChanged(event);
-    }
+    tooltipShowDelay: 500
   };
 
   // Computed property for filtered applications
@@ -232,29 +233,6 @@ export class VendorApplicationsComponent implements OnInit, OnChanges {
       // Force AG Grid to refresh all data
       this.agGrid.api.refreshCells({ force: true });
       console.log('🔧 VendorApplicationsComponent: Grid data refreshed');
-    }
-  }
-
-  onSortChanged(event: SortChangedEvent): void {
-    const sortModel = event.api.getColumnState().filter(col => col.sort);
-    if (sortModel && sortModel.length > 0) {
-      const sort = sortModel[0];
-      console.log('🔧 VendorApplicationsComponent: Sort changed:', sort);
-      
-      // Map AG Grid field names to backend field names
-      const fieldMapping: { [key: string]: string } = {
-        '_id': '_id',
-        'resource.name': 'resource.name',
-        'requirement.title': 'requirement.title',
-        'status': 'status',
-        'createdAt': 'createdAt',
-        'updatedAt': 'updatedAt'
-      };
-      
-      const sortBy = fieldMapping[sort.colId] || sort.colId;
-      const sortOrder = sort.sort as 'asc' | 'desc';
-      
-      this.sortChange.emit({ sortBy, sortOrder });
     }
   }
 

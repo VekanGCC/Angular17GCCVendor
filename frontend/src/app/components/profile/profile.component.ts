@@ -17,7 +17,7 @@ import { User, UserAddress, UserBankDetails, UserStatutoryCompliance } from '../
 })
 export class ProfileComponent implements OnInit, OnDestroy {
   profileData: ProfileData | null = null;
-  isLoading = false;
+  isLoading = true;
   isEditing = false;
   activeTab: 'personal' | 'addresses' | 'bank' | 'compliance' = 'personal';
   

@@ -6,6 +6,8 @@ import { ClientGuard } from './guards/client.guard';
 import { LandingComponent } from './components/landing/landing.component';
 import { LoginComponent } from './components/login/login.component';
 import { SignupComponent } from './components/signup/signup.component';
+import { ForgotPasswordComponent } from './components/forgot-password/forgot-password.component';
+import { ResetPasswordComponent } from './components/reset-password/reset-password.component';
 import { AdminDashboardComponent } from './components/admin-dashboard/admin-dashboard.component';
 import { VendorDashboardComponent } from './components/vendor-dashboard/vendor-dashboard.component';
 import { ClientDashboardComponent } from './components/client-dashboard/client-dashboard.component';
@@ -27,6 +29,14 @@ export const routes: Routes = [
   {
     path: 'signup',
     component: SignupComponent
+  },
+  {
+    path: 'forgot-password',
+    component: ForgotPasswordComponent
+  },
+  {
+    path: 'reset-password/:token',
+    component: ResetPasswordComponent
   },
   {
     path: 'profile',

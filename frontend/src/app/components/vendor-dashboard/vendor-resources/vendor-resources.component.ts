@@ -8,7 +8,7 @@ ModuleRegistry.registerModules([AllCommunityModule]);
 import { Component, Input, Output, EventEmitter, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AgGridModule } from 'ag-grid-angular';
-import { ColDef, ValueGetterParams, SortChangedEvent } from 'ag-grid-community';
+import { ColDef, ValueGetterParams } from 'ag-grid-community';
 import { Resource } from '../../../models/resource.model';
 import { PaginationState, PaginationParams } from '../../../models/pagination.model';
 import { PaginationComponent } from '../../pagination/pagination.component';
@@ -39,7 +39,6 @@ export class VendorResourcesComponent implements OnInit {
   @Output() editResource = new EventEmitter<Resource>();
   @Output() toggleResourceStatus = new EventEmitter<{resourceId: string, currentStatus: 'active' | 'inactive'}>();
   @Output() pageChange = new EventEmitter<number>();
-  @Output() sortChange = new EventEmitter<{sortBy: string, sortOrder: 'asc' | 'desc'}>();
   @Output() applicationCountClick = new EventEmitter<string>();
   @Output() matchingCountClick = new EventEmitter<string>();
 
@@ -52,7 +51,8 @@ export class VendorResourcesComponent implements OnInit {
       headerName: 'Resource', 
       field: 'name', 
       flex: 2,
-      sortable: true,
+      sortable: false,
+      filter: false,
       cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       cellRenderer: (params: any) => {
         const resource = params.data;
@@ -72,7 +72,8 @@ export class VendorResourcesComponent implements OnInit {
       field: 'skills', 
       flex: 1,
       minWidth: 120,
-      sortable: true,
+      sortable: false,
+      filter: false,
       cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       valueGetter: (params: any) => {
         const skills = params.data.skills || [];
@@ -101,7 +102,8 @@ export class VendorResourcesComponent implements OnInit {
       headerName: 'Experience', 
       field: 'experience.years', 
       flex: 1,
-      sortable: true,
+      sortable: false,
+      filter: false,
       cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       cellRenderer: (params: any) => {
         const experience = params.data.experience || {};
@@ -117,7 +119,8 @@ export class VendorResourcesComponent implements OnInit {
       headerName: 'Rate', 
       field: 'rate.hourly', 
       flex: 1,
-      sortable: true,
+      sortable: false,
+      filter: false,
       cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       cellRenderer: (params: any) => {
         const rate = params.data.rate || {};
@@ -133,7 +136,8 @@ export class VendorResourcesComponent implements OnInit {
       headerName: 'Status', 
       field: 'status', 
       flex: 1,
-      sortable: true,
+      sortable: false,
+      filter: false,
       cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       cellRenderer: (params: any) => {
         const status = params.data.status;
@@ -212,7 +216,7 @@ export class VendorResourcesComponent implements OnInit {
       cellRenderer: (params: any) => {
         const count = params.data.matchingCount || 0;
         const resourceId = params.data._id;
-        const countClass = count > 0 ? 'bg-blue-100 text-blue-800 hover:bg-blue-200 cursor-pointer' : 'bg-gray-100 text-gray-600';
+        const countClass = count > 0 ? 'bg-green-100 text-green-800 hover:bg-green-200 cursor-pointer' : 'bg-gray-100 text-gray-600';
         
         return `
           <div class="flex items-center justify-start">
@@ -233,61 +237,49 @@ export class VendorResourcesComponent implements OnInit {
     {
       headerName: 'Actions',
       field: 'actions',
-      flex: 1,
+      flex: 2,
       minWidth: 150,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       sortable: false,
       filter: false,
-      cellStyle: { display: 'flex', items: 'center', justifyContent: 'flex-start' },
       cellRenderer: (params: any) => {
         const resource = params.data;
         const isActive = this.isResourceActive(resource);
-        const toggleButtonClass = this.getToggleButtonClass(resource);
-        const toggleButtonText = this.getToggleButtonText(resource);
+        const toggleText = this.getToggleButtonText(resource);
+        const toggleClass = this.getToggleButtonClass(resource);
         
-        const html = `
-          <div class="flex space-x-2 justify-start">
+        return `
+          <div class="flex items-center justify-start space-x-2">
             <button 
-              class="toggle-btn inline-flex items-center px-2 py-1 rounded-md text-xs font-medium transition-all duration-200 ${toggleButtonClass}"
-              id="toggle-${resource._id}">
-              ${toggleButtonText}
-            </button>
-            <button 
-              class="edit-btn inline-flex items-center px-2 py-1 rounded-md text-xs font-medium text-blue-600 hover:text-blue-900 hover:bg-blue-50 transition-all duration-200"
+              class="edit-btn text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition-colors"
               id="edit-${resource._id}">
               Edit
             </button>
+            <button 
+              class="toggle-btn text-xs px-3 py-1 rounded transition-colors ${toggleClass}"
+              id="toggle-${resource._id}">
+              ${toggleText}
+            </button>
           </div>
         `;
+      },
+      onCellClicked: (params: any) => {
+        const target = params.event.target as HTMLElement;
+        const resource = params.data;
         
-        // Add event listeners after rendering
-        setTimeout(() => {
-          const toggleBtn = document.getElementById(`toggle-${resource._id}`);
-          const editBtn = document.getElementById(`edit-${resource._id}`);
-          
-          if (toggleBtn) {
-            toggleBtn.addEventListener('click', (e) => {
-              e.stopPropagation();
-              this.onToggleResourceStatus(resource);
-            });
-          }
-          
-          if (editBtn) {
-            editBtn.addEventListener('click', (e) => {
-              e.stopPropagation();
-              this.onEditResource(resource);
-            });
-          }
-        }, 0);
-        
-        return html;
+        if (target.classList.contains('edit-btn')) {
+          this.onEditResource(resource);
+        } else if (target.classList.contains('toggle-btn')) {
+          this.onToggleResourceStatus(resource);
+        }
       }
     }
   ];
 
   defaultColDef = { 
     resizable: true, 
-    sortable: true, 
-    filter: true,
+    sortable: false, 
+    filter: false,
     flex: 1,
     minWidth: 100
   };
@@ -298,10 +290,7 @@ export class VendorResourcesComponent implements OnInit {
       minWidth: 100,
     },
     rowHeight: 60,
-    tooltipShowDelay: 500,
-    onSortChanged: (event: SortChangedEvent) => {
-      this.onSortChanged(event);
-    }
+    tooltipShowDelay: 500
   };
 
   constructor(private vendorService: VendorService, private apiService: ApiService) {}
@@ -323,30 +312,6 @@ export class VendorResourcesComponent implements OnInit {
   onGridReady(params: any): void {
     this.gridApi = params.api;
     console.log('🔧 VendorResources: Grid ready, API captured');
-  }
-
-  onSortChanged(event: SortChangedEvent): void {
-    const sortModel = event.api.getColumnState().filter(col => col.sort);
-    if (sortModel && sortModel.length > 0) {
-      const sort = sortModel[0];
-      console.log('🔧 VendorResourcesComponent: Sort changed:', sort);
-      
-      // Map AG Grid field names to backend field names
-      const fieldMapping: { [key: string]: string } = {
-        'name': 'name',
-        'skills': 'skills',
-        'experience.years': 'experience.years',
-        'rate.hourly': 'rate.hourly',
-        'status': 'status',
-        'createdAt': 'createdAt',
-        'updatedAt': 'updatedAt'
-      };
-      
-      const sortBy = fieldMapping[sort.colId] || sort.colId;
-      const sortOrder = sort.sort as 'asc' | 'desc';
-      
-      this.sortChange.emit({ sortBy, sortOrder });
-    }
   }
 
   onPageChange(page: number): void {

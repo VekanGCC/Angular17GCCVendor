@@ -220,16 +220,15 @@ const forgotPassword = asyncHandler(async (req, res, next) => {
   }
 
   // Get reset token
-  const resetToken = user.getEmailVerificationToken();
-  user.passwordResetToken = resetToken;
-  user.passwordResetExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
+  const resetToken = user.getPasswordResetToken();
 
   await user.save({ validateBeforeSave: false });
 
   // Create reset url
-  const resetUrl = `${req.protocol}://${req.get('host')}/api/auth/reset-password/${resetToken}`;
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:4200';
+  const resetUrl = `${frontendUrl}/reset-password/${resetToken}`;
 
-  const message = `You are receiving this email because you have requested the reset of a password. Please make a PUT request to: \n\n ${resetUrl}`;
+  const message = `You are receiving this email because you have requested the reset of a password. Please click the link below to reset your password: \n\n ${resetUrl}`;
 
   try {
     // Mock email sending for development
@@ -237,6 +236,9 @@ const forgotPassword = asyncHandler(async (req, res, next) => {
     console.log('  To:', user.email);
     console.log('  Subject: Password reset token');
     console.log('  Message:', message);
+    console.log('\n🔗 RESET LINK FOR TESTING:');
+    console.log('  ' + resetUrl);
+    console.log('\n📋 Copy the above link to test the password reset flow');
     
     // await sendEmail({
     //   email: user.email,
@@ -246,7 +248,7 @@ const forgotPassword = asyncHandler(async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      message: 'Email sent'
+      message: 'Password reset link generated successfully. Check the server console for the reset link (for testing purposes).'
     });
   } catch (error) {
     user.passwordResetToken = undefined;

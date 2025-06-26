@@ -175,4 +175,45 @@ export class AuthService {
     const user = this.currentUserSubject.value;
     return user?.approvalStatus || null;
   }
+
+  // Forgot password functionality
+  forgotPassword(email: string): Observable<ApiResponse<any>> {
+    console.log('Auth Service: Forgot password request for:', email);
+    
+    this.loadingSubject.next(true);
+    
+    return this.apiService.post<ApiResponse<any>>('/auth/forgot-password', { email }).pipe(
+      tap(response => {
+        console.log('Auth Service: Forgot password response:', response);
+      }),
+      finalize(() => {
+        this.loadingSubject.next(false);
+      })
+    );
+  }
+
+  resetPassword(resetToken: string, password: string): Observable<ApiResponse<any>> {
+    console.log('Auth Service: Reset password request with token');
+    
+    this.loadingSubject.next(true);
+    
+    return this.apiService.put<ApiResponse<any>>(`/auth/reset-password/${resetToken}`, { password }).pipe(
+      tap(response => {
+        console.log('Auth Service: Reset password response:', response);
+        if (response.success) {
+          // If reset is successful and returns tokens, store them
+          const { token, data } = response;
+          if (token && data) {
+            console.log('Auth Service: Storing new token and user data after password reset');
+            sessionStorage.setItem('authToken', token);
+            sessionStorage.setItem('user', JSON.stringify(data));
+            this.currentUserSubject.next(data);
+          }
+        }
+      }),
+      finalize(() => {
+        this.loadingSubject.next(false);
+      })
+    );
+  }
 }

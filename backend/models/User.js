@@ -188,6 +188,16 @@ const userSchema = new mongoose.Schema({
     }
   },
   
+  // Password Reset Fields
+  passwordResetToken: {
+    type: String,
+    select: false
+  },
+  passwordResetExpires: {
+    type: Date,
+    select: false
+  },
+  
   // Timestamps
   createdAt: {
     type: Date,
@@ -323,6 +333,17 @@ userSchema.methods.getPhoneVerificationCode = function() {
   this.verificationCodes.phone.expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
   
   return verificationCode;
+};
+
+// Generate password reset token
+userSchema.methods.getPasswordResetToken = function() {
+  const resetToken = Math.random().toString(36).substring(2, 15) + 
+                     Math.random().toString(36).substring(2, 15);
+  
+  this.passwordResetToken = resetToken;
+  this.passwordResetExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
+  
+  return resetToken;
 };
 
 module.exports = mongoose.model('User', userSchema);

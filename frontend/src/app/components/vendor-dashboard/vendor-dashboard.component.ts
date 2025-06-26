@@ -548,13 +548,8 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
   }
 
   onRequirementsPageChange(page: number): void {
+    console.log('🔧 VendorDashboard: Requirements page changed:', page);
     this.loadVendorRequirementsWithFiltersAndSort(page, this.requirementsSortBy, this.requirementsSortOrder, this.requirementsSearchParams);
-  }
-
-  // Sort change event handlers
-  onResourcesSortChange(sortData: {sortBy: string, sortOrder: 'asc' | 'desc'}): void {
-    console.log('🔧 VendorDashboard: Resources sort changed:', sortData);
-    this.loadVendorResourcesWithSort(1, sortData.sortBy, sortData.sortOrder);
   }
 
   onRequirementsSortChange(sortData: {sortBy: string, sortOrder: 'asc' | 'desc'}): void {
@@ -567,12 +562,8 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
   onRequirementsSearchChange(params: any): void {
     console.log('🔧 VendorDashboard: Requirements search changed:', params);
     this.requirementsSearchParams = params;
+    this.currentRequirementsSearchParams = params;
     this.loadVendorRequirementsWithFiltersAndSort(1, this.requirementsSortBy, this.requirementsSortOrder, params);
-  }
-
-  onApplicationsSortChange(sortData: {sortBy: string, sortOrder: 'asc' | 'desc'}): void {
-    console.log('🔧 VendorDashboard: Applications sort changed:', sortData);
-    this.loadVendorApplicationsWithSort(1, sortData.sortBy, sortData.sortOrder);
   }
 
   // Enhanced loading methods with sorting
