@@ -720,6 +720,19 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
     
     this.showVendorManagementDropdown = false;
     
+    // 🔴 Reset page states when switching tabs
+    if (tabId === 'resources') {
+      // Reset matching requirements page state when switching to resources tab
+      this.showMatchingRequirementsPage = false;
+      this.selectedResourceId = '';
+      console.log('🔄 VendorDashboard: Reset matching requirements page state for resources tab');
+    } else if (tabId === 'requirements') {
+      // Reset browse requirements page state when switching to requirements tab
+      this.showBrowseRequirementsPage = false;
+      this.selectedRequirementId = '';
+      console.log('🔄 VendorDashboard: Reset browse requirements page state for requirements tab');
+    }
+    
     // Reload data when specific tabs are selected
     if (tabId === 'applications') {
       this.loadVendorApplications();

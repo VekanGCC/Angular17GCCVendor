@@ -99,6 +99,7 @@ export class AuthService {
             console.log('Auth Service: Login blocked - user approval rejected');
             throw new Error('Your account has been rejected. Please contact the administrator for more information.');
           }
+          
           if (data.approvalStatus !== 'approved') {
             const statusMessage = data.approvalStatus || 'unknown';
             throw new Error(`Your account status is '${statusMessage}'. Only approved accounts can login.`);
