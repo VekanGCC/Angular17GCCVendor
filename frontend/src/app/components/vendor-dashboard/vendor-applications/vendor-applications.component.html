@@ -60,4 +60,13 @@
       </div>
     </div>
   </div>
+
+  <!-- Application Action Modal -->
+  <app-application-action-modal
+    [isVisible]="showActionModal"
+    [application]="selectedApplication"
+    [actionType]="selectedActionType"
+    (close)="onActionModalClose()"
+    (confirm)="onActionModalConfirm($event)">
+  </app-application-action-modal>
 </div> 

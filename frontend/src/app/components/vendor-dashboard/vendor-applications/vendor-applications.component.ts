@@ -12,11 +12,12 @@ import { ColDef, ValueGetterParams } from 'ag-grid-community';
 import { Application } from '../../../models/application.model';
 import { PaginationState } from '../../../models/pagination.model';
 import { PaginationComponent } from '../../pagination/pagination.component';
+import { ApplicationActionModalComponent, ApplicationActionData } from '../../modals/application-action-modal/application-action-modal.component';
 
 @Component({
   selector: 'app-vendor-applications',
   standalone: true,
-  imports: [CommonModule, AgGridModule, PaginationComponent],
+  imports: [CommonModule, AgGridModule, PaginationComponent, ApplicationActionModalComponent],
   templateUrl: './vendor-applications.component.html',
   styleUrls: ['./vendor-applications.component.scss']
 })
@@ -25,12 +26,17 @@ export class VendorApplicationsComponent implements OnInit, OnChanges {
   @Input() isLoading = false;
   @Input() paginationState!: PaginationState;
   @Input() resourceFilter: string = '';
-  @Output() updateApplicationStatus = new EventEmitter<{applicationId: string, status: string, notes?: string}>();
+  @Output() updateApplicationStatus = new EventEmitter<{applicationId: string, status: string, notes?: string, actionData?: ApplicationActionData}>();
   @Output() viewApplicationHistory = new EventEmitter<string>();
   @Output() pageChange = new EventEmitter<number>();
   @Output() clearFilter = new EventEmitter<void>();
 
   @ViewChild(AgGridAngular) agGrid!: AgGridAngular;
+
+  // Modal state
+  showActionModal = false;
+  selectedApplication: Application | null = null;
+  selectedActionType: 'revoke' | 'accept_offer' | 'reject_offer' = 'revoke';
 
   // AG Grid properties
   columnDefs: ColDef[] = [
@@ -166,7 +172,7 @@ export class VendorApplicationsComponent implements OnInit, OnChanges {
             statusSelect.addEventListener('change', (event) => {
               const newStatus = (event.target as HTMLSelectElement).value;
               if (newStatus) {
-                this.onStatusChange(application._id, newStatus);
+                this.onStatusChange(application._id, newStatus, application);
               }
             });
           }
@@ -272,6 +278,8 @@ export class VendorApplicationsComponent implements OnInit, OnChanges {
         return 'bg-red-100 text-red-800';
       case 'offer_created':
         return 'bg-indigo-100 text-indigo-800';
+      case 'offer_accepted':
+        return 'bg-emerald-100 text-emerald-800';
       case 'onboarded':
         return 'bg-teal-100 text-teal-800';
       case 'did_not_join':
@@ -290,23 +298,53 @@ export class VendorApplicationsComponent implements OnInit, OnChanges {
   getAvailableStatusOptions(currentStatus: string): any[] {
     const status = currentStatus?.toLowerCase();
     
-    // If status is applied, pending, shortlisted, or accepted - only show "Revoke Candidate"
-    if (['applied', 'pending', 'shortlisted', 'accepted'].includes(status)) {
+    // Vendor perspective - what actions can vendor take at each status
+    
+    // Applied - vendor can only revoke
+    if (status === 'applied') {
       return [
         { value: 'withdrawn', label: 'Revoke Candidate', color: 'bg-red-100 text-red-800' }
       ];
     }
     
-    // If status is offer_created - show "Accept Offer" or "Reject Offer"
+    // Shortlisted - vendor can only revoke
+    if (status === 'shortlisted') {
+      return [
+        { value: 'withdrawn', label: 'Revoke Candidate', color: 'bg-red-100 text-red-800' }
+      ];
+    }
+    
+    // Interview - vendor can only revoke
+    if (status === 'interview') {
+      return [
+        { value: 'withdrawn', label: 'Revoke Candidate', color: 'bg-red-100 text-red-800' }
+      ];
+    }
+    
+    // Accepted - vendor can only revoke
+    if (status === 'accepted') {
+      return [
+        { value: 'withdrawn', label: 'Revoke Candidate', color: 'bg-red-100 text-red-800' }
+      ];
+    }
+    
+    // Offer Created - vendor can accept or reject the offer
     if (status === 'offer_created') {
       return [
-        { value: 'accepted', label: 'Accept Offer', color: 'bg-green-100 text-green-800' },
+        { value: 'offer_accepted', label: 'Accept Offer', color: 'bg-green-100 text-green-800' },
         { value: 'rejected', label: 'Reject Offer', color: 'bg-red-100 text-red-800' }
       ];
     }
     
-    // If status is onboarded or did_not_join - no options
-    if (['onboarded', 'did_not_join'].includes(status)) {
+    // Offer Accepted - vendor can only revoke
+    if (status === 'offer_accepted') {
+      return [
+        { value: 'withdrawn', label: 'Revoke Candidate', color: 'bg-red-100 text-red-800' }
+      ];
+    }
+    
+    // Onboarded, did_not_join, withdrawn, rejected - no actions available
+    if (['onboarded', 'did_not_join', 'withdrawn', 'rejected'].includes(status)) {
       return [];
     }
     
@@ -318,9 +356,59 @@ export class VendorApplicationsComponent implements OnInit, OnChanges {
     return this.getAvailableStatusOptions(status).length > 0;
   }
 
-  onStatusChange(applicationId: string, newStatus: string): void {
+  onStatusChange(applicationId: string, newStatus: string, application: Application): void {
     console.log('🔧 VendorApplicationsComponent: Status change requested:', applicationId, newStatus);
-    this.updateApplicationStatus.emit({ applicationId, status: newStatus });
+    
+    // Determine action type based on new status
+    let actionType: 'revoke' | 'accept_offer' | 'reject_offer' = 'revoke';
+    
+    if (newStatus === 'offer_accepted') {
+      actionType = 'accept_offer';
+    } else if (newStatus === 'rejected') {
+      actionType = 'reject_offer';
+    } else if (newStatus === 'withdrawn') {
+      actionType = 'revoke';
+    }
+    
+    console.log('🔧 VendorApplicationsComponent: Determined actionType:', actionType);
+    
+    // Show confirmation modal
+    this.selectedApplication = application;
+    this.selectedActionType = actionType;
+    this.showActionModal = true;
+    
+    console.log('🔧 VendorApplicationsComponent: Modal state set - showActionModal:', this.showActionModal, 'selectedActionType:', this.selectedActionType);
+    
+    // Force change detection to ensure the modal appears
+    this.changeDetectorRef.detectChanges();
+    
+    // Add a small delay to ensure modal is properly initialized
+    setTimeout(() => {
+      this.changeDetectorRef.detectChanges();
+    }, 100);
+  }
+
+  onActionModalClose(): void {
+    this.showActionModal = false;
+    this.selectedApplication = null;
+    this.changeDetectorRef.detectChanges();
+  }
+
+  onActionModalConfirm(actionData: ApplicationActionData): void {
+    console.log('🔧 VendorApplicationsComponent: Action confirmed:', actionData);
+    
+    // Close modal first
+    this.showActionModal = false;
+    this.selectedApplication = null;
+    
+    // Emit the action data to parent component with enhanced data
+    this.updateApplicationStatus.emit({ 
+      applicationId: actionData.applicationId, 
+      status: actionData.status,
+      notes: actionData.decisionReason?.notes || actionData.decisionReason?.details,
+      actionData: actionData // Pass the full action data for enhanced tracking
+    });
+    
     // Force change detection to ensure the event is processed immediately
     this.changeDetectorRef.detectChanges();
   }

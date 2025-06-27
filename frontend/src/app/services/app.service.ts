@@ -24,6 +24,9 @@ export class AppService {
 
   private async loadInitialData(): Promise<void> {
     try {
+      // Add a small delay to prevent immediate retries
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       await Promise.all([
         this.loadResources(),
         this.loadRequirements(),
@@ -31,6 +34,10 @@ export class AppService {
       ]);
     } catch (error) {
       console.error('Error loading initial data:', error);
+      // Don't retry immediately for connection errors
+      if (error instanceof Error && error.message.includes('Server is not available')) {
+        console.log('AppService: Server unavailable, skipping initial data load');
+      }
     }
   }
 
@@ -46,6 +53,10 @@ export class AppService {
       }
     } catch (error) {
       console.error('Error loading resources:', error);
+      // Don't retry for connection errors
+      if (error instanceof Error && error.message.includes('Server is not available')) {
+        console.log('AppService: Server unavailable, skipping resources load');
+      }
     }
   }
 
@@ -58,6 +69,10 @@ export class AppService {
       }
     } catch (error) {
       console.error('Error loading requirements:', error);
+      // Don't retry for connection errors
+      if (error instanceof Error && error.message.includes('Server is not available')) {
+        console.log('AppService: Server unavailable, skipping requirements load');
+      }
     }
   }
 
@@ -70,6 +85,10 @@ export class AppService {
       }
     } catch (error) {
       console.error('Error loading applications:', error);
+      // Don't retry for connection errors
+      if (error instanceof Error && error.message.includes('Server is not available')) {
+        console.log('AppService: Server unavailable, skipping applications load');
+      }
     }
   }
 

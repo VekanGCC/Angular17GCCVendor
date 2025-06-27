@@ -62,7 +62,16 @@ export class AuthService {
         }
       } catch (error) {
         console.error('Auth Service: Error verifying token:', error);
-        this.clearAuthState();
+        
+        // Don't clear auth state for connection errors - user might be offline
+        if (error instanceof Error && error.message.includes('Server is not available')) {
+          console.log('Auth Service: Server unavailable, keeping cached auth state');
+          // Keep the cached user data but mark as potentially stale
+          const user = JSON.parse(userData);
+          this.currentUserSubject.next(user);
+        } else {
+          this.clearAuthState();
+        }
       }
     } else {
       console.log('Auth Service: No token or user data found');

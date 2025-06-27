@@ -261,7 +261,11 @@ const getApplication = asyncHandler(async (req, res, next) => {
 // @route   GET /api/applications/:id/history
 // @access  Private
 const getApplicationHistory = asyncHandler(async (req, res, next) => {
-  const application = await Application.findById(req.params.id);
+  const application = await Application.findById(req.params.id)
+    .populate('requirement', 'title status priority')
+    .populate('resource', 'name status category')
+    .populate('createdBy', 'firstName lastName email')
+    .populate('updatedBy', 'firstName lastName email');
 
   if (!application) {
     return next(new ErrorResponse('Application not found', 404));
@@ -272,8 +276,21 @@ const getApplicationHistory = asyncHandler(async (req, res, next) => {
     .populate('updatedBy', 'firstName lastName email')
     .sort({ createdAt: -1 });
 
+  // Add application details to the response
+  const responseData = {
+    application: {
+      _id: application._id,
+      status: application.status,
+      requirement: application.requirement,
+      resource: application.resource,
+      createdBy: application.createdBy,
+      createdAt: application.createdAt
+    },
+    history: history
+  };
+
   res.status(200).json(
-    ApiResponse.success(history, 'Application history retrieved successfully')
+    ApiResponse.success(responseData, 'Application history retrieved successfully')
   );
 });
 
@@ -372,7 +389,16 @@ const createApplication = asyncHandler(async (req, res, next) => {
 // @route   PUT /api/applications/:id/status
 // @access  Private
 const updateApplicationStatus = asyncHandler(async (req, res, next) => {
-  const { status, notes } = req.body;
+  const { 
+    status, 
+    notes, 
+    decisionReason, 
+    notifyCandidate, 
+    notifyClient, 
+    followUpRequired, 
+    followUpDate, 
+    followUpNotes 
+  } = req.body;
 
   if (!status) {
     return next(new ErrorResponse('Status is required', 400));
@@ -430,7 +456,7 @@ const updateApplicationStatus = asyncHandler(async (req, res, next) => {
     .populate('createdBy', 'firstName lastName email')
     .populate('updatedBy', 'firstName lastName email');
 
-  // Create history entry
+  // Create enhanced history entry with all decision data
   const historyData = {
     application: application._id,
     previousStatus,
@@ -439,6 +465,39 @@ const updateApplicationStatus = asyncHandler(async (req, res, next) => {
     createdBy: req.user.id,
     updatedBy: req.user.id
   };
+
+  // Add enhanced decision data if provided
+  if (decisionReason) {
+    historyData.decisionReason = {
+      category: decisionReason.category,
+      details: decisionReason.details,
+      rating: decisionReason.rating,
+      criteria: decisionReason.criteria || [],
+      notes: decisionReason.notes
+    };
+  }
+
+  // Add notification preferences
+  if (notifyCandidate !== undefined) {
+    historyData.notifyCandidate = notifyCandidate;
+  }
+
+  if (notifyClient !== undefined) {
+    historyData.notifyClient = notifyClient;
+  }
+
+  // Add follow-up data
+  if (followUpRequired !== undefined) {
+    historyData.followUpRequired = followUpRequired;
+  }
+
+  if (followUpDate) {
+    historyData.followUpDate = new Date(followUpDate);
+  }
+
+  if (followUpNotes) {
+    historyData.followUpNotes = followUpNotes;
+  }
 
   // Add organizationId for application history
   if (req.user.organizationId) {
@@ -457,6 +516,29 @@ const updateApplicationStatus = asyncHandler(async (req, res, next) => {
     relatedRequirement: requirement._id,
     actionUrl: `/applications/${application._id}`
   });
+
+  // Send notifications if requested
+  if (notifyCandidate && application.createdBy.toString() !== req.user.id) {
+    await createNotification({
+      recipient: application.createdBy,
+      type: 'application_status_change',
+      title: 'Application Status Update',
+      message: `Your application for ${requirement.title} has been ${status}${decisionReason?.notes ? `: ${decisionReason.notes}` : ''}`,
+      relatedRequirement: requirement._id,
+      actionUrl: `/applications/${application._id}`
+    });
+  }
+
+  if (notifyClient && requirement.createdBy.toString() !== req.user.id) {
+    await createNotification({
+      recipient: requirement.createdBy,
+      type: 'application_status_change',
+      title: 'Application Status Update',
+      message: `Application for ${requirement.title} has been ${status} by ${req.user.firstName} ${req.user.lastName}`,
+      relatedRequirement: requirement._id,
+      actionUrl: `/applications/${application._id}`
+    });
+  }
 
   res.status(200).json(
     ApiResponse.success(application, 'Application status updated successfully')

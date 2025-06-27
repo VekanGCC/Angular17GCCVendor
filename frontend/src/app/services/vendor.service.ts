@@ -91,11 +91,36 @@ export class VendorService {
   }
 
   // Update application status
-  updateApplicationStatus(applicationId: string, status: string, notes?: string): Observable<any> {
+  updateApplicationStatus(applicationId: string, status: string, notes?: string, actionData?: any): Observable<any> {
     const payload: any = { status };
     if (notes) {
       payload.notes = notes;
     }
+    
+    // Add enhanced decision data if provided
+    if (actionData) {
+      if (actionData.decisionReason) {
+        payload.decisionReason = actionData.decisionReason;
+      }
+      if (actionData.notifyCandidate !== undefined) {
+        payload.notifyCandidate = actionData.notifyCandidate;
+      }
+      if (actionData.notifyClient !== undefined) {
+        payload.notifyClient = actionData.notifyClient;
+      }
+      if (actionData.followUpRequired !== undefined) {
+        payload.followUpRequired = actionData.followUpRequired;
+      }
+      if (actionData.followUpDate) {
+        payload.followUpDate = actionData.followUpDate;
+      }
+      if (actionData.followUpNotes) {
+        payload.followUpNotes = actionData.followUpNotes;
+      }
+    }
+    
+    console.log('🔄 VendorService: Updating application status with enhanced data:', payload);
+    
     return this.http.put(`${environment.apiUrl}/applications/${applicationId}/status`, payload, { headers: this.getAuthHeaders() });
   }
 

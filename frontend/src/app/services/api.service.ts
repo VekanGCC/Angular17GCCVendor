@@ -8,6 +8,7 @@ import { AdminSkill } from '../models/admin.model';
 import { File, FileUploadRequest, FileUpdateRequest, FileApprovalRequest, BulkApprovalRequest, FileFilters, FileStats } from '../models/file.model';
 
 import { PaginationParams, PaginatedResponse } from '../models/pagination.model';
+import { ConnectionService } from './connection.service';
 
 @Injectable({
   providedIn: 'root'
@@ -16,7 +17,10 @@ export class ApiService {
   private apiUrl = environment.apiUrl;
   private useMockData = environment.useMockData;
 
-  constructor(private http: HttpClient) {}
+  constructor(
+    private http: HttpClient,
+    private connectionService: ConnectionService
+  ) {}
 
   private getHttpOptions() {
     const token = sessionStorage.getItem('authToken');
@@ -76,33 +80,25 @@ export class ApiService {
     return httpParams;
   }
 
-  private handleError(error: HttpErrorResponse) {
-    if (error.status === 401) {
-      // Token expired or invalid
-      console.log('API Service: 401 Unauthorized, attempting token refresh');
-      
-      // First, try to verify the current token
-      const token = sessionStorage.getItem('authToken');
-      if (token) {
-        this.verifyToken(token).subscribe({
-          next: (response) => {
-            if (!response.success) {
-              console.log('API Service: Token verification failed, clearing auth state');
-              this.clearAuthState();
-            }
-          },
-          error: (err) => {
-            console.error('API Service: Token verification error:', err);
-            this.clearAuthState();
-          }
-        });
-      } else {
-        console.log('API Service: No token found, clearing auth state');
-        this.clearAuthState();
-      }
+  private handleError = (error: HttpErrorResponse): Observable<never> => {
+    console.error('❌ API Error:', error);
+    
+    // Mark server as unavailable for connection errors
+    if (error.status === 0 || error.error?.code === 'ECONNREFUSED') {
+      console.warn('🚫 Connection refused - marking server unavailable');
+      this.connectionService.markServerUnavailable();
+      return throwError(() => new Error('Server is not available. Please check your connection.'));
     }
-    return throwError(() => error);
-  }
+    
+    // Don't retry for 4xx client errors (except 429)
+    if (error.status >= 400 && error.status < 500 && error.status !== 429) {
+      console.warn('🚫 Client error - not retrying');
+      return throwError(() => new Error(error.error?.message || 'Request failed'));
+    }
+    
+    // For other errors, allow one retry
+    return throwError(() => new Error(error.error?.message || 'An error occurred'));
+  };
 
   private clearAuthState(): void {
     console.log('API Service: Clearing authentication state');
@@ -114,6 +110,12 @@ export class ApiService {
 
   // Generic GET request
   get<T>(endpoint: string, params?: PaginationParams): Observable<T> {
+    // Check if we should attempt the request
+    if (!this.connectionService.shouldAttemptRequest()) {
+      console.log('🚫 API: Skipping GET request - server unavailable');
+      return throwError(() => new Error('Server is not available. Please check your connection.'));
+    }
+
     const options = this.getHttpOptions();
     if (params) {
       const httpParams = this.buildHttpParams(params);
@@ -121,6 +123,7 @@ export class ApiService {
     }
     return this.http.get<T>(`${this.apiUrl}${endpoint}`, options)
       .pipe(
+        tap(() => this.connectionService.markServerAvailable()),
         retry(1),
         catchError(this.handleError)
       );
@@ -128,9 +131,16 @@ export class ApiService {
 
   // Generic POST request
   post<T>(endpoint: string, data: any): Observable<T> {
+    // Check if we should attempt the request
+    if (!this.connectionService.shouldAttemptRequest()) {
+      console.log('🚫 API: Skipping POST request - server unavailable');
+      return throwError(() => new Error('Server is not available. Please check your connection.'));
+    }
+
     const options = this.getHttpOptions();
     return this.http.post<T>(`${this.apiUrl}${endpoint}`, data, options)
       .pipe(
+        tap(() => this.connectionService.markServerAvailable()),
         retry(1),
         catchError(this.handleError)
       );

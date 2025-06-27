@@ -7,7 +7,43 @@ export interface ApplicationHistoryEntry {
   previousStatus?: string;
   status: string;
   notes?: string;
+  decisionReason?: {
+    category?: string;
+    details?: string;
+    rating?: number;
+    criteria?: string[];
+    notes?: string;
+  };
+  notifyCandidate?: boolean;
+  notifyClient?: boolean;
+  followUpRequired?: boolean;
+  followUpDate?: string;
+  followUpNotes?: string;
   updatedBy: {
+    _id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+  createdAt: string;
+}
+
+export interface ApplicationDetails {
+  _id: string;
+  status: string;
+  requirement?: {
+    _id: string;
+    title: string;
+    status: string;
+    priority: string;
+  };
+  resource?: {
+    _id: string;
+    name: string;
+    status: string;
+    category: string;
+  };
+  createdBy?: {
     _id: string;
     firstName: string;
     lastName: string;
@@ -49,16 +85,58 @@ export interface ApplicationHistoryEntry {
     .modal-header {
       display: flex;
       justify-content: space-between;
-      align-items: center;
+      align-items: flex-start;
       padding: 20px;
       border-bottom: 1px solid #e5e7eb;
     }
 
+    .header-content {
+      flex: 1;
+      margin-right: 16px;
+    }
+
     .modal-title {
-      margin: 0;
+      margin: 0 0 12px 0;
       font-size: 1.25rem;
       font-weight: 600;
       color: #111827;
+    }
+
+    .application-details {
+      background-color: #f9fafb;
+      border-radius: 6px;
+      padding: 12px;
+      border: 1px solid #e5e7eb;
+    }
+
+    .detail-row {
+      display: flex;
+      gap: 24px;
+      margin-bottom: 8px;
+    }
+
+    .detail-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .detail-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .detail-label {
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .detail-value {
+      font-size: 0.875rem;
+      color: #111827;
+      font-weight: 500;
     }
 
     .close-button {
@@ -170,6 +248,14 @@ export interface ApplicationHistoryEntry {
       text-transform: uppercase;
     }
 
+    .status-change-indicator {
+      display: flex;
+      align-items: center;
+      color: #6b7280;
+      font-size: 0.75rem;
+      margin-left: 8px;
+    }
+
     .status-pending {
       background-color: #fef3c7;
       color: #92400e;
@@ -203,26 +289,125 @@ export interface ApplicationHistoryEntry {
     .history-content {
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 16px;
+    }
+
+    .history-section {
+      border-top: 1px solid #e5e7eb;
+      padding-top: 12px;
+    }
+
+    .section-title {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #374151;
+      margin: 0 0 8px 0;
     }
 
     .history-field {
+      margin-bottom: 8px;
+    }
+
+    .field-label {
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 2px;
+      display: block;
+    }
+
+    .field-value {
+      font-size: 0.875rem;
+      color: #111827;
+      margin: 0;
+      line-height: 1.4;
+    }
+
+    .rating-display {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .stars {
+      display: flex;
+      gap: 2px;
+    }
+
+    .star-filled {
+      color: #fbbf24;
+      font-size: 1rem;
+    }
+
+    .star-empty {
+      color: #d1d5db;
+      font-size: 1rem;
+    }
+
+    .rating-text {
+      font-size: 0.875rem;
+      color: #6b7280;
+      font-weight: 500;
+    }
+
+    .criteria-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+
+    .criteria-tag {
+      background-color: #e5e7eb;
+      color: #374151;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+
+    .notification-status {
       display: flex;
       flex-direction: column;
       gap: 4px;
     }
 
-    .field-label {
-      font-size: 0.875rem;
-      font-weight: 500;
-      color: #374151;
+    .notification-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 4px 0;
     }
 
-    .field-value {
-      margin: 0;
+    .notification-label {
       font-size: 0.875rem;
+      color: #374151;
+      font-weight: 500;
+    }
+
+    .notification-sent {
+      color: #059669;
+      font-weight: 500;
+      font-size: 0.875rem;
+    }
+
+    .notification-not-sent {
       color: #6b7280;
-      line-height: 1.4;
+      font-weight: 500;
+      font-size: 0.875rem;
+    }
+
+    .follow-up-required {
+      color: #dc2626;
+      font-weight: 500;
+      font-size: 0.875rem;
+    }
+
+    .follow-up-not-required {
+      color: #059669;
+      font-weight: 500;
+      font-size: 0.875rem;
     }
 
     .btn {
@@ -256,6 +441,7 @@ export class ApplicationHistoryModalComponent implements OnInit, OnChanges, OnDe
   @Input() isVisible: boolean = false;
   @Input() isLoading: boolean = false;
   @Input() history: ApplicationHistoryEntry[] = [];
+  @Input() applicationDetails?: ApplicationDetails;
   @Output() close = new EventEmitter<void>();
 
   constructor(private cdr: ChangeDetectorRef) {}
@@ -315,11 +501,42 @@ export class ApplicationHistoryModalComponent implements OnInit, OnChanges, OnDe
   }
 
   formatStatus(status: string): string {
-    return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    return status?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Unknown';
+  }
+
+  formatDecisionCategory(category: string): string {
+    const categoryMap: { [key: string]: string } = {
+      'technical_skills': 'Technical Skills',
+      'experience': 'Experience',
+      'rate': 'Rate',
+      'availability': 'Availability',
+      'cultural_fit': 'Cultural Fit',
+      'timeline': 'Timeline',
+      'better_opportunity': 'Better Opportunity',
+      'resource_unavailable': 'Resource Unavailable',
+      'other': 'Other'
+    };
+    return categoryMap[category] || category.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  }
+
+  formatDecisionCriteria(criterion: string): string {
+    const criteriaMap: { [key: string]: string } = {
+      'technical_skills': 'Technical Skills',
+      'experience_level': 'Experience Level',
+      'rate_alignment': 'Rate Alignment',
+      'availability': 'Availability',
+      'cultural_fit': 'Cultural Fit',
+      'communication': 'Communication',
+      'portfolio': 'Portfolio',
+      'references': 'References',
+      'certifications': 'Certifications',
+      'other': 'Other'
+    };
+    return criteriaMap[criterion] || criterion.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   }
 
   trackByHistoryItem(index: number, item: any): any {
-    return item._id || `history-${index}`;
+    return item._id || index;
   }
 
   closeModal(): void {

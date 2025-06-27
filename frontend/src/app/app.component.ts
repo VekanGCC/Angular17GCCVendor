@@ -3,11 +3,12 @@ import { CommonModule } from '@angular/common';
 import { RouterOutlet, Router } from '@angular/router';
 import { AuthService } from './services/auth.service';
 import { User } from './models/user.model';
+import { OfflineIndicatorComponent } from './components/offline-indicator/offline-indicator.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, RouterOutlet],
+  imports: [CommonModule, RouterOutlet, OfflineIndicatorComponent],
   templateUrl: './app.component.html'
 })
 export class AppComponent {
@@ -53,24 +54,37 @@ export class AppComponent {
   }
 
   private navigateBasedOnRole(user: User): void {
-    console.log('App C omponent: Navigating based on userType:', user.userType);
-        
-    switch (user.userType) {
-      case 'admin':
-        console.log('App Component: Navigating to admin dashboard');
-        this.router.navigate(['/admin']);
-        break;
-      case 'vendor':
-        console.log('App Component: Navigating to vendor dashboard');
-        this.router.navigate(['/vendor']);
-        break;
-      case 'client':
-        console.log('App Component: Navigating to client dashboard');
-        this.router.navigate(['/client']);
-        break;
-      default:
-        console.log('App Component: Unknown user type, navigating to home');
-        this.router.navigate(['/']);
+    console.log('App Component: Navigating based on userType:', user.userType);
+    
+    // Add error handling for navigation
+    try {
+      switch (user.userType) {
+        case 'admin':
+          console.log('App Component: Navigating to admin dashboard');
+          this.router.navigate(['/admin']).catch(err => {
+            console.error('App Component: Navigation error to admin:', err);
+          });
+          break;
+        case 'vendor':
+          console.log('App Component: Navigating to vendor dashboard');
+          this.router.navigate(['/vendor']).catch(err => {
+            console.error('App Component: Navigation error to vendor:', err);
+          });
+          break;
+        case 'client':
+          console.log('App Component: Navigating to client dashboard');
+          this.router.navigate(['/client']).catch(err => {
+            console.error('App Component: Navigation error to client:', err);
+          });
+          break;
+        default:
+          console.log('App Component: Unknown user type, navigating to home');
+          this.router.navigate(['/']).catch(err => {
+            console.error('App Component: Navigation error to home:', err);
+          });
+      }
+    } catch (error) {
+      console.error('App Component: Error during navigation:', error);
     }
   }
 }

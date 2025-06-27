@@ -82,6 +82,7 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
   selectedApplicationId: string = '';
   isLoadingHistory = false;
   applicationHistory: any[] = [];
+  applicationDetails: any = null;
   activeTab: 'overview' | 'requirements' | 'resources' | 'applications' | 'profile' | 'user-management' | 'skill-management' = 'overview';
   showVendorManagementDropdown = false;
   showMobileMenu = false;
@@ -930,7 +931,7 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
   }
 
   // Application status management for vendors
-  handleUpdateApplicationStatus(data: {applicationId: string, status: string, notes?: string}): void {
+  handleUpdateApplicationStatus(data: {applicationId: string, status: string, notes?: string, actionData?: any}): void {
     console.log('🔄 VendorDashboard: Updating application status:', data);
     
     // Ensure we stay on applications tab
@@ -957,8 +958,8 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
       this.changeDetectorRef.detectChanges();
     }
 
-    // Make API call to update status
-    this.vendorService.updateApplicationStatus(data.applicationId, data.status, data.notes).subscribe({
+    // Make API call to update status with enhanced data
+    this.vendorService.updateApplicationStatus(data.applicationId, data.status, data.notes, data.actionData).subscribe({
       next: (response) => {
         console.log('✅ VendorDashboard: Application status updated successfully:', response);
         // Don't call loadVendorApplications() to avoid tab change
@@ -1005,19 +1006,35 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
   private loadApplicationHistory(applicationId: string): void {
     this.vendorService.getApplicationHistory(applicationId).subscribe({
       next: (response: any) => {
+        console.log('🔧 VendorDashboard: Application history response:', response);
+        
         // Handle different response structures
         let historyData = [];
+        let applicationData = null;
         
         if (response && typeof response === 'object') {
           // If response has a data property
-          if (response.data && Array.isArray(response.data)) {
-            historyData = response.data;
+          if (response.data) {
+            // Check if data contains both application and history
+            if (response.data.application && response.data.history) {
+              applicationData = response.data.application;
+              historyData = response.data.history;
+            }
+            // If data is directly an array (old format)
+            else if (Array.isArray(response.data)) {
+              historyData = response.data;
+            }
           }
           // If response has a success property and data
-          else if (response.success && response.data && Array.isArray(response.data)) {
-            historyData = response.data;
+          else if (response.success && response.data) {
+            if (response.data.application && response.data.history) {
+              applicationData = response.data.application;
+              historyData = response.data.history;
+            } else if (Array.isArray(response.data)) {
+              historyData = response.data;
+            }
           }
-          // If response is directly an array
+          // If response is directly an array (fallback)
           else if (Array.isArray(response)) {
             historyData = response;
           }
@@ -1033,16 +1050,22 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
           }
         }
         
+        console.log('🔧 VendorDashboard: Processed history data:', historyData);
+        console.log('🔧 VendorDashboard: Application data:', applicationData);
+        
         // Update the data immediately
         this.applicationHistory = historyData;
+        this.applicationDetails = applicationData;
         this.isLoadingHistory = false;
         
         // Force change detection to ensure UI updates immediately
         this.changeDetectorRef.detectChanges();
       },
       error: (error: any) => {
+        console.error('🔧 VendorDashboard: Error loading application history:', error);
         // Update the data immediately on error
         this.applicationHistory = [];
+        this.applicationDetails = null;
         this.isLoadingHistory = false;
         
         // Force change detection to ensure UI updates immediately
@@ -1055,6 +1078,7 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
     this.showHistoryModal = false;
     this.selectedApplicationId = '';
     this.applicationHistory = [];
+    this.applicationDetails = null;
     this.isLoadingHistory = false;
     this.changeDetectorRef.detectChanges();
   }
