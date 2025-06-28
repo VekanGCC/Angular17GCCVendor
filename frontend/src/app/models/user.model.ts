@@ -24,7 +24,7 @@ export interface User {
   };
   // Organization fields (for vendor and client users)
   organizationId?: string;
-  organizationRole?: 'vendor_owner' | 'vendor_employee' | 'client_owner' | 'client_employee';
+  organizationRole?: 'vendor_owner' | 'vendor_employee' | 'vendor_account' | 'client_owner' | 'client_employee' | 'client_account';
   createdAt: string;
   updatedAt: string;
   rejectionReason?: string;

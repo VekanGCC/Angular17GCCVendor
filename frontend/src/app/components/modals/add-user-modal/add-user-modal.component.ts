@@ -23,6 +23,9 @@ export class AddUserModalComponent {
   errorMessage = '';
   successMessage = '';
 
+  // Role options based on user type
+  roleOptions: { value: string; label: string; description: string }[] = [];
+
   constructor(
     private fb: FormBuilder,
     private authService: AuthService,
@@ -35,8 +38,53 @@ export class AddUserModalComponent {
       email: ['', [Validators.required, Validators.email]],
       phone: ['', [Validators.required, Validators.pattern(/^\+?[\d\s-()]+$/)]],
       password: ['', [Validators.required, Validators.minLength(6)]],
-      confirmPassword: ['', [Validators.required]]
+      confirmPassword: ['', [Validators.required]],
+      organizationRole: ['', [Validators.required]]
     }, { validators: this.passwordMatchValidator });
+
+    this.updateRoleOptions();
+  }
+
+  // Update role options when userType changes
+  ngOnChanges(): void {
+    this.updateRoleOptions();
+  }
+
+  private updateRoleOptions(): void {
+    if (this.userType === 'client') {
+      this.roleOptions = [
+        { 
+          value: 'client_employee', 
+          label: 'Employee', 
+          description: 'Can view requirements and resources, manage applications' 
+        },
+        { 
+          value: 'client_account', 
+          label: 'Account Manager', 
+          description: 'Can manage SOWs, POs, and invoices. No access to requirements/resources' 
+        }
+      ];
+    } else {
+      this.roleOptions = [
+        { 
+          value: 'vendor_employee', 
+          label: 'Employee', 
+          description: 'Can view requirements and manage resources, applications' 
+        },
+        { 
+          value: 'vendor_account', 
+          label: 'Account Manager', 
+          description: 'Can manage POs and invoices. No access to requirements/resources' 
+        }
+      ];
+    }
+
+    // Set default role
+    if (this.userForm) {
+      this.userForm.patchValue({
+        organizationRole: this.roleOptions[0]?.value || ''
+      });
+    }
   }
 
   // Custom validator to check if passwords match
@@ -113,5 +161,12 @@ export class AddUserModalComponent {
 
   onClose(): void {
     this.close.emit();
+  }
+
+  // Helper method for template
+  getRoleDescription(): string {
+    const selectedRole = this.userForm.get('organizationRole')?.value;
+    const role = this.roleOptions.find(r => r.value === selectedRole);
+    return role?.description || 'Select a role to see description';
   }
 }

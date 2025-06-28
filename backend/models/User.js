@@ -78,7 +78,7 @@ const userSchema = new mongoose.Schema({
   },
   organizationRole: {
     type: String,
-    enum: ['vendor_owner', 'vendor_employee', 'client_owner', 'client_employee'],
+    enum: ['vendor_owner', 'vendor_employee', 'vendor_account', 'client_owner', 'client_employee', 'client_account'],
     required: false // Required for vendor and client users with organizations
   },
   

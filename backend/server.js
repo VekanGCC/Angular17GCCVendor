@@ -83,6 +83,7 @@ app.use('/api/client/bookings', require('./routes/clientBookings'));
 app.use('/api/client/services', require('./routes/clientServices'));
 app.use('/api/client/reviews', require('./routes/clientReviews'));
 app.use('/api/client/settings', require('./routes/clientSettings'));
+app.use('/api/client/sow', require('./routes/sow'));
 
 // Vendor dashboard routes
 app.use('/api/vendor/dashboard', require('./routes/vendorDashboard'));
@@ -93,6 +94,7 @@ app.use('/api/vendor/analytics', require('./routes/vendorAnalytics'));
 app.use('/api/vendor/payments', require('./routes/vendorPayments'));
 app.use('/api/vendor/settings', require('./routes/vendorSettings'));
 app.use('/api/vendor/organization', require('./routes/vendorOrganization'));
+app.use('/api/vendor/sow', require('./routes/sow'));
 
 // Resource management routes
 app.use('/api/resources', require('./routes/resources'));

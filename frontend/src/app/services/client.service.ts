@@ -130,6 +130,7 @@ export class ClientService {
     lastName: string;
     phone: string;
     password: string;
+    organizationRole?: string;
   }): Observable<any> {
     return this.http.post(`${this.apiUrl}/organization/users`, userData);
   }

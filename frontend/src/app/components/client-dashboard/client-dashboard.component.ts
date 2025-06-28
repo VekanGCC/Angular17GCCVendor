@@ -32,6 +32,8 @@ import { AddSkillModalComponent } from '../modals/add-skill-modal/add-skill-moda
 import { PaginationComponent } from '../pagination/pagination.component';
 import { ApplyResourcesPageComponent } from './apply-resources-page/apply-resources-page.component';
 import { MatchingResourcesComponent } from './matching-resources/matching-resources.component';
+import { SOWManagementComponent } from './sow-management/sow-management.component';
+import { POManagementComponent } from './po-management/po-management.component';
 
 @Component({
   selector: 'app-client-dashboard',
@@ -56,7 +58,9 @@ import { MatchingResourcesComponent } from './matching-resources/matching-resour
     AddSkillModalComponent,
     PaginationComponent,
     ApplyResourcesPageComponent,
-    MatchingResourcesComponent
+    MatchingResourcesComponent,
+    SOWManagementComponent,
+    POManagementComponent
   ],
   templateUrl: './client-dashboard.component.html',
   styleUrls: ['./client-dashboard.component.css']
@@ -70,7 +74,7 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
   clientRequirements: Requirement[] = [];
   clientApplications: Application[] = [];
   organizationUsers: User[] = [];
-  activeTab: 'overview' | 'requirements' | 'resources' | 'applications' | 'profile' | 'user-management' | 'apply-resources' | 'matching-resources' = 'overview';
+  activeTab: 'overview' | 'requirements' | 'resources' | 'applications' | 'profile' | 'user-management' | 'apply-resources' | 'matching-resources' | 'sow-management' | 'po-management' = 'overview';
   showRequirementModal = false;
   showCloseRequirementModal = false;
   showEditRequirementModal = false;
@@ -527,7 +531,7 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
     this.stats[3].value = this.clientApplications.filter(a => a.status === 'accepted').length;
   }
 
-  setActiveTab(tab: 'overview' | 'requirements' | 'resources' | 'applications' | 'profile' | 'user-management' | 'apply-resources' | 'matching-resources'): void {
+  setActiveTab(tab: 'overview' | 'requirements' | 'resources' | 'applications' | 'profile' | 'user-management' | 'apply-resources' | 'matching-resources' | 'sow-management' | 'po-management'): void {
     console.log('Setting active tab to:', tab);
     this.activeTab = tab;
     this.updateUrlFragment(tab);
@@ -883,12 +887,21 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
       { id: 'requirements', label: 'My Requirements', icon: 'briefcase.svg' },
       { id: 'resources', label: 'Browse Resources', icon: 'users.svg' },
       { id: 'applications', label: 'Applications', icon: 'trending-up.svg' },
+      { id: 'sow-management', label: 'SOW Management', icon: 'file-text.svg' },
+      { id: 'po-management', label: 'PO Management', icon: 'shopping-cart.svg' },
       { id: 'user-management', label: 'User Management', icon: 'user-plus.svg' },
       { id: 'profile', label: 'Profile', icon: 'user.svg' }
     ];
 
-    // If user is client_employee, hide user management
+    // If user is client_employee, hide user management and SOW/PO management
     if (this.currentUser?.organizationRole === 'client_employee') {
+      return allMenuItems.filter(item => 
+        !['user-management', 'sow-management', 'po-management'].includes(item.id)
+      );
+    }
+
+    // If user is client_account, show SOW and PO management but hide user management
+    if (this.currentUser?.organizationRole === 'client_account') {
       return allMenuItems.filter(item => item.id !== 'user-management');
     }
 

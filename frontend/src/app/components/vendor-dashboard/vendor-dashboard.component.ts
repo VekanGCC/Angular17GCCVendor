@@ -33,6 +33,9 @@ import { PaginationState, PaginationParams } from '../../models/pagination.model
 import { PaginationComponent } from '../pagination/pagination.component';
 import { BrowseRequirementsPageComponent } from './browse-requirements-page/browse-requirements-page.component';
 import { MatchingRequirementsComponent } from './matching-requirements/matching-requirements.component';
+import { InvoiceManagementComponent } from './invoice-management/invoice-management.component';
+import { SOWApprovalsComponent } from './sow-approvals/sow-approvals.component';
+import { POApprovalsComponent } from './po-approvals/po-approvals.component';
 
 @Component({
   selector: 'app-vendor-dashboard',
@@ -56,7 +59,10 @@ import { MatchingRequirementsComponent } from './matching-requirements/matching-
     ApplicationDetailsModalComponent,
     PaginationComponent,
     BrowseRequirementsPageComponent,
-    MatchingRequirementsComponent
+    MatchingRequirementsComponent,
+    InvoiceManagementComponent,
+    SOWApprovalsComponent,
+    POApprovalsComponent
   ],
   templateUrl: './vendor-dashboard.component.html',
   styleUrls: ['./vendor-dashboard.component.css']
@@ -83,9 +89,13 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
   isLoadingHistory = false;
   applicationHistory: any[] = [];
   applicationDetails: any = null;
-  activeTab: 'overview' | 'requirements' | 'resources' | 'applications' | 'profile' | 'user-management' | 'skill-management' = 'overview';
+  activeTab: 'overview' | 'requirements' | 'resources' | 'applications' | 'profile' | 'user-management' | 'skill-management' | 'invoice-management' | 'sow-approvals' | 'po-approvals' = 'overview';
   showVendorManagementDropdown = false;
   showMobileMenu = false;
+
+  // Finance Management menu state
+  showFinanceManagementSubmenu = false;
+  activeFinanceSubmenu: 'sow-approval' | 'po-approval' | 'invoices' | null = null;
 
   vendorResources: Resource[] = [];
   vendorApplications: Application[] = [];
@@ -192,120 +202,24 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
     
     // Check authentication state immediately
     const user = this.authService.getCurrentUser();
-    if (!user) {
-      console.log('Vendor Dashboard: No user found, redirecting to login');
-      this.router.navigate(['/login']);
-      return;
-    }
-
-    // Check if user is vendor
-    if (user.userType !== 'vendor') {
-      console.log('Vendor Dashboard: User is not vendor, redirecting to home');
-      this.router.navigate(['/']);
-      return;
-    }
-
-    // Set current user and load data
-    this.currentUser = user;
-    await this.loadVendorData();
-
-    // Check for profile fragment in URL
-    const fragment = this.router.url.split('#')[1];
-    if (fragment === 'profile') {
-      this.activeTab = 'profile';
+    if (user) {
+      this.currentUser = user;
+      console.log('🔄 VendorDashboard: Current user:', user);
     }
 
     // Subscribe to user changes
     this.subscriptions.push(
       this.authService.user$.subscribe(user => {
-        console.log('Vendor Dashboard: User state changed:', user);
-        if (!user) {
-          console.log('Vendor Dashboard: User logged out, redirecting to login');
-          this.router.navigate(['/login']);
-          return;
-        }
-        if (user.userType !== 'vendor') {
-          console.log('Vendor Dashboard: User is not vendor, redirecting to home');
-          this.router.navigate(['/']);
-          return;
-        }
         this.currentUser = user;
-      })
-    );
-
-    // Subscribe to loading state
-    this.authService.loading$.subscribe(isLoading => {
-      this.isLoading = isLoading;
-    });
-
-    // Subscribe to resources
-    this.subscriptions.push(
-      this.appService.resources$.subscribe(resources => {
-        console.log('📦 VendorDashboard: Resources updated:', resources?.length || 0);
-        this.resources = resources || [];
-        this.updateData();
-      })
-    );
-
-    // Subscribe to requirements
-    this.subscriptions.push(
-      this.appService.requirements$.subscribe(requirements => {
-        console.log('📋 VendorDashboard: Requirements updated:', requirements?.length || 0);
-        this.requirements = requirements || [];
-        this.updateData();
-      })
-    );
-
-    // Subscribe to applications
-    this.subscriptions.push(
-      this.appService.applications$.subscribe(applications => {
-        console.log('📊 VendorDashboard: Applications updated:', applications?.length || 0);
-        this.applications = applications || [];
-        this.updateData();
-      })
-    );
-
-    // Subscribe to vendor users
-    this.subscriptions.push(
-      this.vendorManagementService.vendorUsers$.subscribe(users => {
-        console.log('👥 VendorDashboard: Vendor users updated:', users?.length || 0);
-        this.vendorUsers = users || [];
-        this.updateData();
-      })
-    );
-
-    // Subscribe to vendor skills
-    this.subscriptions.push(
-      this.vendorManagementService.vendorSkills$.subscribe(skills => {
-        console.log('🎯 VendorDashboard: Vendor skills updated:', skills?.length || 0);
-        this.vendorSkills = skills || [];
-        this.updateData();
-      })
-    );
-
-    // Close dropdown when clicking outside
-    document.addEventListener('click', (event) => {
-      const target = event.target as HTMLElement;
-      if (!target.closest('.vendor-management-dropdown')) {
-        this.showVendorManagementDropdown = false;
-      }
-    });
-
-    // Subscribe to route changes
-    this.subscriptions.push(
-      this.router.events.pipe(
-        filter((event) => event instanceof NavigationEnd)
-      ).subscribe(() => {
-        console.log('🔄 VendorDashboard: Route changed to:', this.router.url);
-        // Check for profile fragment in URL
-        const fragment = this.router.url.split('#')[1];
-        console.log('🔄 VendorDashboard: URL fragment:', fragment);
-        if (fragment === 'profile') {
-          console.log('🔄 VendorDashboard: Setting activeTab to profile from URL fragment');
-          this.activeTab = 'profile';
+        if (user) {
+          console.log('🔄 VendorDashboard: User updated:', user);
+          this.loadVendorData();
         }
       })
     );
+
+    // Load initial data
+    await this.loadVendorData();
   }
 
   ngOnDestroy(): void {
@@ -701,40 +615,75 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
   }
 
   setActiveTab(tabId: string): void {
-    console.log('🔄 VendorDashboard: setActiveTab method called with tabId:', tabId);
-    console.log('🔄 VendorDashboard: Setting active tab to:', tabId);
-    console.log('🔄 VendorDashboard: Current activeTab before change:', this.activeTab);
+    console.log('🔧 VendorDashboard: Setting active tab to:', tabId);
     
-    this.activeTab = tabId as 'overview' | 'requirements' | 'resources' | 'applications' | 'profile' | 'user-management' | 'skill-management';
-    
-    console.log('🔄 VendorDashboard: New activeTab after change:', this.activeTab);
-    console.log('🔄 VendorDashboard: Is profile tab?', tabId === 'profile');
-    
-    this.showVendorManagementDropdown = false;
-    
-    // 🔴 Reset page states when switching tabs
-    if (tabId === 'resources') {
-      // Reset matching requirements page state when switching to resources tab
-      this.showMatchingRequirementsPage = false;
-      this.selectedResourceId = '';
-      console.log('🔄 VendorDashboard: Reset matching requirements page state for resources tab');
-    } else if (tabId === 'requirements') {
-      // Reset browse requirements page state when switching to requirements tab
-      this.showBrowseRequirementsPage = false;
-      this.selectedRequirementId = '';
-      console.log('🔄 VendorDashboard: Reset browse requirements page state for requirements tab');
+    // Handle Finance Management submenu navigation
+    if (tabId === 'finance-management') {
+      this.showFinanceManagementSubmenu = !this.showFinanceManagementSubmenu;
+      if (!this.showFinanceManagementSubmenu) {
+        this.activeFinanceSubmenu = null;
+      }
+      return;
     }
     
-    // Reload data when specific tabs are selected
-    if (tabId === 'applications') {
-      this.loadVendorApplications();
-    } else if (tabId === 'requirements') {
-      this.loadVendorRequirementsWithFiltersAndSort(1, this.requirementsSortBy, this.requirementsSortOrder, this.requirementsSearchParams);
-    } else if (tabId === 'resources') {
-      this.loadVendorResources();
-    } else if (tabId === 'user-management') {
-      this.loadVendorUsers();
+    // Handle Finance submenu items
+    if (['sow-approval', 'po-approval', 'invoices'].includes(tabId)) {
+      this.activeFinanceSubmenu = tabId as 'sow-approval' | 'po-approval' | 'invoices';
+      this.showFinanceManagementSubmenu = true;
+      
+      // Map submenu items to existing tabs
+      const tabMapping: { [key: string]: string } = {
+        'sow-approval': 'sow-approvals',
+        'po-approval': 'po-approvals',
+        'invoices': 'invoice-management'
+      };
+      
+      this.activeTab = tabMapping[tabId] as any;
+      return;
     }
+    
+    // Handle regular tabs
+    this.activeTab = tabId as any;
+    this.showFinanceManagementSubmenu = false;
+    this.activeFinanceSubmenu = null;
+    
+    // Reset page-specific states
+    this.showBrowseRequirementsPage = false;
+    this.showMatchingRequirementsPage = false;
+    this.selectedRequirementId = '';
+    this.selectedResourceId = '';
+    
+    this.changeDetectorRef.detectChanges();
+  }
+
+  // Toggle Finance Management submenu
+  toggleFinanceManagementSubmenu(): void {
+    this.showFinanceManagementSubmenu = !this.showFinanceManagementSubmenu;
+    if (!this.showFinanceManagementSubmenu) {
+      this.activeFinanceSubmenu = null;
+    }
+    this.changeDetectorRef.detectChanges();
+  }
+
+  // Navigate to Finance submenu item
+  navigateToFinanceSubmenu(submenuId: string): void {
+    this.activeFinanceSubmenu = submenuId as 'sow-approval' | 'po-approval' | 'invoices';
+    this.showFinanceManagementSubmenu = true;
+    
+    // Map submenu items to existing tabs
+    const tabMapping: { [key: string]: string } = {
+      'sow-approval': 'sow-approvals',
+      'po-approval': 'po-approvals',
+      'invoices': 'invoice-management'
+    };
+    
+    this.activeTab = tabMapping[submenuId] as any;
+    this.changeDetectorRef.detectChanges();
+  }
+
+  // Check if current route is a finance route (not needed for tab-based navigation)
+  isFinanceRoute(): boolean {
+    return false; // We're using tab-based navigation, not routing
   }
 
   toggleVendorManagementDropdown(): void {
@@ -1216,14 +1165,36 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
       { id: 'requirements', label: 'Browse Requirements', icon: 'briefcase.svg' },
       { id: 'resources', label: 'My Resources', icon: 'users.svg' },
       { id: 'applications', label: 'Vendor Applications', icon: 'trending-up.svg' },
+      { 
+        id: 'finance-management', 
+        label: 'Finance Management', 
+        icon: 'dollar-sign.svg', 
+        hasSubmenu: true,
+        submenu: [
+          { id: 'sow-approval', label: 'SOW Approval', route: '/finance/sow-approval' },
+          { id: 'po-approval', label: 'PO Approval', route: '/finance/po-acceptance' },
+          { id: 'invoices', label: 'Invoice Management', route: '/finance/invoices' }
+        ],
+        roles: ['vendor_account', 'vendor_owner']
+      },
       { id: 'skill-management', label: 'Skills Management', icon: 'settings.svg' },
       { id: 'user-management', label: 'User Management', icon: 'user-plus.svg' },
       { id: 'profile', label: 'Profile', icon: 'user.svg' }
     ];
 
-    // If user is vendor_employee, hide user management
+    // If user is vendor_employee, hide user management, finance management, and approval items
     if (this.currentUser?.organizationRole === 'vendor_employee') {
-      return allMenuItems.filter(item => item.id !== 'user-management');
+      return allMenuItems.filter(item => 
+        !['user-management', 'finance-management'].includes(item.id)
+      );
+    }
+
+    // If user is vendor_account, show finance management but hide user management
+    if (this.currentUser?.organizationRole === 'vendor_account') {
+      return allMenuItems.filter(item => 
+        item.id !== 'user-management' && 
+        (!item.roles || item.roles.includes('vendor_account'))
+      );
     }
 
     // If user is vendor_owner, show all items

@@ -202,7 +202,14 @@ export class VendorService {
   }
 
   // Add employee to organization
-  addEmployee(data: any): Observable<any> {
+  addEmployee(data: {
+    email: string;
+    password: string;
+    firstName: string;
+    lastName: string;
+    phone: string;
+    organizationRole?: string;
+  }): Observable<any> {
     return this.http.post(`${environment.apiUrl}/vendor/organization/add-employee`, data, { headers: this.getAuthHeaders() });
   }
 

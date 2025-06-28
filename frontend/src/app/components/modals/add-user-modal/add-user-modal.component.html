@@ -89,6 +89,32 @@
           </div>
         </div>
 
+        <!-- Role Selection -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">
+            Role *
+          </label>
+          <select
+            formControlName="organizationRole"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            required>
+            <option value="" disabled>Select a role</option>
+            <option *ngFor="let role of roleOptions" [value]="role.value">
+              {{ role.label }}
+            </option>
+          </select>
+          <div *ngIf="userForm.get('organizationRole')?.invalid && userForm.get('organizationRole')?.touched" class="text-red-500 text-sm mt-1">
+            <span *ngIf="userForm.get('organizationRole')?.errors?.['required']">Role is required</span>
+          </div>
+          <!-- Role description -->
+          <div class="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <p class="text-sm text-blue-800">
+              <strong>Role Description:</strong> 
+              {{ getRoleDescription() }}
+            </p>
+          </div>
+        </div>
+
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-2">
             Password *

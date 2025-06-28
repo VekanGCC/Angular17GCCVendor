@@ -148,6 +148,16 @@
           (navigateBack)="navigateBackToRequirements()"
           (onApplyResource)="onApplyResourceFromMatching($event)">
         </app-matching-resources>
+
+        <!-- SOW Management Tab -->
+        <app-sow-management 
+          *ngIf="activeTab === 'sow-management'">
+        </app-sow-management>
+
+        <!-- PO Management Tab -->
+        <app-po-management 
+          *ngIf="activeTab === 'po-management'">
+        </app-po-management>
         
         <!-- Profile Tab -->
         <app-profile-dashboard 

@@ -8,7 +8,7 @@ const ErrorResponse = require('../utils/errorResponse');
 // @route   POST /api/vendor/organization/add-employee
 // @access  Private (vendor_owner only)
 const addEmployee = asyncHandler(async (req, res, next) => {
-  const { email, password, firstName, lastName, phone } = req.body;
+  const { email, password, firstName, lastName, phone, organizationRole } = req.body;
 
   // Check if current user is a vendor owner
   if (req.user.userType !== 'vendor' || !req.user.organizationId) {
@@ -35,6 +35,15 @@ const addEmployee = asyncHandler(async (req, res, next) => {
     return next(new ErrorResponse('User with this email already exists', 400));
   }
 
+  // Validate organization role
+  const validRoles = ['vendor_employee', 'vendor_account'];
+  if (organizationRole && !validRoles.includes(organizationRole)) {
+    return next(new ErrorResponse('Invalid organization role', 400));
+  }
+
+  // Set default role if not provided
+  const userRole = organizationRole || 'vendor_employee';
+
   // Create new employee user
   const employee = await User.create({
     email,
@@ -44,7 +53,7 @@ const addEmployee = asyncHandler(async (req, res, next) => {
     phone,
     userType: 'vendor',
     organizationId: req.user.organizationId,
-    organizationRole: 'vendor_employee',
+    organizationRole: userRole,
     companyName: organization.name, // Use organization name
     contactPerson: `${firstName} ${lastName}`,
     gstNumber: 'N/A', // Employee doesn't need GST
@@ -78,6 +87,7 @@ const addEmployee = asyncHandler(async (req, res, next) => {
         email: employee.email,
         firstName: employee.firstName,
         lastName: employee.lastName,
+        organizationRole: employee.organizationRole,
         isActive: employee.isActive,
         isEmailVerified: employee.isEmailVerified
       },

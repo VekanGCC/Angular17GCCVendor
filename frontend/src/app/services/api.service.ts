@@ -227,6 +227,12 @@ export class ApiService {
     return this.get<ApiResponse<any[]>>('/categories/active');
   }
 
+  // Get vendors for dropdowns
+  getVendors(): Observable<ApiResponse<any[]>> {
+    console.log('🏢 API: Fetching vendors from:', `${this.apiUrl}/vendors`);
+    return this.get<ApiResponse<any[]>>('/vendors');
+  }
+
   // Vendor Niche Skills
   getVendorSkills(): Observable<any> {
     console.log('🎯 API: Fetching vendor niche skills...');
