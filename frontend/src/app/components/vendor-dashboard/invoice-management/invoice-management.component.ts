@@ -299,8 +299,15 @@ export class InvoiceManagementComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (response: any) => {
-          this.invoices = response.data || [];
-          this.totalInvoices = response.total || 0;
+          // Handle new API response structure
+          if (response.data && response.data.docs) {
+            this.invoices = response.data.docs || [];
+            this.totalInvoices = response.data.totalDocs || 0;
+          } else {
+            // Fallback to old structure
+            this.invoices = response.data || [];
+            this.totalInvoices = response.total || 0;
+          }
           
           // Update pagination state
           this.paginationState = {
@@ -340,7 +347,13 @@ export class InvoiceManagementComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (response: any) => {
-          this.availablePOs = response.data || [];
+          // Handle new API response structure
+          if (response.data && response.data.docs) {
+            this.availablePOs = response.data.docs || [];
+          } else {
+            // Fallback to old structure
+            this.availablePOs = response.data || [];
+          }
           this.updatePODisplayOptions();
         },
         error: (error: any) => {

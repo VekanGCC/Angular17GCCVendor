@@ -65,6 +65,11 @@ export class SOWService {
     return this.http.post(`${this.getApiUrl()}/${id}/submit`, {});
   }
 
+  // Submit SOW for PM approval
+  submitForPMApproval(id: string, comments?: string): Observable<any> {
+    return this.http.post(`${this.getApiUrl()}/${id}/submit-for-pm-approval`, { comments });
+  }
+
   // Approve SOW internally (client admin only)
   approveSOW(id: string, comments?: string): Observable<any> {
     return this.http.post(`${this.getApiUrl()}/${id}/approve`, { comments });

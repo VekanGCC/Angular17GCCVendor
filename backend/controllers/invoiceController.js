@@ -108,25 +108,31 @@ const getInvoices = asyncHandler(async (req, res, next) => {
   if (clientId) query.clientId = clientId;
   if (poId) query.poId = poId;
 
-  const options = {
-    page: parseInt(page),
-    limit: parseInt(limit),
-    populate: [
-      { path: 'vendorId', select: 'firstName lastName companyName email' },
-      { path: 'clientId', select: 'firstName lastName companyName email' },
-      { path: 'poId', select: 'poNumber totalAmount paymentTerms' },
-      { path: 'createdBy', select: 'firstName lastName email' },
-      { path: 'updatedBy', select: 'firstName lastName email' },
-      { path: 'approvalDetails.approvedBy', select: 'firstName lastName email' },
-      { path: 'approvalDetails.rejectedBy', select: 'firstName lastName email' }
-    ],
-    sort: { createdAt: -1 }
-  };
-
-  const invoices = await Invoice.paginate(query, options);
-
+  const skip = (page - 1) * limit;
+  const [invoices, total] = await Promise.all([
+    Invoice.find(query)
+      .populate([
+        { path: 'vendorId', select: 'firstName lastName companyName email' },
+        { path: 'clientId', select: 'firstName lastName companyName email' },
+        { path: 'poId', select: 'poNumber totalAmount paymentTerms' },
+        { path: 'createdBy', select: 'firstName lastName email' },
+        { path: 'updatedBy', select: 'firstName lastName email' },
+        { path: 'approvalDetails.approvedBy', select: 'firstName lastName email' },
+        { path: 'approvalDetails.rejectedBy', select: 'firstName lastName email' }
+      ])
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit),
+    Invoice.countDocuments(query)
+  ]);
   res.status(200).json(
-    ApiResponse.success(invoices, 'Invoices retrieved successfully')
+    ApiResponse.success({
+      docs: invoices,
+      totalDocs: total,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      totalPages: Math.ceil(total / limit)
+    }, 'Invoices retrieved successfully')
   );
 });
 

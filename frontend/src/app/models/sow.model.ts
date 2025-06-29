@@ -11,7 +11,7 @@ export interface SOW {
     amount: number;
     currency: 'USD' | 'EUR' | 'GBP' | 'INR';
   };
-  status: 'draft' | 'submitted' | 'internal_approved' | 'sent_to_vendor' | 'vendor_accepted' | 'vendor_rejected' | 'cancelled';
+  status: 'draft' | 'submitted' | 'pm_approval_pending' | 'internal_approved' | 'sent_to_vendor' | 'vendor_accepted' | 'vendor_rejected' | 'cancelled';
   approvals: SOWApproval[];
   vendorResponse: {
     status: 'accepted' | 'rejected' | 'pending';

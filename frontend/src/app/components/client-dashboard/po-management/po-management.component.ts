@@ -1,8 +1,13 @@
+import { ModuleRegistry } from 'ag-grid-community';
+import { AllCommunityModule } from 'ag-grid-community';
+
+ModuleRegistry.registerModules([AllCommunityModule]);
+
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { AgGridModule, AgGridAngular } from 'ag-grid-angular';
-import { ColDef, ValueGetterParams, GridOptions } from 'ag-grid-community';
+import { AgGridModule } from 'ag-grid-angular';
+import { ColDef } from 'ag-grid-community';
 import { LucideAngularModule } from 'lucide-angular';
 import { Subject, takeUntil } from 'rxjs';
 import { PO } from '../../../models/po.model';
@@ -12,6 +17,8 @@ import { POService } from '../../../services/po.service';
 import { SOWService } from '../../../services/sow.service';
 import { AuthService } from '../../../services/auth.service';
 import { PaginationComponent } from '../../pagination/pagination.component';
+import { ApiService } from '../../../services/api.service';
+import { VendorService } from '../../../services/vendor.service';
 
 @Component({
   selector: 'app-po-management',
@@ -82,6 +89,7 @@ export class POManagementComponent implements OnInit, OnDestroy {
 
   // Precomputed SOW display values for form
   sowDisplayOptions: Array<{id: string, display: string}> = [];
+  vendorDisplayOptions: Array<{id: string, display: string}> = [];
 
   // View model for PO grid data
   poGridData: Array<{
@@ -96,12 +104,20 @@ export class POManagementComponent implements OnInit, OnDestroy {
     actions: Array<{type: string, icon: string, label: string}>;
   }> = [];
 
+  // Stats
+  pendingPOsCount = 0;
+  approvedPOsCount = 0;
+  totalAmountPending = 0;
+
   // AG Grid properties
   columnDefs: ColDef[] = [
     {
       headerName: 'PO ID',
       field: '_id',
       flex: 1,
+      sortable: false,
+      filter: false,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       cellRenderer: (params: any) => {
         const poId = params.data._id;
         return `<div class="text-sm font-medium text-gray-900">#${poId ? poId.slice(-6) : 'N/A'}</div>`;
@@ -110,31 +126,40 @@ export class POManagementComponent implements OnInit, OnDestroy {
     {
       headerName: 'SOW Reference',
       field: 'sowId',
-      flex: 2,
+      flex: 1,
+      sortable: false,
+      filter: false,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       cellRenderer: (params: any) => {
         const sow = params.data.sowId;
-        if (this.isSOWPopulated(sow)) {
-          return `<div class="text-sm text-gray-900">${this.getSOWTitle(sow)}</div>`;
+        if (sow && typeof sow === 'object') {
+          return `<div class="text-sm text-gray-900">#${sow._id ? sow._id.slice(-6) : 'N/A'}</div>`;
         }
-        return '<div class="text-sm text-gray-500">Unknown</div>';
+        return '<div class="text-sm text-gray-500">N/A</div>';
       }
     },
     {
       headerName: 'Vendor',
       field: 'vendorId',
       flex: 2,
+      sortable: false,
+      filter: false,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       cellRenderer: (params: any) => {
         const vendor = params.data.vendorId;
-        if (this.isVendorPopulated(vendor)) {
-          return `<div class="text-sm text-gray-900">${this.getVendorName(vendor)}</div>`;
+        if (vendor && typeof vendor === 'object') {
+          return `<div class="text-sm text-gray-900">${vendor.companyName || vendor.firstName + ' ' + vendor.lastName}</div>`;
         }
         return '<div class="text-sm text-gray-500">Unknown</div>';
       }
     },
     {
-      headerName: 'Total Amount',
+      headerName: 'Amount',
       field: 'totalAmount',
       flex: 1,
+      sortable: false,
+      filter: false,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       cellRenderer: (params: any) => {
         const amount = params.data.totalAmount;
         if (amount) {
@@ -147,6 +172,9 @@ export class POManagementComponent implements OnInit, OnDestroy {
       headerName: 'Status',
       field: 'status',
       flex: 1,
+      sortable: false,
+      filter: false,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       cellRenderer: (params: any) => {
         const status = params.data.status;
         const statusClass = this.getStatusClass(status);
@@ -160,11 +188,27 @@ export class POManagementComponent implements OnInit, OnDestroy {
       }
     },
     {
-      headerName: 'Created Date',
-      field: 'createdAt',
+      headerName: 'Start Date',
+      field: 'startDate',
       flex: 1,
+      sortable: false,
+      filter: false,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       cellRenderer: (params: any) => {
-        const date = params.data.createdAt;
+        const date = params.data.startDate;
+        const formattedDate = date ? new Date(date).toLocaleDateString() : 'N/A';
+        return `<div class="text-sm text-gray-500">${formattedDate}</div>`;
+      }
+    },
+    {
+      headerName: 'End Date',
+      field: 'endDate',
+      flex: 1,
+      sortable: false,
+      filter: false,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
+      cellRenderer: (params: any) => {
+        const date = params.data.endDate;
         const formattedDate = date ? new Date(date).toLocaleDateString() : 'N/A';
         return `<div class="text-sm text-gray-500">${formattedDate}</div>`;
       }
@@ -173,9 +217,11 @@ export class POManagementComponent implements OnInit, OnDestroy {
       headerName: 'Actions',
       field: 'actions',
       flex: 2,
+      sortable: false,
+      filter: false,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       cellRenderer: (params: any) => {
         const po = params.data;
-        const actions = this.getAvailableActions(po);
         
         let html = '<div class="flex items-center justify-start space-x-2">';
         
@@ -188,36 +234,27 @@ export class POManagementComponent implements OnInit, OnDestroy {
           </button>
         `;
         
-        // Action buttons
-        actions.forEach((action: any) => {
-          html += `
-            <button 
-              class="action-btn text-green-600 hover:text-green-900 p-1 rounded hover:bg-green-50"
-              id="${action.type}-${po._id}">
-              <span>${action.icon}</span>
-            </button>
-          `;
-        });
-        
         html += '</div>';
-        
         return html;
       }
     }
   ];
 
   defaultColDef = {
-    sortable: true,
-    filter: true,
-    resizable: true
+    resizable: true,
+    sortable: false,
+    filter: false,
+    flex: 1,
+    minWidth: 100
   };
 
-  gridOptions: GridOptions = {
-    rowSelection: 'single',
-    suppressRowClickSelection: true,
-    onRowClicked: (event: any) => {
-      // Handle row click if needed
-    }
+  gridOptions = {
+    defaultColDef: {
+      flex: 1,
+      minWidth: 100,
+    },
+    rowHeight: 60,
+    tooltipShowDelay: 500
   };
 
   constructor(
@@ -225,9 +262,13 @@ export class POManagementComponent implements OnInit, OnDestroy {
     private sowService: SOWService,
     private authService: AuthService,
     private fb: FormBuilder,
-    private changeDetectorRef: ChangeDetectorRef
+    private changeDetectorRef: ChangeDetectorRef,
+    private apiService: ApiService,
+    private vendorService: VendorService
   ) {
     this.initializeForms();
+    this.loadPOs();
+    this.loadAvailableSOWs();
   }
 
   ngOnInit(): void {
@@ -243,14 +284,15 @@ export class POManagementComponent implements OnInit, OnDestroy {
   private initializeForms(): void {
     this.poForm = this.fb.group({
       sowId: ['', Validators.required],
-      poNumber: ['', [Validators.required, Validators.minLength(3)]],
-      description: ['', [Validators.required, Validators.minLength(10)]],
-      totalAmount: this.fb.group({
+      vendorId: ['', Validators.required],
+      poAmount: this.fb.group({
         amount: ['', [Validators.required, Validators.min(0)]],
         currency: ['USD', Validators.required]
       }),
-      deliveryDate: ['', Validators.required],
-      terms: ['']
+      startDate: ['', Validators.required],
+      endDate: ['', Validators.required],
+      paymentTerms: ['net_30', Validators.required],
+      justification: ['']
     });
 
     this.actionForm = this.fb.group({
@@ -269,27 +311,29 @@ export class POManagementComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (response: any) => {
-          this.pos = response.data || [];
-          this.totalPOs = response.total || 0;
-          
-          // Update pagination state
-          this.paginationState = {
-            currentPage: this.currentPage,
-            pageSize: this.pageSize,
-            totalItems: this.totalPOs,
-            totalPages: Math.ceil(this.totalPOs / this.pageSize),
-            isLoading: false,
-            hasNextPage: this.currentPage < Math.ceil(this.totalPOs / this.pageSize),
-            hasPreviousPage: this.currentPage > 1
-          };
-
-          this.updatePOCounts();
-          this.updatePOGridData();
-          this.isLoading = false;
-          this.changeDetectorRef.detectChanges();
+          if (response.success) {
+            this.pos = response.data.docs || [];
+            this.totalPOs = response.data.totalDocs || 0;
+            
+            // Update pagination state
+            this.paginationState = {
+              currentPage: this.currentPage,
+              pageSize: this.pageSize,
+              totalItems: this.totalPOs,
+              totalPages: Math.ceil(this.totalPOs / this.pageSize),
+              isLoading: false,
+              hasNextPage: this.currentPage < Math.ceil(this.totalPOs / this.pageSize),
+              hasPreviousPage: this.currentPage > 1
+            };
+            
+            this.updatePOCounts();
+            this.updatePOGridData();
+          }
         },
         error: (error: any) => {
           console.error('Error loading POs:', error);
+        },
+        complete: () => {
           this.isLoading = false;
           this.paginationState.isLoading = false;
           this.changeDetectorRef.detectChanges();
@@ -298,9 +342,11 @@ export class POManagementComponent implements OnInit, OnDestroy {
   }
 
   private updatePOCounts(): void {
-    this.submittedPOCount = this.pos.filter(po => po.status === 'submitted').length;
-    this.financeApprovedPOCount = this.pos.filter(po => po.status === 'finance_approved').length;
-    this.vendorAcceptedPOCount = this.pos.filter(po => po.status === 'vendor_accepted').length;
+    this.pendingPOsCount = this.pos.filter(po => po.status === 'submitted').length;
+    this.approvedPOsCount = this.pos.filter(po => po.status === 'finance_approved').length;
+    this.totalAmountPending = this.pos
+      .filter(po => po.status === 'submitted')
+      .reduce((total, po) => total + (po.totalAmount?.amount || 0), 0);
   }
 
   private updatePOGridData(): void {
@@ -402,12 +448,19 @@ export class POManagementComponent implements OnInit, OnDestroy {
   loadAvailableSOWs(): void {
     this.sowService.getSOWs({
       page: 1,
-      limit: 1000
+      limit: 1000,
+      status: 'vendor_accepted' // Only load fully approved SOWs
     })
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (response: any) => {
-          this.availableSOWs = response.data || [];
+          // Handle new API response structure
+          if (response.data && response.data.docs) {
+            this.availableSOWs = response.data.docs || [];
+          } else {
+            // Fallback to old structure
+            this.availableSOWs = response.data || [];
+          }
           this.updateSOWDisplayOptions();
         },
         error: (error: any) => {
@@ -423,14 +476,97 @@ export class POManagementComponent implements OnInit, OnDestroy {
     }));
   }
 
+  // Auto-populate vendor when SOW is selected
+  onSOWSelectionChange(): void {
+    const sowId = this.poForm.get('sowId')?.value;
+    if (sowId) {
+      const selectedSOW = this.availableSOWs.find(sow => sow._id === sowId);
+      if (selectedSOW && selectedSOW.vendorId) {
+        // Auto-populate vendor from SOW
+        let vendorId: string;
+        if (selectedSOW.vendorId && typeof selectedSOW.vendorId === 'object' && '_id' in selectedSOW.vendorId) {
+          vendorId = (selectedSOW.vendorId as any)._id;
+        } else {
+          vendorId = selectedSOW.vendorId as string;
+        }
+        this.poForm.get('vendorId')?.setValue(vendorId);
+        this.poForm.get('vendorId')?.disable(); // Make vendor field non-editable
+        
+        // Update vendor display options for the dropdown
+        this.vendorDisplayOptions = [{
+          id: vendorId,
+          display: this.getVendorDisplay(selectedSOW.vendorId)
+        }];
+      }
+    } else {
+      // Clear vendor when SOW is deselected
+      this.poForm.get('vendorId')?.setValue('');
+      this.poForm.get('vendorId')?.enable(); // Re-enable vendor field
+      this.vendorDisplayOptions = []; // Clear vendor options
+    }
+    
+    // Check amount validation
+    this.checkAmountValidation();
+  }
+
+  // Check if justification is required when PO amount differs from SOW amount
+  checkAmountValidation(): void {
+    const sowId = this.poForm.get('sowId')?.value;
+    const poAmount = this.poForm.get('poAmount.amount')?.value;
+    
+    if (sowId && poAmount) {
+      const selectedSOW = this.availableSOWs.find(sow => sow._id === sowId);
+      if (selectedSOW && selectedSOW.estimatedCost) {
+        const sowAmount = selectedSOW.estimatedCost.amount;
+        const amountDifference = Math.abs(poAmount - sowAmount);
+        const percentageDifference = (amountDifference / sowAmount) * 100;
+        
+        // If difference is more than 5%, require justification
+        if (percentageDifference > 5) {
+          this.poForm.get('justification')?.setValidators([Validators.required]);
+          this.poForm.get('justification')?.updateValueAndValidity();
+        } else {
+          this.poForm.get('justification')?.clearValidators();
+          this.poForm.get('justification')?.updateValueAndValidity();
+        }
+      }
+    }
+  }
+
+  // Get selected SOW amount for comparison
+  getSelectedSOWAmount(): number | null {
+    const sowId = this.poForm.get('sowId')?.value;
+    if (sowId) {
+      const selectedSOW = this.availableSOWs.find(sow => sow._id === sowId);
+      return selectedSOW?.estimatedCost?.amount || null;
+    }
+    return null;
+  }
+
+  // Check if justification is required
+  isJustificationRequired(): boolean {
+    const sowAmount = this.getSelectedSOWAmount();
+    const poAmount = this.poForm.get('poAmount.amount')?.value;
+    
+    if (sowAmount && poAmount) {
+      const amountDifference = Math.abs(poAmount - sowAmount);
+      const percentageDifference = (amountDifference / sowAmount) * 100;
+      return percentageDifference > 5;
+    }
+    return false;
+  }
+
   onCreatePO(): void {
     this.showCreateModal = true;
     this.poForm.reset({
-      totalAmount: {
+      poAmount: {
         amount: '',
         currency: 'USD'
       }
     });
+    // Ensure vendor field is disabled and clear vendor options
+    this.poForm.get('vendorId')?.disable();
+    this.vendorDisplayOptions = [];
   }
 
   onSubmitPO(): void {
@@ -440,9 +576,9 @@ export class POManagementComponent implements OnInit, OnDestroy {
       
       const poData = {
         ...formValue,
-        totalAmount: {
-          amount: parseFloat(formValue.totalAmount.amount),
-          currency: formValue.totalAmount.currency
+        poAmount: {
+          amount: parseFloat(formValue.poAmount.amount),
+          currency: formValue.poAmount.currency
         }
       };
 
@@ -524,6 +660,16 @@ export class POManagementComponent implements OnInit, OnDestroy {
     this.showActionModal = false;
     this.selectedPO = null;
     this.resetSelectedPODisplay();
+    
+    // Reset form and clear vendor options
+    this.poForm.reset({
+      poAmount: {
+        amount: '',
+        currency: 'USD'
+      }
+    });
+    this.poForm.get('vendorId')?.disable();
+    this.vendorDisplayOptions = [];
   }
 
   getStatusClass(status: string): string {

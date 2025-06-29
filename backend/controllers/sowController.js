@@ -84,22 +84,28 @@ const getSOWs = asyncHandler(async (req, res, next) => {
   if (vendorId) query.vendorId = vendorId;
   if (clientId) query.clientId = clientId;
 
-  const options = {
-    page: parseInt(page),
-    limit: parseInt(limit),
-    populate: [
-      { path: 'vendorId', select: 'firstName lastName companyName email' },
-      { path: 'clientId', select: 'firstName lastName companyName email' },
-      { path: 'createdBy', select: 'firstName lastName email' },
-      { path: 'updatedBy', select: 'firstName lastName email' }
-    ],
-    sort: { createdAt: -1 }
-  };
-
-  const sows = await SOW.paginate(query, options);
-
+  const skip = (page - 1) * limit;
+  const [sows, total] = await Promise.all([
+    SOW.find(query)
+      .populate([
+        { path: 'vendorId', select: 'firstName lastName companyName email' },
+        { path: 'clientId', select: 'firstName lastName companyName email' },
+        { path: 'createdBy', select: 'firstName lastName email' },
+        { path: 'updatedBy', select: 'firstName lastName email' }
+      ])
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit),
+    SOW.countDocuments(query)
+  ]);
   res.status(200).json(
-    ApiResponse.success(sows, 'SOWs retrieved successfully')
+    ApiResponse.success({
+      docs: sows,
+      totalDocs: total,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      totalPages: Math.ceil(total / limit)
+    }, 'SOWs retrieved successfully')
   );
 });
 
@@ -225,6 +231,53 @@ const submitSOW = asyncHandler(async (req, res, next) => {
   );
 });
 
+// @desc    Submit SOW for PM approval
+// @route   POST /api/sow/:id/submit-for-pm-approval
+// @access  Private (Client only)
+const submitForPMApproval = asyncHandler(async (req, res, next) => {
+  const user = await User.findById(req.user.id);
+  
+  if (user.userType !== 'client') {
+    return next(new ErrorResponse('Only clients can submit SOWs for PM approval', 403));
+  }
+
+  let sow = await SOW.findById(req.params.id);
+
+  if (!sow) {
+    return next(new ErrorResponse('SOW not found', 404));
+  }
+
+  // Check ownership and permissions
+  if (sow.clientOrganizationId.toString() !== user.organizationId.toString()) {
+    return next(new ErrorResponse('Access denied', 403));
+  }
+
+  if (sow.status !== 'draft') {
+    return next(new ErrorResponse('SOW can only be submitted for PM approval from draft status', 400));
+  }
+
+  // Update status and add approval record
+  sow.status = 'pm_approval_pending';
+  sow.approvals.push({
+    userId: req.user.id,
+    status: 'approved',
+    role: user.organizationRole,
+    comments: req.body.comments || 'Submitted for PM approval'
+  });
+  sow.updatedBy = req.user.id;
+
+  await sow.save();
+
+  await sow.populate([
+    { path: 'vendorId', select: 'firstName lastName companyName email' },
+    { path: 'clientId', select: 'firstName lastName companyName email' }
+  ]);
+
+  res.status(200).json(
+    ApiResponse.success(sow, 'SOW submitted for PM approval successfully')
+  );
+});
+
 // @desc    Approve SOW internally
 // @route   POST /api/sow/:id/approve
 // @access  Private (Client admin only)
@@ -246,12 +299,17 @@ const approveSOW = asyncHandler(async (req, res, next) => {
     return next(new ErrorResponse('Access denied', 403));
   }
 
-  if (sow.status !== 'submitted') {
-    return next(new ErrorResponse('SOW can only be approved from submitted status', 400));
+  if (sow.status !== 'submitted' && sow.status !== 'pm_approval_pending') {
+    return next(new ErrorResponse('SOW can only be approved from submitted or pm_approval_pending status', 400));
   }
 
-  // Update status and add approval record
-  sow.status = 'internal_approved';
+  // Update status based on current status
+  if (sow.status === 'pm_approval_pending') {
+    sow.status = 'internal_approved';
+  } else {
+    sow.status = 'internal_approved';
+  }
+
   sow.approvals.push({
     userId: req.user.id,
     status: 'approved',
@@ -411,6 +469,7 @@ module.exports = {
   getSOW,
   updateSOW,
   submitSOW,
+  submitForPMApproval,
   approveSOW,
   sendToVendor,
   vendorResponse,

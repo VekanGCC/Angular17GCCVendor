@@ -10,7 +10,8 @@ const {
   approveSOW,
   sendToVendor,
   vendorResponse,
-  deleteSOW
+  deleteSOW,
+  submitForPMApproval
 } = require('../controllers/sowController');
 
 // All routes are protected
@@ -28,6 +29,7 @@ router.route('/:id')
 
 // SOW workflow operations
 router.post('/:id/submit', authorize('client'), submitSOW);
+router.post('/:id/submit-for-pm-approval', authorize('client'), submitForPMApproval);
 router.post('/:id/approve', authorize('client'), approveSOW);
 router.post('/:id/send-to-vendor', authorize('client'), sendToVendor);
 router.post('/:id/vendor-response', authorize('vendor'), vendorResponse);

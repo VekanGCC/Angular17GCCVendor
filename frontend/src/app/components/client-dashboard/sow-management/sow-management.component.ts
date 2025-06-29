@@ -1,3 +1,8 @@
+import { ModuleRegistry } from 'ag-grid-community';
+import { AllCommunityModule } from 'ag-grid-community';
+
+ModuleRegistry.registerModules([AllCommunityModule]);
+
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
@@ -14,6 +19,7 @@ import { AuditLogService } from '../../../services/audit-log.service';
 import { VendorService } from '../../../services/vendor.service';
 import { ApiService } from '../../../services/api.service';
 import { PaginationState } from '../../../models/pagination.model';
+import { ApiResponse } from '../../../models/api-response.model';
 
 @Component({
   selector: 'app-sow-management',
@@ -54,17 +60,19 @@ export class SOWManagementComponent implements OnInit, OnDestroy {
   showCreateModal = false;
   showViewModal = false;
   showActionModal = false;
+  showPMApprovalModal = false;
   selectedSOW: SOW | null = null;
-  actionType: 'submit' | 'approve' | 'send-to-vendor' = 'submit';
+  actionType: 'approve' | 'reject' | 'pm-approval' = 'approve';
 
   // Forms
   sowForm!: FormGroup;
   actionForm!: FormGroup;
+  pmApprovalForm!: FormGroup;
 
-  // Precomputed properties for template (fixing NG5002)
-  submittedSOWsCount = 0;
+  // Stats
+  pendingSOWsCount = 0;
   approvedSOWsCount = 0;
-  vendorAcceptedSOWsCount = 0;
+  totalAmountPending = 0;
 
   // Precomputed values for selected SOW (fixing template expressions)
   selectedSOWShortId = '';
@@ -88,6 +96,9 @@ export class SOWManagementComponent implements OnInit, OnDestroy {
       headerName: 'SOW ID',
       field: '_id',
       flex: 1,
+      sortable: false,
+      filter: false,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       cellRenderer: (params: any) => {
         const sowId = params.data._id;
         return `<div class="text-sm font-medium text-gray-900">#${sowId ? sowId.slice(-6) : 'N/A'}</div>`;
@@ -97,26 +108,35 @@ export class SOWManagementComponent implements OnInit, OnDestroy {
       headerName: 'Title',
       field: 'title',
       flex: 2,
+      sortable: false,
+      filter: false,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       cellRenderer: (params: any) => {
-        return `<div class="text-sm text-gray-900">${params.data.title}</div>`;
+        return `<div class="text-sm text-gray-900">${params.data.title || 'N/A'}</div>`;
       }
     },
     {
       headerName: 'Vendor',
       field: 'vendorId',
       flex: 2,
+      sortable: false,
+      filter: false,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       cellRenderer: (params: any) => {
         const vendor = params.data.vendorId;
-        if (typeof vendor === 'object' && vendor) {
-          return `<div class="text-sm text-gray-900">${vendor.firstName} ${vendor.lastName}</div>`;
+        if (vendor && typeof vendor === 'object') {
+          return `<div class="text-sm text-gray-900">${vendor.companyName || vendor.firstName + ' ' + vendor.lastName}</div>`;
         }
         return '<div class="text-sm text-gray-500">Unknown</div>';
       }
     },
     {
-      headerName: 'Estimated Cost',
+      headerName: 'Amount',
       field: 'estimatedCost',
       flex: 1,
+      sortable: false,
+      filter: false,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       cellRenderer: (params: any) => {
         const cost = params.data.estimatedCost;
         if (cost) {
@@ -129,6 +149,9 @@ export class SOWManagementComponent implements OnInit, OnDestroy {
       headerName: 'Status',
       field: 'status',
       flex: 1,
+      sortable: false,
+      filter: false,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       cellRenderer: (params: any) => {
         const status = params.data.status;
         const statusClass = this.getStatusClass(status);
@@ -142,11 +165,27 @@ export class SOWManagementComponent implements OnInit, OnDestroy {
       }
     },
     {
-      headerName: 'Created Date',
-      field: 'createdAt',
+      headerName: 'Start Date',
+      field: 'startDate',
       flex: 1,
+      sortable: false,
+      filter: false,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       cellRenderer: (params: any) => {
-        const date = params.data.createdAt;
+        const date = params.data.startDate;
+        const formattedDate = date ? new Date(date).toLocaleDateString() : 'N/A';
+        return `<div class="text-sm text-gray-500">${formattedDate}</div>`;
+      }
+    },
+    {
+      headerName: 'End Date',
+      field: 'endDate',
+      flex: 1,
+      sortable: false,
+      filter: false,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
+      cellRenderer: (params: any) => {
+        const date = params.data.endDate;
         const formattedDate = date ? new Date(date).toLocaleDateString() : 'N/A';
         return `<div class="text-sm text-gray-500">${formattedDate}</div>`;
       }
@@ -155,6 +194,9 @@ export class SOWManagementComponent implements OnInit, OnDestroy {
       headerName: 'Actions',
       field: 'actions',
       flex: 2,
+      sortable: false,
+      filter: false,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       cellRenderer: (params: any) => {
         const sow = params.data;
         const actions = this.getAvailableActions(sow);
@@ -164,41 +206,52 @@ export class SOWManagementComponent implements OnInit, OnDestroy {
         // View button
         html += `
           <button 
+            onclick="window.sowViewAction('${sow._id}')"
             class="view-btn text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
-            id="view-${sow._id}">
+            title="View SOW Details">
             <span>👁️</span>
           </button>
         `;
         
         // Action buttons
         actions.forEach((action: any) => {
+          const buttonClass = action.type === 'pm-approval' ? 'text-orange-600 hover:text-orange-900 hover:bg-orange-50' : 
+                             action.type === 'approve' ? 'text-green-600 hover:text-green-900 hover:bg-green-50' :
+                             'text-red-600 hover:text-red-900 hover:bg-red-50';
+          
           html += `
             <button 
-              class="action-btn text-green-600 hover:text-green-900 p-1 rounded hover:bg-green-50"
-              id="${action.type}-${sow._id}">
+              onclick="window.sowActionAction('${sow._id}', '${action.type}')"
+              class="action-btn ${buttonClass} p-1 rounded"
+              title="${action.label}">
               <span>${action.icon}</span>
             </button>
           `;
         });
         
         html += '</div>';
-        
         return html;
       }
     }
   ];
 
   defaultColDef = {
-    sortable: true,
-    filter: true,
-    resizable: true
+    resizable: true,
+    sortable: false,
+    filter: false,
+    flex: 1,
+    minWidth: 100
   };
 
-  gridOptions: GridOptions = {
-    rowSelection: 'single',
-    suppressRowClickSelection: true,
-    onRowClicked: (event: any) => {
-      // Handle row click if needed
+  gridOptions = {
+    defaultColDef: {
+      flex: 1,
+      minWidth: 100,
+    },
+    rowHeight: 60,
+    tooltipShowDelay: 500,
+    onGridReady: (params: any) => {
+      this.onGridReady(params);
     }
   };
 
@@ -229,6 +282,10 @@ export class SOWManagementComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+    
+    // Clean up global functions
+    delete (window as any).sowViewAction;
+    delete (window as any).sowActionAction;
   }
 
   private initializeForms(): void {
@@ -245,7 +302,11 @@ export class SOWManagementComponent implements OnInit, OnDestroy {
     });
 
     this.actionForm = this.fb.group({
-      comments: ['']
+      comments: ['', Validators.required]
+    });
+
+    this.pmApprovalForm = this.fb.group({
+      comments: ['', Validators.required]
     });
   }
 
@@ -260,26 +321,28 @@ export class SOWManagementComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (response: any) => {
-          this.sows = response.data || [];
-          this.totalSOWs = response.total || 0;
-          
-          // Update pagination state
-          this.paginationState = {
-            currentPage: this.currentPage,
-            pageSize: this.pageSize,
-            totalItems: this.totalSOWs,
-            totalPages: Math.ceil(this.totalSOWs / this.pageSize),
-            isLoading: false,
-            hasNextPage: this.currentPage < Math.ceil(this.totalSOWs / this.pageSize),
-            hasPreviousPage: this.currentPage > 1
-          };
-
-          this.updateSOWCounts();
-          this.isLoading = false;
-          this.changeDetectorRef.detectChanges();
+          if (response.success) {
+            this.sows = response.data.docs || [];
+            this.totalSOWs = response.data.totalDocs || 0;
+            
+            // Update pagination state
+            this.paginationState = {
+              currentPage: this.currentPage,
+              pageSize: this.pageSize,
+              totalItems: this.totalSOWs,
+              totalPages: Math.ceil(this.totalSOWs / this.pageSize),
+              isLoading: false,
+              hasNextPage: this.currentPage < Math.ceil(this.totalSOWs / this.pageSize),
+              hasPreviousPage: this.currentPage > 1
+            };
+            
+            this.updateSOWCounts();
+          }
         },
         error: (error: any) => {
           console.error('Error loading SOWs:', error);
+        },
+        complete: () => {
           this.isLoading = false;
           this.paginationState.isLoading = false;
           this.changeDetectorRef.detectChanges();
@@ -288,9 +351,11 @@ export class SOWManagementComponent implements OnInit, OnDestroy {
   }
 
   private updateSOWCounts(): void {
-    this.submittedSOWsCount = this.sows.filter(sow => sow.status === 'submitted').length;
+    this.pendingSOWsCount = this.sows.filter(sow => sow.status === 'submitted').length;
     this.approvedSOWsCount = this.sows.filter(sow => sow.status === 'internal_approved').length;
-    this.vendorAcceptedSOWsCount = this.sows.filter(sow => sow.status === 'vendor_accepted').length;
+    this.totalAmountPending = this.sows
+      .filter(sow => sow.status === 'submitted')
+      .reduce((total, sow) => total + (sow.estimatedCost?.amount || 0), 0);
   }
 
   loadVendors(): void {
@@ -380,50 +445,103 @@ export class SOWManagementComponent implements OnInit, OnDestroy {
   }
 
   onViewSOW(sow: SOW): void {
+    console.log('🔧 SOW Management: Opening view modal for SOW:', sow._id);
     this.selectedSOW = sow;
     this.updateSelectedSOWDisplay();
     this.showViewModal = true;
   }
 
   onActionClick(sow: SOW, actionType: string): void {
+    console.log('🔧 SOW Management: Action clicked for SOW:', sow._id, 'Action:', actionType);
     this.selectedSOW = sow;
-    this.actionType = actionType as 'submit' | 'approve' | 'send-to-vendor';
-    this.actionForm.reset();
-    this.showActionModal = true;
+    this.actionType = actionType as 'approve' | 'reject' | 'pm-approval';
+    
+    if (actionType === 'pm-approval') {
+      console.log('🔧 SOW Management: Opening PM approval modal');
+      this.showPMApprovalModal = true;
+      this.showActionModal = false;
+      this.showViewModal = false;
+      this.showCreateModal = false;
+      
+      // Reset and initialize PM approval form
+      this.pmApprovalForm.reset();
+      this.pmApprovalForm.markAsUntouched();
+      this.pmApprovalForm.markAsPristine();
+    } else {
+      console.log('🔧 SOW Management: Opening action modal');
+      this.showActionModal = true;
+      this.showPMApprovalModal = false;
+      this.showViewModal = false;
+      this.showCreateModal = false;
+      
+      // Reset action form
+      this.actionForm.reset();
+      this.actionForm.markAsUntouched();
+      this.actionForm.markAsPristine();
+    }
+    
+    // Force change detection
+    this.changeDetectorRef.detectChanges();
   }
 
   onActionSubmit(): void {
-    if (this.selectedSOW && this.actionForm.valid) {
+    if (this.actionForm.valid && this.selectedSOW) {
       this.isLoading = true;
       const comments = this.actionForm.get('comments')?.value;
 
-      let actionObservable;
-      switch (this.actionType) {
-        case 'submit':
-          actionObservable = this.sowService.submitSOW(this.selectedSOW._id);
-          break;
-        case 'approve':
-          actionObservable = this.sowService.approveSOW(this.selectedSOW._id, comments);
-          break;
-        case 'send-to-vendor':
-          actionObservable = this.sowService.sendToVendor(this.selectedSOW._id);
-          break;
-        default:
-          this.isLoading = false;
-          return;
+      const action = this.actionType === 'approve' ? 'approve' : this.actionType === 'reject' ? 'reject' : 'pm-approval';
+      
+      if (action === 'approve') {
+        this.sowService.approveSOW(this.selectedSOW._id, comments)
+          .pipe(takeUntil(this.destroy$))
+          .subscribe({
+            next: (response: any) => {
+              if (response.success) {
+                this.loadSOWs();
+                this.onCloseModal();
+              }
+            },
+            error: (error: any) => {
+              console.error('Error approving SOW:', error);
+            },
+            complete: () => {
+              this.isLoading = false;
+            }
+          });
+      } else if (action === 'reject') {
+        // For reject action, you might need to implement a reject method in the service
+        console.log('Reject action not implemented yet');
+        this.isLoading = false;
+      } else if (action === 'pm-approval') {
+        this.showPMApprovalModal = true;
+        this.showActionModal = false;
       }
+    }
+  }
 
-      actionObservable.pipe(takeUntil(this.destroy$)).subscribe({
-        next: (response: any) => {
-          this.showActionModal = false;
-          this.loadSOWs();
-          this.isLoading = false;
-        },
-        error: (error: any) => {
-          console.error(`Error performing ${this.actionType} action:`, error);
-          this.isLoading = false;
-        }
-      });
+  onPMApprovalSubmit(): void {
+    if (this.pmApprovalForm.valid && this.selectedSOW) {
+      this.isLoading = true;
+      const comments = this.pmApprovalForm.get('comments')?.value;
+
+      this.sowService.submitForPMApproval(this.selectedSOW._id, comments)
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: (response: any) => {
+            if (response.success) {
+              this.showSuccessMessage('SOW submitted for PM approval successfully');
+              this.loadSOWs();
+              this.onCloseModal();
+            }
+          },
+          error: (error: any) => {
+            console.error('Error submitting SOW for PM approval:', error);
+            this.showErrorMessage('Failed to submit SOW for PM approval');
+          },
+          complete: () => {
+            this.isLoading = false;
+          }
+        });
     }
   }
 
@@ -436,6 +554,7 @@ export class SOWManagementComponent implements OnInit, OnDestroy {
     this.showCreateModal = false;
     this.showViewModal = false;
     this.showActionModal = false;
+    this.showPMApprovalModal = false;
     this.selectedSOW = null;
     this.resetSelectedSOWDisplay();
   }
@@ -446,14 +565,16 @@ export class SOWManagementComponent implements OnInit, OnDestroy {
         return 'bg-gray-100 text-gray-800';
       case 'submitted':
         return 'bg-yellow-100 text-yellow-800';
+      case 'pm_approval_pending':
+        return 'bg-orange-100 text-orange-800';
       case 'internal_approved':
         return 'bg-green-100 text-green-800';
+      case 'sent_to_vendor':
+        return 'bg-blue-100 text-blue-800';
       case 'vendor_accepted':
         return 'bg-purple-100 text-purple-800';
       case 'vendor_rejected':
         return 'bg-red-100 text-red-800';
-      case 'completed':
-        return 'bg-blue-100 text-blue-800';
       case 'cancelled':
         return 'bg-gray-100 text-gray-600';
       default:
@@ -468,18 +589,27 @@ export class SOWManagementComponent implements OnInit, OnDestroy {
   getAvailableActions(sow: SOW): Array<{type: string, icon: string, label: string}> {
     const actions = [];
     
+    console.log('🔧 SOW Management: Getting actions for SOW:', sow._id, 'Status:', sow.status);
+    
     if (sow.status === 'draft') {
-      actions.push({ type: 'submit', icon: '📤', label: 'Submit' });
+      actions.push({ type: 'pm-approval', icon: '📋', label: 'Submit for PM Approval' });
+    }
+    
+    if (sow.status === 'pm_approval_pending') {
+      actions.push({ type: 'approve', icon: '✅', label: 'PM Approve' });
+      actions.push({ type: 'reject', icon: '❌', label: 'PM Reject' });
     }
     
     if (sow.status === 'submitted') {
       actions.push({ type: 'approve', icon: '✅', label: 'Approve' });
+      actions.push({ type: 'reject', icon: '❌', label: 'Reject' });
     }
     
     if (sow.status === 'internal_approved') {
       actions.push({ type: 'send-to-vendor', icon: '📧', label: 'Send to Vendor' });
     }
     
+    console.log('🔧 SOW Management: Available actions:', actions);
     return actions;
   }
 
@@ -499,10 +629,30 @@ export class SOWManagementComponent implements OnInit, OnDestroy {
   }
 
   getVendorDisplay(vendor: any): string {
-    if (vendor && typeof vendor === 'object') {
-      return `${vendor.firstName} ${vendor.lastName}`;
+    if (!vendor) return 'Unknown';
+    if (typeof vendor === 'object') {
+      return vendor.companyName || `${vendor.firstName} ${vendor.lastName}`;
     }
-    return 'Unknown Vendor';
+    return 'Unknown';
+  }
+
+  getVendorDisplayName(vendor: any): string {
+    if (!vendor) return 'Unknown';
+    if (typeof vendor === 'object') {
+      return vendor.companyName || `${vendor.firstName} ${vendor.lastName}`;
+    }
+    return 'Unknown';
+  }
+
+  getAmountDisplay(cost: any): string {
+    if (!cost) return 'N/A';
+    if (typeof cost === 'object' && cost.currency && cost.amount) {
+      return `${cost.currency} ${cost.amount.toLocaleString()}`;
+    }
+    if (typeof cost === 'number') {
+      return `$ ${cost.toLocaleString()}`;
+    }
+    return 'N/A';
   }
 
   private updateSelectedSOWDisplay(): void {
@@ -515,7 +665,7 @@ export class SOWManagementComponent implements OnInit, OnDestroy {
     this.selectedSOWStatusClass = this.getStatusClass(this.selectedSOW.status);
     this.selectedSOWStatusLabel = this.formatStatus(this.selectedSOW.status);
     this.selectedSOWAmountDisplay = this.getSOWAmountDisplay(this.selectedSOW);
-    this.selectedSOWVendorName = this.getVendorDisplay(this.selectedSOW.vendorId);
+    this.selectedSOWVendorName = this.getVendorDisplayName(this.selectedSOW.vendorId);
     this.selectedSOWStartDate = this.selectedSOW.startDate ? new Date(this.selectedSOW.startDate).toLocaleDateString() : 'N/A';
     this.selectedSOWEndDate = this.selectedSOW.endDate ? new Date(this.selectedSOW.endDate).toLocaleDateString() : 'N/A';
   }
@@ -547,7 +697,9 @@ export class SOWManagementComponent implements OnInit, OnDestroy {
   }
 
   get showSOWModal() {
-    return this.showCreateModal || this.showViewModal || this.showActionModal;
+    const hasModal = this.showCreateModal || this.showViewModal || this.showActionModal || this.showPMApprovalModal;
+    console.log('🔧 SOW Management: Modal states - Create:', this.showCreateModal, 'View:', this.showViewModal, 'Action:', this.showActionModal, 'PM:', this.showPMApprovalModal, 'HasModal:', hasModal);
+    return hasModal;
   }
 
   showSuccessMessage(message: string): void {
@@ -573,5 +725,26 @@ export class SOWManagementComponent implements OnInit, OnDestroy {
         console.error('🔧 SOW Management: Vendors API test failed:', error);
       }
     });
+  }
+
+  onGridReady(params: any): void {
+    console.log('🔧 SOW Management: Grid ready, setting up button handlers');
+    
+    // Set up global functions for button clicks
+    (window as any).sowViewAction = (sowId: string) => {
+      console.log('🔧 SOW Management: View button clicked for SOW:', sowId);
+      const sow = this.sows.find(s => s._id === sowId);
+      if (sow) {
+        this.onViewSOW(sow);
+      }
+    };
+
+    (window as any).sowActionAction = (sowId: string, actionType: string) => {
+      console.log('🔧 SOW Management: Action button clicked for SOW:', sowId, 'Action:', actionType);
+      const sow = this.sows.find(s => s._id === sowId);
+      if (sow) {
+        this.onActionClick(sow, actionType);
+      }
+    };
   }
 } 

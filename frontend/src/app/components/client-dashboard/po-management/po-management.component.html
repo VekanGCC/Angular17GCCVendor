@@ -114,6 +114,7 @@
           <label class="block text-sm font-medium text-gray-700 mb-1">SOW Reference *</label>
           <select 
             formControlName="sowId"
+            (change)="onSOWSelectionChange()"
             class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent">
             <option value="">Select SOW</option>
             <option *ngFor="let sow of sowDisplayOptions" [value]="sow.id">
@@ -126,36 +127,59 @@
         </div>
         
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">PO Number *</label>
-          <input 
-            type="text" 
-            formControlName="poNumber"
-            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-            placeholder="Enter PO number">
-          <div *ngIf="poForm.get('poNumber')?.invalid && poForm.get('poNumber')?.touched" class="text-red-500 text-sm mt-1">
-            PO number is required and must be at least 3 characters
+          <label class="block text-sm font-medium text-gray-700 mb-1">Vendor *</label>
+          <select 
+            formControlName="vendorId"
+            [disabled]="true"
+            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-100">
+            <option value="">Vendor will be auto-populated from SOW</option>
+            <option *ngFor="let vendor of vendorDisplayOptions" [value]="vendor.id">
+              {{ vendor.display }}
+            </option>
+          </select>
+          <div *ngIf="poForm.get('vendorId')?.invalid && poForm.get('vendorId')?.touched" class="text-red-500 text-sm mt-1">
+            Vendor is required
           </div>
         </div>
         
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Description *</label>
-          <textarea 
-            formControlName="description"
-            rows="3"
-            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-            placeholder="Enter detailed description of the purchase order">
-          </textarea>
-          <div *ngIf="poForm.get('description')?.invalid && poForm.get('description')?.touched" class="text-red-500 text-sm mt-1">
-            Description is required and must be at least 10 characters
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Start Date *</label>
+            <input 
+              type="date" 
+              formControlName="startDate"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent">
+            <div *ngIf="poForm.get('startDate')?.invalid && poForm.get('startDate')?.touched" class="text-red-500 text-sm mt-1">
+              Start date is required
+            </div>
           </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">End Date *</label>
+            <input 
+              type="date" 
+              formControlName="endDate"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent">
+            <div *ngIf="poForm.get('endDate')?.invalid && poForm.get('endDate')?.touched" class="text-red-500 text-sm mt-1">
+              End date is required
+            </div>
+          </div>
+        </div>
+        
+        <!-- SOW Amount Display -->
+        <div *ngIf="getSelectedSOWAmount()" class="p-3 bg-blue-50 border border-blue-200 rounded-md">
+          <p class="text-sm text-blue-800">
+            <strong>SOW Amount:</strong> USD {{ getSelectedSOWAmount()?.toLocaleString() }}
+          </p>
         </div>
         
         <div formGroupName="totalAmount" class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Amount *</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1">PO Amount *</label>
             <input 
               type="number" 
               formControlName="amount"
+              (input)="checkAmountValidation()"
               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
               placeholder="0.00">
             <div *ngIf="poForm.get('totalAmount.amount')?.invalid && poForm.get('totalAmount.amount')?.touched" class="text-red-500 text-sm mt-1">
@@ -176,25 +200,51 @@
           </div>
         </div>
         
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Delivery Date *</label>
-          <input 
-            type="date" 
-            formControlName="deliveryDate"
-            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent">
-          <div *ngIf="poForm.get('deliveryDate')?.invalid && poForm.get('deliveryDate')?.touched" class="text-red-500 text-sm mt-1">
-            Delivery date is required
+        <!-- Amount Difference Warning -->
+        <div *ngIf="isJustificationRequired()" class="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+          <p class="text-sm text-yellow-800">
+            <strong>⚠️ Amount Difference Detected:</strong> The PO amount differs from the SOW amount by more than 5%. 
+            Please provide justification below.
+          </p>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Payment Terms *</label>
+            <select 
+              formControlName="paymentTerms"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent">
+              <option value="net_15">Net 15</option>
+              <option value="net_30">Net 30</option>
+              <option value="net_45">Net 45</option>
+              <option value="net_60">Net 60</option>
+              <option value="immediate">Immediate</option>
+              <option value="custom">Custom</option>
+            </select>
+          </div>
+          
+          <div *ngIf="poForm.get('paymentTerms')?.value === 'custom'">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Custom Payment Terms</label>
+            <input 
+              type="text" 
+              formControlName="customPaymentTerms"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              placeholder="Enter custom payment terms">
           </div>
         </div>
         
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Terms & Conditions</label>
+        <!-- Justification Field (shown when amount differs) -->
+        <div *ngIf="isJustificationRequired()">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Justification *</label>
           <textarea 
-            formControlName="terms"
+            formControlName="justification"
             rows="3"
             class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-            placeholder="Enter payment terms and conditions">
+            placeholder="Please explain why the PO amount differs from the SOW amount">
           </textarea>
+          <div *ngIf="poForm.get('justification')?.invalid && poForm.get('justification')?.touched" class="text-red-500 text-sm mt-1">
+            Justification is required when PO amount differs from SOW amount
+          </div>
         </div>
         
         <div class="flex justify-end space-x-3 pt-4">

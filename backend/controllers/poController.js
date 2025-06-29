@@ -97,24 +97,30 @@ const getPOs = asyncHandler(async (req, res, next) => {
   if (clientId) query.clientId = clientId;
   if (sowId) query.sowId = sowId;
 
-  const options = {
-    page: parseInt(page),
-    limit: parseInt(limit),
-    populate: [
-      { path: 'vendorId', select: 'firstName lastName companyName email' },
-      { path: 'clientId', select: 'firstName lastName companyName email' },
-      { path: 'sowId', select: 'title description estimatedCost' },
-      { path: 'createdBy', select: 'firstName lastName email' },
-      { path: 'updatedBy', select: 'firstName lastName email' },
-      { path: 'financeApproval.userId', select: 'firstName lastName email' }
-    ],
-    sort: { createdAt: -1 }
-  };
-
-  const pos = await PO.paginate(query, options);
-
+  const skip = (page - 1) * limit;
+  const [pos, total] = await Promise.all([
+    PO.find(query)
+      .populate([
+        { path: 'vendorId', select: 'firstName lastName companyName email' },
+        { path: 'clientId', select: 'firstName lastName companyName email' },
+        { path: 'sowId', select: 'title description estimatedCost' },
+        { path: 'createdBy', select: 'firstName lastName email' },
+        { path: 'updatedBy', select: 'firstName lastName email' },
+        { path: 'financeApproval.userId', select: 'firstName lastName email' }
+      ])
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit),
+    PO.countDocuments(query)
+  ]);
   res.status(200).json(
-    ApiResponse.success(pos, 'POs retrieved successfully')
+    ApiResponse.success({
+      docs: pos,
+      totalDocs: total,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      totalPages: Math.ceil(total / limit)
+    }, 'POs retrieved successfully')
   );
 });
 
