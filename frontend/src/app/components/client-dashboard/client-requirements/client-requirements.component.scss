@@ -30,6 +30,9 @@
 .ag-theme-alpine .ag-cell {
   padding: 8px 12px;
   line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ag-theme-alpine .ag-row {
@@ -42,6 +45,20 @@
 
 .ag-theme-alpine .ag-row:hover {
   background-color: #f3f4f6;
+}
+
+/* Title column specific styles */
+.ag-theme-alpine .ag-cell[col-id="title"] {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ag-theme-alpine .ag-cell[col-id="title"] .truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
 }
 
 /* Responsive AG Grid */

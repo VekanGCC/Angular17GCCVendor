@@ -386,7 +386,7 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
 
   private async loadVendorRequirements(page: number = 1): Promise<void> {
     // Use currentRequirementsSearchParams if set
-    this.loadVendorRequirementsWithFiltersAndSort(page, this.requirementsSortBy, this.requirementsSortOrder, this.currentRequirementsSearchParams || this.requirementsSearchParams);
+    await this.loadVendorRequirementsWithFiltersAndSort(page, this.requirementsSortBy, this.requirementsSortOrder, this.currentRequirementsSearchParams || this.requirementsSearchParams);
   }
 
   private async loadVendorSkills(): Promise<void> {
@@ -543,6 +543,9 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
         if (paginationData) {
           this.updateRequirementsPagination(paginationData);
         }
+        
+        // Force change detection to ensure UI updates immediately
+        this.changeDetectorRef.detectChanges();
       }
     } catch (error) {
       console.error('Error loading vendor requirements with sort:', error);
@@ -1220,6 +1223,9 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
         if (paginationData) {
           this.updateRequirementsPagination(paginationData);
         }
+        
+        // Force change detection to ensure UI updates immediately
+        this.changeDetectorRef.detectChanges();
       }
     } catch (error) {
       console.error('Error loading vendor requirements with filters and sort:', error);

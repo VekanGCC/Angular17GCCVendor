@@ -45,17 +45,32 @@ export class ClientRequirementsComponent implements OnInit, OnChanges {
     {
       headerName: 'Title',
       field: 'title',
-      flex: 2,
-      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
+      flex: 1,
+      minWidth: 150,
+      maxWidth: 250,
+      cellStyle: { 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'flex-start',
+        overflow: 'hidden'
+      },
       sortable: false,
       filter: false,
       cellRenderer: (params: any) => {
         const requirement = params.data;
+        const title = requirement.title || 'No Title';
+        const description = requirement.description || 'No Description';
+        
+        // Truncate title after 20 characters
+        const truncatedTitle = title.length > 20 ? title.substring(0, 20) + '...' : title;
+        // Truncate description after 20 characters
+        const truncatedDescription = description.length > 20 ? description.substring(0, 20) + '...' : description;
+        
         return `
-          <div class="flex items-center justify-start text-left">
-            <div class="min-w-0 flex-1">
-              <div class="text-sm font-medium text-gray-900 truncate">${requirement.title || 'No Title'}</div>
-              <div class="text-xs text-gray-500 truncate">${requirement.description || 'No Description'}</div>
+          <div class="flex items-center justify-start text-left w-full min-w-0">
+            <div class="min-w-0 flex-1 overflow-hidden">
+              <div class="text-sm font-medium text-gray-900" title="${title}">${truncatedTitle}</div>
+              <div class="text-xs text-gray-500" title="${description}">${truncatedDescription}</div>
             </div>
           </div>
         `;
