@@ -4,6 +4,9 @@ const UserBankDetails = require('../models/UserBankDetails');
 const UserStatutoryCompliance = require('../models/UserStatutoryCompliance');
 const Organization = require('../models/Organization');
 const OTP = require('../models/OTP');
+const Resource = require('../models/Resource');
+const Application = require('../models/Application');
+const Requirement = require('../models/Requirement');
 const asyncHandler = require('../utils/asyncHandler');
 const ErrorResponse = require('../utils/errorResponse');
 const { validationResult } = require('express-validator');
@@ -307,10 +310,56 @@ const updateVendorProfile = asyncHandler(async (req, res, next) => {
   });
 });
 
+// @desc    Get vendor dashboard stats
+// @route   GET /api/vendor/stats
+// @access  Private (Vendor only)
+const getVendorStats = asyncHandler(async (req, res, next) => {
+  const vendorId = req.user.id;
+  
+  // Get vendor's organization ID
+  const vendor = await User.findById(vendorId);
+  if (!vendor || !vendor.organizationId) {
+    return next(new ErrorResponse('Vendor organization not found', 400));
+  }
+
+  try {
+    // Get total open requirements (not filtered by organization)
+    const openRequirementsCount = await Requirement.countDocuments({ 
+      status: 'open' 
+    });
+
+    // Get total active resources for vendor's organization
+    const activeResourcesCount = await Resource.countDocuments({ 
+      organizationId: vendor.organizationId,
+      status: 'active'
+    });
+
+    // Get total open applications for vendor's organization
+    const openApplicationsCount = await Application.countDocuments({ 
+      organizationId: vendor.organizationId,
+      status: { $in: ['applied', 'pending', 'shortlisted', 'interview'] }
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        openRequirements: openRequirementsCount,
+        activeResources: activeResourcesCount,
+        openApplications: openApplicationsCount
+      },
+      message: 'Vendor stats retrieved successfully'
+    });
+  } catch (error) {
+    console.error('Error fetching vendor stats:', error);
+    return next(new ErrorResponse('Error fetching stats', 500));
+  }
+});
+
 module.exports = {
   saveStep,
   getRegistrationStatus,
   uploadDocuments,
   getVendorProfile,
-  updateVendorProfile
+  updateVendorProfile,
+  getVendorStats
 };

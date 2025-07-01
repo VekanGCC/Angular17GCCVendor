@@ -5,17 +5,14 @@ import { AllCommunityModule } from 'ag-grid-community';
 ModuleRegistry.registerModules([AllCommunityModule]);
 
 // Angular
-import { Component, OnInit, OnChanges, SimpleChanges, ViewChild, ChangeDetectorRef, Output, EventEmitter } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit, OnChanges, SimpleChanges, ViewChild, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AgGridModule, AgGridAngular } from 'ag-grid-angular';
 import { ColDef, ValueGetterParams } from 'ag-grid-community';
 import { Application } from '../../../models/application.model';
-import { PaginationState, PaginationParams, PaginatedResponse } from '../../../models/pagination.model';
+import { PaginationState } from '../../../models/pagination.model';
 import { PaginationComponent } from '../../pagination/pagination.component';
 import { ApplicationActionModalComponent, ApplicationActionData } from '../../modals/application-action-modal/application-action-modal.component';
-import { VendorService } from '../../../services/vendor.service';
-import { Router, ActivatedRoute } from '@angular/router';
-import { Observable } from 'rxjs';
 
 @Component({
   selector: 'app-vendor-applications',
@@ -25,20 +22,14 @@ import { Observable } from 'rxjs';
   styleUrls: ['./vendor-applications.component.scss']
 })
 export class VendorApplicationsComponent implements OnInit, OnChanges {
-  applications: Application[] = [];
-  isLoading = false;
-  paginationState: PaginationState = {
-    currentPage: 1,
-    pageSize: 10,
-    totalItems: 0,
-    totalPages: 0,
-    isLoading: false,
-    hasNextPage: false,
-    hasPreviousPage: false
-  };
-  resourceFilter: string = '';
-
+  @Input() applications: Application[] = [];
+  @Input() isLoading = false;
+  @Input() paginationState!: PaginationState;
+  @Input() resourceFilter: string = '';
   @Output() updateApplicationStatus = new EventEmitter<{applicationId: string, status: string, notes?: string, actionData?: ApplicationActionData}>();
+  @Output() viewApplicationHistory = new EventEmitter<string>();
+  @Output() pageChange = new EventEmitter<number>();
+  @Output() clearFilter = new EventEmitter<void>();
 
   @ViewChild(AgGridAngular) agGrid!: AgGridAngular;
 
@@ -213,146 +204,88 @@ export class VendorApplicationsComponent implements OnInit, OnChanges {
     tooltipShowDelay: 500
   };
 
+  // Computed property for filtered applications
   get filteredApplications(): Application[] {
-    // Since we're using backend filtering, just return the applications array
-    // The backend already filters by resource ID when resourceFilter is provided
-    return this.applications;
+    if (!this.resourceFilter) {
+      return this.applications;
+    }
+    return this.applications.filter(app => {
+      if (typeof app.resource === 'string') {
+        return app.resource === this.resourceFilter;
+      }
+      return app.resource?._id === this.resourceFilter;
+    });
   }
 
-  constructor(
-    private changeDetectorRef: ChangeDetectorRef,
-    private vendorService: VendorService,
-    private router: Router,
-    private activatedRoute: ActivatedRoute
-  ) {}
+  constructor(private changeDetectorRef: ChangeDetectorRef) {}
 
   ngOnInit(): void {
     console.log('🔧 VendorApplicationsComponent: ngOnInit called');
-    
-    // Get resourceId from route parameters
-    this.activatedRoute.queryParams.subscribe(params => {
-      this.resourceFilter = params['resourceId'] || '';
-      console.log('🔧 VendorApplicationsComponent: Resource filter from route:', this.resourceFilter);
-      this.loadApplications();
-    });
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    // This will be called whenever the properties change
-    console.log('🔧 VendorApplications: Applications data changed:', this.applications);
+    console.log('🔧 VendorApplicationsComponent: ngOnChanges called');
+    console.log('🔧 VendorApplicationsComponent: Applications updated:', this.applications);
     
     // If applications data changed, refresh the grid
     if (changes['applications'] && this.agGrid && this.agGrid.api) {
-      console.log('🔧 VendorApplications: Applications changed, refreshing grid');
+      console.log('🔧 VendorApplicationsComponent: Applications changed, refreshing grid');
       this.refreshGridData();
     }
-  }
-
-  loadApplications(): void {
-    console.log('🔄 VendorApplications: Loading applications...');
-    this.isLoading = true;
-    this.paginationState.isLoading = true;
-
-    const params: PaginationParams = {
-      page: this.paginationState.currentPage,
-      limit: this.paginationState.pageSize
-    };
-
-    // Use different service method based on whether resource filter is provided
-    let observable: Observable<PaginatedResponse<any>>;
-    
-    if (this.resourceFilter) {
-      console.log('🔄 VendorApplications: Loading applications filtered by resource ID:', this.resourceFilter);
-      observable = this.vendorService.getApplicationsByResourceId(this.resourceFilter, params);
-    } else {
-      console.log('🔄 VendorApplications: Loading all applications');
-      observable = this.vendorService.getApplications(params);
-    }
-
-    observable.subscribe({
-      next: (response) => {
-        console.log('✅ VendorApplications: Applications loaded successfully:', response);
-        this.applications = response.data || [];
-        
-        // Handle pagination data - check both meta and pagination properties
-        const paginationData = response.meta || response.pagination;
-        this.paginationState = {
-          ...this.paginationState,
-          totalItems: paginationData?.total || 0,
-          totalPages: (paginationData as any)?.pages || paginationData?.totalPages || 0,
-          hasNextPage: (paginationData?.page || 1) < ((paginationData as any)?.pages || paginationData?.totalPages || 1),
-          hasPreviousPage: (paginationData?.page || 1) > 1,
-          isLoading: false
-        };
-        
-        console.log('✅ VendorApplications: Pagination state updated:', this.paginationState);
-        console.log('✅ VendorApplications: Applications array:', this.applications);
-        
-        this.isLoading = false;
-        this.refreshGridData();
-      },
-      error: (error) => {
-        console.error('❌ VendorApplications: Error loading applications:', error);
-        this.isLoading = false;
-        this.paginationState.isLoading = false;
-      }
-    });
   }
 
   private refreshGridData(): void {
     if (this.agGrid && this.agGrid.api) {
       // Force AG Grid to refresh all data
       this.agGrid.api.refreshCells({ force: true });
-      console.log('🔧 VendorApplications: Grid data refreshed');
+      console.log('🔧 VendorApplicationsComponent: Grid data refreshed');
     }
   }
 
   onGridReady(event: any): void {
-    console.log('🔧 VendorApplications: Grid ready, API captured');
-    
-    // Set initial data if applications are already available
-    if (this.applications && this.applications.length > 0) {
-      console.log('🔧 VendorApplications: Setting initial data in grid');
-      this.refreshGridData();
-    }
+    console.log('🔧 VendorApplicationsComponent: Grid ready');
+    // Store reference to grid API for later use
+    this.agGrid = event;
   }
 
   getResourceName(app: Application): string {
     if (typeof app.resource === 'string') {
-      return 'Unknown Resource';
+      return 'Unknown';
     }
-    return app.resource?.name || 'Unknown Resource';
+    return app.resource?.name || 'Unknown';
   }
 
   getRequirementTitle(app: Application): string {
     if (typeof app.requirement === 'string') {
-      return 'Unknown Requirement';
+      return 'Unknown';
     }
-    return app.requirement?.title || 'Unknown Requirement';
+    return app.requirement?.title || 'Unknown';
   }
 
   getStatusClass(status: string): string {
     switch (status?.toLowerCase()) {
+      case 'applied':
+        return 'bg-gray-100 text-gray-800';
       case 'pending':
         return 'bg-yellow-100 text-yellow-800';
-      case 'approved':
+      case 'shortlisted':
+        return 'bg-blue-100 text-blue-800';
+      case 'interview':
+        return 'bg-purple-100 text-purple-800';
+      case 'accepted':
         return 'bg-green-100 text-green-800';
       case 'rejected':
         return 'bg-red-100 text-red-800';
-      case 'in progress':
-        return 'bg-blue-100 text-blue-800';
-      case 'completed':
-        return 'bg-purple-100 text-purple-800';
-      case 'cancelled':
-        return 'bg-gray-100 text-gray-800';
-      case 'revoked':
-        return 'bg-orange-100 text-orange-800';
-      case 'offer_sent':
+      case 'offer_created':
         return 'bg-indigo-100 text-indigo-800';
       case 'offer_accepted':
         return 'bg-emerald-100 text-emerald-800';
-      case 'offer_rejected':
-        return 'bg-rose-100 text-rose-800';
+      case 'onboarded':
+        return 'bg-teal-100 text-teal-800';
+      case 'did_not_join':
+        return 'bg-orange-100 text-orange-800';
+      case 'withdrawn':
+        return 'bg-gray-100 text-gray-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -424,7 +357,7 @@ export class VendorApplicationsComponent implements OnInit, OnChanges {
   }
 
   onStatusChange(applicationId: string, newStatus: string, application: Application): void {
-    console.log('🔄 VendorApplications: Status change requested:', { applicationId, newStatus });
+    console.log('🔧 VendorApplicationsComponent: Status change requested:', applicationId, newStatus);
     
     // Determine action type based on new status
     let actionType: 'revoke' | 'accept_offer' | 'reject_offer' = 'revoke';
@@ -437,14 +370,14 @@ export class VendorApplicationsComponent implements OnInit, OnChanges {
       actionType = 'revoke';
     }
     
-    console.log('🔄 VendorApplications: Determined actionType:', actionType);
+    console.log('🔧 VendorApplicationsComponent: Determined actionType:', actionType);
     
     // Show confirmation modal
     this.selectedApplication = application;
     this.selectedActionType = actionType;
     this.showActionModal = true;
     
-    console.log('🔄 VendorApplications: Modal state set - showActionModal:', this.showActionModal, 'selectedActionType:', this.selectedActionType);
+    console.log('🔧 VendorApplicationsComponent: Modal state set - showActionModal:', this.showActionModal, 'selectedActionType:', this.selectedActionType);
     
     // Force change detection to ensure the modal appears
     this.changeDetectorRef.detectChanges();
@@ -481,20 +414,16 @@ export class VendorApplicationsComponent implements OnInit, OnChanges {
   }
 
   onViewHistory(applicationId: string): void {
-    console.log('🔄 VendorApplications: Viewing history for application:', applicationId);
-    // TODO: Navigate to history view or show modal
+    this.viewApplicationHistory.emit(applicationId);
   }
 
   onPageChange(page: number): void {
-    this.paginationState.currentPage = page;
-    this.loadApplications();
+    this.pageChange.emit(page);
   }
 
   onClearFilter(): void {
-    console.log('🔄 VendorApplications: Clearing resource filter');
-    this.resourceFilter = '';
-    this.paginationState.currentPage = 1; // Reset to first page
-    this.loadApplications();
+    console.log('🔧 VendorApplications: Clearing filter');
+    this.clearFilter.emit();
   }
 
   trackById(index: number, item: Application): string {

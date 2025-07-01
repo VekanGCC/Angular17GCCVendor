@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output, OnInit, OnDestroy } from '@angular/core';
+import { Component, EventEmitter, Input, Output, OnInit, OnDestroy, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
@@ -13,7 +13,7 @@ import { Subscription } from 'rxjs';
   templateUrl: './add-vendor-skill-modal.component.html',
   styleUrls: ['./add-vendor-skill-modal.component.css']
 })
-export class AddVendorSkillModalComponent implements OnInit, OnDestroy {
+export class AddVendorSkillModalComponent implements OnInit, OnDestroy, OnChanges {
   @Input() isOpen = false;
   @Output() closeModal = new EventEmitter<void>();
   @Output() skillAdded = new EventEmitter<any>();
@@ -42,7 +42,16 @@ export class AddVendorSkillModalComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    // Load skills when component initializes
     this.loadAvailableSkills();
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    // Load skills when modal opens
+    if (changes['isOpen'] && changes['isOpen'].currentValue === true) {
+      console.log('🔧 AddVendorSkillModal: Modal opened, loading skills');
+      this.loadAvailableSkills();
+    }
   }
 
   ngOnDestroy(): void {
@@ -50,18 +59,24 @@ export class AddVendorSkillModalComponent implements OnInit, OnDestroy {
   }
 
   private loadAvailableSkills(): void {
+    console.log('🔧 AddVendorSkillModal: Loading available skills...');
     this.loadingSkills = true;
     this.subscription.add(
       this.apiService.getActiveSkills().subscribe({
         next: (response) => {
+          console.log('🔧 AddVendorSkillModal: Skills API response:', response);
           if (response.success && response.data) {
             this.availableSkills = response.data;
             console.log('🔧 AddVendorSkillModal: Loaded available skills:', this.availableSkills);
+          } else {
+            console.warn('🔧 AddVendorSkillModal: No skills data in response');
+            this.availableSkills = [];
           }
           this.loadingSkills = false;
         },
         error: (error) => {
-          console.error('Error loading skills:', error);
+          console.error('🔧 AddVendorSkillModal: Error loading skills:', error);
+          this.availableSkills = [];
           this.loadingSkills = false;
         }
       })
@@ -76,6 +91,8 @@ export class AddVendorSkillModalComponent implements OnInit, OnDestroy {
       skillData.proficiency = skillData.proficiencyLevel;
       delete skillData.proficiencyLevel;
       
+      console.log('🔧 AddVendorSkillModal: Submitting skill data:', skillData);
+      
       this.subscription.add(
         this.apiService.createVendorSkill(skillData).subscribe({
           next: (response: any) => {
@@ -85,12 +102,12 @@ export class AddVendorSkillModalComponent implements OnInit, OnDestroy {
               this.closeModal.emit();
               this.skillForm.reset({ proficiencyLevel: 'advanced' });
             } else {
-              console.error('Error creating skill:', response.message);
+              console.error('🔧 AddVendorSkillModal: Error creating skill:', response.message);
             }
             this.submitting = false;
           },
           error: (error: any) => {
-            console.error('Error creating skill:', error);
+            console.error('🔧 AddVendorSkillModal: Error creating skill:', error);
             this.submitting = false;
           }
         })

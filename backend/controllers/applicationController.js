@@ -830,6 +830,77 @@ const getApplicationCountsForResources = asyncHandler(async (req, res, next) => 
   );
 });
 
+// @desc    Get vendor applications filtered by resource ID
+// @route   GET /api/applications/vendor/resource/:resourceId
+// @access  Private (Vendor only)
+const getVendorApplicationsByResource = asyncHandler(async (req, res, next) => {
+  const { 
+    page = 1, 
+    limit = 10, 
+    sortBy = 'createdAt', 
+    sortOrder = 'desc',
+    status
+  } = req.query;
+
+  const { resourceId } = req.params;
+
+  // Get vendor ID from JWT token
+  const vendorId = req.user.id;
+
+  // Validate that the resource belongs to the vendor
+  let resource;
+  if (req.user.organizationId) {
+    // Check if resource belongs to vendor's organization
+    resource = await Resource.findOne({ 
+      _id: resourceId,
+      organizationId: req.user.organizationId 
+    });
+  } else {
+    // Fallback to user-based ownership
+    resource = await Resource.findOne({ 
+      _id: resourceId,
+      createdBy: vendorId 
+    });
+  }
+
+  if (!resource) {
+    return next(new ErrorResponse('Resource not found or access denied', 404));
+  }
+
+  // Build query - filter by specific resource
+  let query = { resource: resourceId };
+
+  if (status) {
+    query.status = status;
+  }
+
+  // Execute query with pagination
+  const applications = await Application.find(query)
+    .populate('requirement', 'title status priority createdBy')
+    .populate('resource', 'name status category createdBy')
+    .populate('createdBy', 'firstName lastName email')
+    .populate('updatedBy', 'firstName lastName email')
+    .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
+    .limit(parseInt(limit))
+    .skip((parseInt(page) - 1) * parseInt(limit))
+    .lean();
+
+  const total = await Application.countDocuments(query);
+
+  res.status(200).json(
+    ApiResponse.success(
+      applications,
+      'Vendor applications for resource retrieved successfully',
+      {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / parseInt(limit))
+      }
+    )
+  );
+});
+
 module.exports = {
   getApplications,
   getVendorApplications,
@@ -841,5 +912,6 @@ module.exports = {
   updateApplication,
   deleteApplication,
   getApplicationCountsForRequirements,
-  getApplicationCountsForResources
+  getApplicationCountsForResources,
+  getVendorApplicationsByResource
 };

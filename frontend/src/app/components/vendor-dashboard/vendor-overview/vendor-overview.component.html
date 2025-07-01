@@ -33,9 +33,9 @@
           <div class="flex justify-between items-start">
             <div class="min-w-0 flex-1">
               <p class="font-medium text-gray-900 text-sm sm:text-base truncate">{{req?.title || 'Loading...'}}</p>
-              <p class="text-xs sm:text-sm text-gray-600 truncate">{{req?.clientName || 'Loading...'}}</p>
+              <p class="text-xs sm:text-sm text-gray-600 truncate">{{getClientName(req)}}</p>
               <div class="flex items-center mt-1 space-x-2 sm:space-x-4">
-                <span class="text-xs text-gray-500">${{req?.budget || 0}}/hr</span>
+                <span class="text-xs text-gray-500">{{formatBudget(req?.budget)}}</span>
                 <span class="text-xs text-gray-500">{{req?.duration || 'TBD'}}</span>
               </div>
             </div>

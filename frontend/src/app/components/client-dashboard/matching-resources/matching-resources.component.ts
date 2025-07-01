@@ -1,4 +1,4 @@
-import { Component, OnInit, Input, Output, EventEmitter, OnDestroy, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
 import { AgGridModule } from 'ag-grid-angular';
@@ -9,6 +9,7 @@ import { PaginationComponent } from '../../pagination/pagination.component';
 import { PaginationState } from '../../../models/pagination.model';
 import { Resource } from '../../../models/resource.model';
 import { Requirement } from '../../../models/requirement.model';
+import { ActivatedRoute, Router } from '@angular/router';
 
 // Interfaces for API response data
 interface MatchingResource {
@@ -104,9 +105,7 @@ interface MatchingResourcesResponse {
   styleUrls: ['./matching-resources.component.scss']
 })
 export class MatchingResourcesComponent implements OnInit, OnDestroy {
-  @Input() requirementId: string = '';
-  @Output() navigateBack = new EventEmitter<void>();
-
+  requirementId: string = '';
   isLoading = false;
   requirement: MatchingRequirement | null = null;
   matchingResources: MatchingResource[] = [];
@@ -208,12 +207,35 @@ export class MatchingResourcesComponent implements OnInit, OnDestroy {
       sortable: true,
       filter: false,
       cellRenderer: (params: any) => {
-        const hourly = params.data.rate?.hourly || 0;
-        const currency = params.data.rate?.currency || 'USD';
+        const rate = params.data.rate;
+        const hourly = rate?.hourly || 0;
+        const currency = rate?.currency || 'USD';
         return `<div class="text-center">
           <div class="font-medium">$${hourly}/hr</div>
           <div class="text-xs text-gray-500">${currency}</div>
         </div>`;
+      }
+    },
+    {
+      headerName: 'Location',
+      field: 'location.city',
+      flex: 1,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
+      sortable: true,
+      filter: true,
+      cellRenderer: (params: any) => {
+        const location = params.data.location;
+        const city = location?.city || 'N/A';
+        const state = location?.state || '';
+        const remote = location?.remote;
+        
+        let html = `<div class="flex flex-col items-start">`;
+        html += `<span class="text-sm text-gray-900">${city}${state ? `, ${state}` : ''}</span>`;
+        if (remote) {
+          html += `<span class="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">Remote</span>`;
+        }
+        html += `</div>`;
+        return html;
       }
     },
     {
@@ -222,16 +244,20 @@ export class MatchingResourcesComponent implements OnInit, OnDestroy {
       flex: 1,
       cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'center' },
       sortable: true,
-      filter: true,
+      filter: false,
       cellRenderer: (params: any) => {
-        const status = params.data.availability?.status || 'N/A';
-        let colorClass = 'bg-gray-100 text-gray-800';
-        if (status === 'available') colorClass = 'bg-green-100 text-green-800';
-        else if (status === 'partially_available') colorClass = 'bg-yellow-100 text-yellow-800';
+        const availability = params.data.availability;
+        const status = availability?.status || 'unknown';
+        const hoursPerWeek = availability?.hours_per_week;
         
-        return `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${colorClass}">
-          ${status.replace('_', ' ')}
-        </span>`;
+        const statusClass = this.getAvailabilityStatusClass(status);
+        let html = `<div class="text-center">`;
+        html += `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusClass}">${status}</span>`;
+        if (hoursPerWeek) {
+          html += `<div class="text-xs text-gray-500 mt-1">${hoursPerWeek}h/week</div>`;
+        }
+        html += `</div>`;
+        return html;
       }
     },
     {
@@ -241,11 +267,12 @@ export class MatchingResourcesComponent implements OnInit, OnDestroy {
       sortable: false,
       filter: false,
       cellRenderer: (params: any) => {
+        const resource = params.data;
         const button = document.createElement('button');
         button.className = 'inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500';
         button.innerHTML = 'Apply';
         button.addEventListener('click', () => {
-          this.onApplyResource.emit(params.data._id);
+          this.onApplyResource(resource._id);
         });
         return button;
       }
@@ -255,12 +282,15 @@ export class MatchingResourcesComponent implements OnInit, OnDestroy {
   defaultColDef = {
     resizable: true,
     sortable: true,
-    filter: true
+    filter: true,
+    flex: 1,
+    minWidth: 100
   };
 
   gridOptions = {
-    rowHeight: 80,
-    headerHeight: 50,
+    pagination: false,
+    rowHeight: 60,
+    tooltipShowDelay: 500,
     suppressRowClickSelection: true,
     suppressCellFocus: true
   };
@@ -275,19 +305,31 @@ export class MatchingResourcesComponent implements OnInit, OnDestroy {
     hasPreviousPage: false
   };
 
-  @Output() onApplyResource = new EventEmitter<string>();
-
   private subscriptions: Subscription[] = [];
 
-  constructor(private clientService: ClientService, private changeDetectorRef: ChangeDetectorRef) {}
+  constructor(
+    private clientService: ClientService, 
+    private changeDetectorRef: ChangeDetectorRef,
+    private route: ActivatedRoute,
+    private router: Router
+  ) {}
 
   ngOnInit(): void {
-    console.log('🔧 MatchingResourcesComponent: ngOnInit called with requirementId:', this.requirementId);
-    if (this.requirementId) {
-      this.loadMatchingResources();
-    } else {
-      console.warn('🔧 MatchingResourcesComponent: No requirementId provided');
-    }
+    console.log('🔧 MatchingResourcesComponent: ngOnInit called');
+    
+    // Get requirementId from route parameters
+    this.route.queryParams.subscribe(params => {
+      this.requirementId = params['requirementId'] || '';
+      console.log('🔧 MatchingResourcesComponent: Requirement ID from route:', this.requirementId);
+      
+      if (this.requirementId) {
+        this.loadMatchingResources();
+      } else {
+        console.error('❌ MatchingResourcesComponent: No requirement ID provided');
+        // Navigate back to requirements page
+        this.router.navigate(['/client/requirements']);
+      }
+    });
   }
 
   ngOnDestroy(): void {
@@ -295,77 +337,86 @@ export class MatchingResourcesComponent implements OnInit, OnDestroy {
   }
 
   loadMatchingResources(): void {
-    if (!this.requirementId) return;
-
-    console.log('🔧 MatchingResourcesComponent: Loading matching resources for requirement:', this.requirementId, 'page:', this.paginationState.currentPage);
-    this.isLoading = true;
+    console.log('🔄 MatchingResourcesComponent: Loading matching resources for requirement:', this.requirementId);
     
-    this.subscriptions.push(
-      this.clientService.getMatchingResourcesDetails(
-        this.requirementId, 
-        this.paginationState.currentPage, 
-        this.paginationState.pageSize
-      ).subscribe({
-        next: (response) => {
-          console.log('🔧 MatchingResourcesComponent: API response received:', response);
-          if (response.success && response.data) {
-            const data: MatchingResourcesResponse = response.data;
-            console.log('🔧 MatchingResourcesComponent: Parsed data:', data);
-            
-            this.requirement = data.requirement;
-            this.matchingResources = data.matchingResources || [];
-            this.totalCount = data.totalCount || 0;
-            this.matchingCriteria = data.matchingCriteria;
-            
-            // Update pagination state from API response
-            if (data.pagination) {
-              this.paginationState.currentPage = data.pagination.currentPage;
-              this.paginationState.pageSize = data.pagination.pageSize;
-              this.paginationState.totalPages = data.pagination.totalPages;
-              this.paginationState.hasNextPage = data.pagination.hasNextPage;
-              this.paginationState.hasPreviousPage = data.pagination.hasPreviousPage;
-              this.paginationState.totalItems = this.totalCount;
-            } else {
-              // Fallback pagination calculation
-              this.paginationState.totalItems = this.totalCount;
-              this.paginationState.totalPages = Math.ceil(this.totalCount / this.paginationState.pageSize);
-              this.paginationState.hasNextPage = this.paginationState.currentPage < this.paginationState.totalPages;
-              this.paginationState.hasPreviousPage = this.paginationState.currentPage > 1;
-            }
-            
-            console.log('🔧 MatchingResourcesComponent: Updated component state:', {
-              requirement: this.requirement,
-              matchingResources: this.matchingResources,
-              totalCount: this.totalCount,
-              paginationState: this.paginationState,
-              isLoading: this.isLoading
-            });
-            
-            // Force change detection
-            this.changeDetectorRef.detectChanges();
-          } else {
-            console.error('🔧 MatchingResourcesComponent: API response not successful:', response);
-          }
-        },
-        error: (error) => {
-          console.error('🔧 MatchingResourcesComponent: Error loading matching resources:', error);
+    if (!this.requirementId) {
+      console.error('❌ MatchingResourcesComponent: No requirement ID available');
+      return;
+    }
+
+    this.isLoading = true;
+    this.paginationState.isLoading = true;
+
+    const params = {
+      page: this.paginationState.currentPage,
+      limit: this.paginationState.pageSize
+    };
+
+    this.clientService.getMatchingResourcesDetails(this.requirementId, params.page, params.limit).subscribe({
+      next: (response: any) => {
+        console.log('✅ MatchingResourcesComponent: Raw API response:', response);
+        
+        // Handle wrapped response structure
+        let data: MatchingResourcesResponse;
+        if (response.success && response.data) {
+          data = response.data;
+        } else if (response.requirement) {
+          // Direct response structure
+          data = response;
+        } else {
+          console.error('❌ MatchingResourcesComponent: Unexpected response structure:', response);
           this.isLoading = false;
+          this.paginationState.isLoading = false;
           this.changeDetectorRef.detectChanges();
-        },
-        complete: () => {
-          console.log('🔧 MatchingResourcesComponent: Loading completed, setting isLoading to false');
-          this.isLoading = false;
-          this.changeDetectorRef.detectChanges();
+          return;
         }
-      })
-    );
+        
+        console.log('✅ MatchingResourcesComponent: Parsed data:', data);
+        
+        this.requirement = data.requirement;
+        this.matchingResources = data.matchingResources || [];
+        this.totalCount = data.totalCount || 0;
+        this.matchingCriteria = data.matchingCriteria;
+        
+        // Update pagination state
+        if (data.pagination) {
+          this.paginationState = {
+            currentPage: data.pagination.currentPage,
+            pageSize: data.pagination.pageSize,
+            totalItems: data.totalCount,
+            totalPages: data.pagination.totalPages,
+            isLoading: false,
+            hasNextPage: data.pagination.hasNextPage,
+            hasPreviousPage: data.pagination.hasPreviousPage
+          };
+        } else {
+          // Fallback pagination calculation
+          this.paginationState.totalItems = data.totalCount;
+          this.paginationState.totalPages = Math.ceil(data.totalCount / this.paginationState.pageSize);
+          this.paginationState.hasNextPage = this.paginationState.currentPage < this.paginationState.totalPages;
+          this.paginationState.hasPreviousPage = this.paginationState.currentPage > 1;
+          this.paginationState.isLoading = false;
+        }
+        
+        this.isLoading = false;
+        this.changeDetectorRef.detectChanges();
+      },
+      error: (error) => {
+        console.error('❌ MatchingResourcesComponent: Error loading matching resources:', error);
+        this.isLoading = false;
+        this.paginationState.isLoading = false;
+        this.changeDetectorRef.detectChanges();
+      }
+    });
   }
 
   onBackClick(): void {
-    this.navigateBack.emit();
+    console.log('🔄 MatchingResourcesComponent: Navigating back to requirements');
+    this.router.navigate(['/client/requirements']);
   }
 
   onPageChange(page: number): void {
+    console.log('🔄 MatchingResourcesComponent: Page changed to:', page);
     this.paginationState.currentPage = page;
     this.loadMatchingResources();
   }
@@ -380,5 +431,28 @@ export class MatchingResourcesComponent implements OnInit, OnDestroy {
     if (percentage >= 80) return 'bg-green-100 text-green-800';
     if (percentage >= 60) return 'bg-yellow-100 text-yellow-800';
     return 'bg-red-100 text-red-800';
+  }
+
+  getAvailabilityStatusClass(status: string): string {
+    switch (status?.toLowerCase()) {
+      case 'available':
+        return 'bg-green-100 text-green-800';
+      case 'partially_available':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'unavailable':
+        return 'bg-red-100 text-red-800';
+      case 'busy':
+        return 'bg-orange-100 text-orange-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  }
+
+  onApplyResource(resourceId: string): void {
+    console.log('🔄 MatchingResourcesComponent: Applying for resource:', resourceId);
+    // Navigate to apply resource page with the resource ID
+    this.router.navigate(['/client/apply-resources'], { 
+      queryParams: { resourceId, requirementId: this.requirementId } 
+    });
   }
 } 

@@ -3,7 +3,7 @@ import { AllCommunityModule } from 'ag-grid-community';
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
-import { Component, OnInit, Input, Output, EventEmitter, OnChanges, SimpleChanges, ChangeDetectorRef, ViewChild } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
 import { Application } from '../../../models/application.model';
@@ -12,6 +12,7 @@ import { ColDef, ValueGetterParams, SortChangedEvent, GridReadyEvent } from 'ag-
 import { PaginationComponent } from '../../pagination/pagination.component';
 import { PaginationState } from '../../../models/pagination.model';
 import { ClientService } from '../../../services/client.service';
+import { Router, ActivatedRoute } from '@angular/router';
 
 @Component({
   selector: 'app-client-applications',
@@ -20,10 +21,10 @@ import { ClientService } from '../../../services/client.service';
   templateUrl: './client-applications.component.html',
   styleUrls: ['./client-applications.component.scss']
 })
-export class ClientApplicationsComponent implements OnInit, OnChanges {
-  @Input() applications: Application[] = [];
-  @Input() isLoading = false;
-  @Input() paginationState: PaginationState = {
+export class ClientApplicationsComponent implements OnInit, OnDestroy {
+  applications: Application[] = [];
+  isLoading = false;
+  paginationState: PaginationState = {
     currentPage: 1,
     pageSize: 10,
     totalItems: 0,
@@ -32,13 +33,7 @@ export class ClientApplicationsComponent implements OnInit, OnChanges {
     hasNextPage: false,
     hasPreviousPage: false
   };
-  @Input() currentFilter: any = {};
-  @Output() updateApplicationStatus = new EventEmitter<{applicationId: string, status: string, notes?: string}>();
-  @Output() viewApplicationHistory = new EventEmitter<string>();
-  @Output() viewApplicationDetails = new EventEmitter<Application>();
-  @Output() sortChange = new EventEmitter<{sortBy: string, sortOrder: 'asc' | 'desc'}>();
-  @Output() pageChange = new EventEmitter<number>();
-  @Output() clearFilter = new EventEmitter<void>();
+  currentFilter: any = {};
 
   @ViewChild(AgGridAngular) agGrid!: AgGridAngular;
 
@@ -221,20 +216,81 @@ export class ClientApplicationsComponent implements OnInit, OnChanges {
     suppressCellFocus: true
   };
 
-  constructor(private changeDetectorRef: ChangeDetectorRef, private clientService: ClientService) {}
+  constructor(
+    private changeDetectorRef: ChangeDetectorRef, 
+    private clientService: ClientService,
+    private router: Router,
+    private route: ActivatedRoute
+  ) {}
 
   ngOnInit(): void {
     console.log('🔧 ClientApplicationsComponent: ngOnInit called');
+    this.checkQueryParams();
   }
 
-  ngOnChanges(changes: SimpleChanges): void {
-    console.log('🔧 ClientApplicationsComponent: ngOnChanges called');
-    
-    // If applications data changed, refresh the grid
-    if (changes['applications'] && this.agGrid && this.agGrid.api) {
-      console.log('🔧 ClientApplicationsComponent: Applications changed, refreshing grid');
-      this.refreshGridData();
+  ngOnDestroy(): void {
+    // Clean up any subscriptions if needed
+  }
+
+  private checkQueryParams(): void {
+    this.route.queryParams.subscribe(params => {
+      if (params['requirementId']) {
+        this.currentFilter = { requirementId: params['requirementId'] };
+        console.log('🔧 ClientApplications: Filtering by requirement:', params['requirementId']);
+      } else {
+        this.currentFilter = {};
+      }
+      this.loadApplications();
+    });
+  }
+
+  private loadApplications(): void {
+    console.log('🔄 ClientApplications: Loading applications...');
+    this.isLoading = true;
+    this.paginationState.isLoading = true;
+
+    const params: any = {
+      page: this.paginationState.currentPage,
+      limit: this.paginationState.pageSize
+    };
+
+    // Add filter if present
+    if (this.currentFilter?.requirementId) {
+      params.requirementId = this.currentFilter.requirementId;
     }
+
+    this.clientService.getApplications(params).subscribe({
+      next: (response) => {
+        console.log('✅ ClientApplications: Applications loaded:', response);
+        if (response.success && response.data) {
+          this.applications = response.data;
+          
+          // Update pagination state
+          const paginationData = response.pagination || response.meta;
+          if (paginationData) {
+            this.paginationState = {
+              currentPage: paginationData.page || 1,
+              pageSize: paginationData.limit || 10,
+              totalItems: paginationData.total || 0,
+              totalPages: paginationData.totalPages || Math.ceil((paginationData.total || 0) / (paginationData.limit || 10)),
+              isLoading: false,
+              hasNextPage: (paginationData.page || 1) < (paginationData.totalPages || Math.ceil((paginationData.total || 0) / (paginationData.limit || 10))),
+              hasPreviousPage: (paginationData.page || 1) > 1
+            };
+          }
+        }
+        this.isLoading = false;
+        this.paginationState.isLoading = false;
+        this.changeDetectorRef.detectChanges();
+      },
+      error: (error) => {
+        console.error('❌ ClientApplications: Error loading applications:', error);
+        this.applications = [];
+        this.isLoading = false;
+        this.paginationState.isLoading = false;
+        this.changeDetectorRef.detectChanges();
+      }
+    });
   }
 
   private refreshGridData(): void {
@@ -264,7 +320,8 @@ export class ClientApplicationsComponent implements OnInit, OnChanges {
       const sortBy = fieldMapping[sort.colId] || sort.colId;
       const sortOrder = sort.sort as 'asc' | 'desc';
       
-      this.sortChange.emit({ sortBy, sortOrder });
+      // You can implement sorting logic here if needed
+      console.log('🔄 ClientApplications: Sort by:', sortBy, 'Order:', sortOrder);
     }
   }
 
@@ -374,20 +431,44 @@ export class ClientApplicationsComponent implements OnInit, OnChanges {
 
   onStatusChange(applicationId: string, newStatus: string): void {
     console.log('🔧 ClientApplicationsComponent: Status change requested:', applicationId, newStatus);
-    this.updateApplicationStatus.emit({ applicationId, status: newStatus });
-    // Force change detection to ensure the event is processed immediately
-    this.changeDetectorRef.detectChanges();
+    
+    // Update local state immediately for responsive UI
+    const applicationIndex = this.applications.findIndex(app => app._id === applicationId);
+    if (applicationIndex !== -1) {
+      // Create a new array reference to force change detection
+      this.applications = [...this.applications];
+      this.applications[applicationIndex].status = newStatus as any;
+      this.changeDetectorRef.detectChanges();
+    }
+
+    // Make API call to update status
+    this.clientService.updateApplicationStatus(applicationId, newStatus).subscribe({
+      next: (response) => {
+        console.log('✅ ClientApplications: Application status updated successfully:', response);
+        // Refresh the grid to show updated data
+        this.refreshGridData();
+      },
+      error: (error) => {
+        console.error('❌ ClientApplications: Error updating application status:', error);
+        // Revert local change if API call failed
+        if (applicationIndex !== -1) {
+          this.applications[applicationIndex].status = this.applications.find(app => app._id === applicationId)?.status || 'applied';
+          this.changeDetectorRef.detectChanges();
+        }
+      }
+    });
   }
 
   onViewHistory(applicationId: string): void {
     console.log('🔧 ClientApplicationsComponent: View history clicked for application:', applicationId);
-    this.viewApplicationHistory.emit(applicationId);
-    // Force change detection to ensure the modal opens immediately
-    this.changeDetectorRef.detectChanges();
+    // Navigate to application history modal or page
+    // For now, we'll just log it
   }
 
   onViewDetails(application: Application): void {
-    this.viewApplicationDetails.emit(application);
+    console.log('🔧 ClientApplicationsComponent: View details clicked for application:', application._id);
+    // Navigate to application details modal or page
+    // For now, we'll just log it
   }
 
   getAvailableStatuses(currentStatus: string): any[] {
@@ -423,7 +504,9 @@ export class ClientApplicationsComponent implements OnInit, OnChanges {
   }
 
   onPageChange(page: number): void {
-    this.pageChange.emit(page);
+    console.log('🔄 ClientApplications: Page changed to:', page);
+    this.paginationState.currentPage = page;
+    this.loadApplications();
   }
 
   hasStatusOptions(status: string): boolean {
@@ -433,5 +516,15 @@ export class ClientApplicationsComponent implements OnInit, OnChanges {
 
   getAvailableStatusOptions(status: string): any[] {
     return this.getAvailableStatuses(status);
+  }
+
+  clearFilter(): void {
+    console.log('🔄 ClientApplications: Clearing filter');
+    this.currentFilter = {};
+    this.router.navigate([], { 
+      queryParams: {}, 
+      queryParamsHandling: 'merge' 
+    });
+    this.loadApplications();
   }
 } 

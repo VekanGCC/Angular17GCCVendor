@@ -33,8 +33,6 @@ export class VendorService {
     if (params.status) httpParams = httpParams.set('status', params.status);
     if (params.category) httpParams = httpParams.set('category', params.category);
     if (params.priority) httpParams = httpParams.set('priority', params.priority);
-    if (params.requirementId) httpParams = httpParams.set('requirementId', params.requirementId);
-    if (params.resourceId) httpParams = httpParams.set('resourceId', params.resourceId);
     
     return httpParams;
   }
@@ -85,15 +83,6 @@ export class VendorService {
       params: params ? this.buildHttpParams(params) : undefined 
     };
     return this.http.get<PaginatedResponse<any>>(`${environment.apiUrl}/applications/vendor`, options);
-  }
-
-  // Get vendor applications filtered by resource ID
-  getApplicationsByResourceId(resourceId: string, params?: PaginationParams): Observable<PaginatedResponse<any>> {
-    const options = { 
-      headers: this.getAuthHeaders(),
-      params: params ? this.buildHttpParams(params) : undefined 
-    };
-    return this.http.get<PaginatedResponse<any>>(`${environment.apiUrl}/applications/vendor/resource/${resourceId}`, options);
   }
 
   // Create application (vendor applying resource to requirement)
@@ -166,20 +155,9 @@ export class VendorService {
 
   // Get matching requirements counts for multiple resources (batch)
   getMatchingRequirementsCountsBatch(resourceIds: string[]): Observable<any> {
-    console.log('🔄 VendorService: getMatchingRequirementsCountsBatch called with resourceIds:', resourceIds);
-    console.log('🔄 VendorService: Making POST request to:', `${environment.apiUrl}/resources/matching-requirements/batch`);
-    
     return this.http.post(`${environment.apiUrl}/resources/matching-requirements/batch`, 
       { resourceIds }, 
       { headers: this.getAuthHeaders() }
-    ).pipe(
-      tap((response: any) => {
-        console.log('✅ VendorService: getMatchingRequirementsCountsBatch response:', response);
-      }),
-      catchError(error => {
-        console.error('❌ VendorService: Error in getMatchingRequirementsCountsBatch:', error);
-        throw error;
-      })
     );
   }
 

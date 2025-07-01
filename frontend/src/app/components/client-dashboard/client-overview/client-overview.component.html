@@ -1,5 +1,12 @@
 <div class="space-y-6">
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="flex justify-center items-center py-12">
+    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+    <span class="ml-3 text-gray-600">Loading overview data...</span>
+  </div>
+
+  <!-- Content -->
+  <div *ngIf="!isLoading" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
     <!-- Recent Applications -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100">
       <div class="p-6 border-b border-gray-100">

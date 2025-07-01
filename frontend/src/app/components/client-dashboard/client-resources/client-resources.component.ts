@@ -3,7 +3,7 @@ import { AllCommunityModule } from 'ag-grid-community';
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
-import { Component, OnInit, Input, Output, EventEmitter, OnChanges, SimpleChanges, ChangeDetectorRef, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
@@ -14,6 +14,7 @@ import { PaginationComponent } from '../../pagination/pagination.component';
 import { PaginationState } from '../../../models/pagination.model';
 import { ApiService } from '../../../services/api.service';
 import { AdminSkill } from '../../../models/admin-skill.model';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-client-resources',
@@ -22,10 +23,10 @@ import { AdminSkill } from '../../../models/admin-skill.model';
   templateUrl: './client-resources.component.html',
   styleUrls: ['./client-resources.component.scss']
 })
-export class ClientResourcesComponent implements OnInit, OnChanges, OnDestroy {
-  @Input() resources: Resource[] = [];
-  @Input() isLoading = false;
-  @Input() paginationState: PaginationState = {
+export class ClientResourcesComponent implements OnInit, OnDestroy {
+  resources: Resource[] = [];
+  isLoading = false;
+  paginationState: PaginationState = {
     currentPage: 1,
     pageSize: 10,
     totalItems: 0,
@@ -34,10 +35,6 @@ export class ClientResourcesComponent implements OnInit, OnChanges, OnDestroy {
     hasNextPage: false,
     hasPreviousPage: false
   };
-  @Output() applyResources = new EventEmitter<string[]>();
-  @Output() sortChange = new EventEmitter<{sortBy: string, sortOrder: 'asc' | 'desc'}>();
-  @Output() pageChange = new EventEmitter<number>();
-  @Output() searchChange = new EventEmitter<any>();
 
   icons = {
     search: 'assets/icons/lucide/lucide/search.svg',
@@ -199,55 +196,21 @@ export class ClientResourcesComponent implements OnInit, OnChanges, OnDestroy {
       }
     },
     {
-      headerName: 'Attachment',
-      field: 'attachment',
-      flex: 1,
-      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'center' },
-      sortable: false,
-      filter: false,
-      cellRenderer: (params: any) => {
-        const resource = params.data;
-        const attachment = resource.attachment;
-        
-        if (!attachment) {
-          return '<span class="text-xs text-gray-500 italic">-</span>';
-        }
-        
-        const button = document.createElement('button');
-        button.className = 'download-btn p-1 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors';
-        button.innerHTML = `
-          <img src="assets/icons/lucide/lucide/file-text.svg" class="w-4 h-4" alt="file">
-        `;
-        button.id = `download-${resource._id}`;
-        button.title = `Download ${attachment.originalName || 'file'}`;
-        
-        // Add click event listener
-        button.addEventListener('click', (event) => {
-          event.stopPropagation();
-          this.downloadResourceAttachment(attachment);
-        });
-        
-        return button;
-      }
-    },
-    {
       headerName: 'Actions',
       field: 'actions',
       flex: 1,
-      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       sortable: false,
       filter: false,
       cellRenderer: (params: any) => {
-        const resource = params.data;
         const button = document.createElement('button');
-        button.className = 'apply-btn inline-flex items-center px-3 py-1.5 border border-transparent rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200';
+        button.className = 'inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500';
         button.textContent = 'Apply';
-        button.id = `apply-${resource._id}`;
+        button.id = `apply-${params.data._id}`;
         
         // Add click event listener
         button.addEventListener('click', (event) => {
           event.stopPropagation();
-          this.onApplyResource(resource._id);
+          this.onApplyResource(params.data._id);
         });
         
         return button;
@@ -257,44 +220,37 @@ export class ClientResourcesComponent implements OnInit, OnChanges, OnDestroy {
 
   defaultColDef = {
     resizable: true,
-    sortable: false,
-    filter: false,
-    flex: 1,
-    minWidth: 100
+    sortable: true,
+    filter: true
   };
 
   gridOptions: any = {
-    pagination: false,
-    rowHeight: 60,
-    tooltipShowDelay: 500,
     suppressRowClickSelection: true,
     suppressCellFocus: true
   };
 
-  constructor(private changeDetectorRef: ChangeDetectorRef, private apiService: ApiService) {}
+  constructor(
+    private changeDetectorRef: ChangeDetectorRef, 
+    private apiService: ApiService,
+    private router: Router
+  ) {}
 
-  // Add Math for template access
   Math = Math;
 
   ngOnInit(): void {
+    console.log('🔧 ClientResourcesComponent: ngOnInit called');
     this.loadAvailableSkills();
+    this.loadResources();
     this.setupClickOutsideHandler();
   }
 
-  ngOnChanges(changes: SimpleChanges): void {
-    // Handle changes if needed
-  }
-
   ngOnDestroy(): void {
-    // Clean up click outside handler
     document.removeEventListener('click', this.handleClickOutside);
   }
 
   private handleClickOutside = (event: Event) => {
     const target = event.target as HTMLElement;
-    const skillsDropdown = document.querySelector('.skills-dropdown-container');
-    
-    if (skillsDropdown && !skillsDropdown.contains(target)) {
+    if (!target.closest('.skills-dropdown-container')) {
       this.showSkillsDropdown = false;
       this.changeDetectorRef.detectChanges();
     }
@@ -304,48 +260,130 @@ export class ClientResourcesComponent implements OnInit, OnChanges, OnDestroy {
     document.addEventListener('click', this.handleClickOutside);
   }
 
-  // Load available skills for the skills filter
   private loadAvailableSkills(): void {
-    this.apiService.get<any>('/skills/active').subscribe({
+    console.log('🔄 ClientResources: Loading available skills...');
+    this.apiService.getAdminSkills().subscribe({
       next: (response) => {
         if (response.success && response.data) {
           this.availableSkills = response.data;
+          console.log('✅ ClientResources: Skills loaded:', this.availableSkills.length);
         }
       },
       error: (error) => {
-        console.error('Error loading skills:', error);
+        console.error('❌ ClientResources: Error loading skills:', error);
       }
     });
   }
 
-  // Search and filter methods
+  private loadResources(): void {
+    console.log('🔄 ClientResources: Loading resources...');
+    this.isLoading = true;
+    this.paginationState.isLoading = true;
+
+    const params: any = {
+      page: this.paginationState.currentPage,
+      limit: this.paginationState.pageSize
+    };
+
+    // Add search term
+    if (this.searchTerm) {
+      params.search = this.searchTerm;
+    }
+
+    // Add skill filters
+    if (this.selectedSkillIds.length > 0) {
+      params.skillIds = this.selectedSkillIds.join(',');
+      params.skillLogic = this.skillLogic;
+    }
+
+    // Add experience filters
+    if (this.minExperience) {
+      params.minExperience = this.minExperience;
+    }
+    if (this.maxExperience) {
+      params.maxExperience = this.maxExperience;
+    }
+
+    // Add rate filters
+    if (this.minRate) {
+      params.minRate = this.minRate;
+    }
+    if (this.maxRate) {
+      params.maxRate = this.maxRate;
+    }
+
+    // Add approved vendors filter
+    if (this.approvedVendorsOnly) {
+      params.approvedVendorsOnly = true;
+    }
+
+    this.apiService.getResources(params).subscribe({
+      next: (response) => {
+        console.log('✅ ClientResources: Resources loaded:', response);
+        if (response.success && response.data) {
+          this.resources = response.data;
+          
+          // Update pagination state
+          const paginationData = response.pagination || response.meta;
+          if (paginationData) {
+            this.paginationState = {
+              currentPage: paginationData.page || 1,
+              pageSize: paginationData.limit || 10,
+              totalItems: paginationData.total || 0,
+              totalPages: paginationData.totalPages || Math.ceil((paginationData.total || 0) / (paginationData.limit || 10)),
+              isLoading: false,
+              hasNextPage: (paginationData.page || 1) < (paginationData.totalPages || Math.ceil((paginationData.total || 0) / (paginationData.limit || 10))),
+              hasPreviousPage: (paginationData.page || 1) > 1
+            };
+          }
+        }
+        this.isLoading = false;
+        this.paginationState.isLoading = false;
+        this.changeDetectorRef.detectChanges();
+      },
+      error: (error) => {
+        console.error('❌ ClientResources: Error loading resources:', error);
+        this.resources = [];
+        this.isLoading = false;
+        this.paginationState.isLoading = false;
+        this.changeDetectorRef.detectChanges();
+      }
+    });
+  }
+
   onSearchChange(): void {
-    this.emitSearchChange();
+    this.paginationState.currentPage = 1;
+    this.loadResources();
   }
 
   onSkillsChange(): void {
-    this.emitSearchChange();
+    this.paginationState.currentPage = 1;
+    this.loadResources();
   }
 
   onExperienceChange(): void {
-    this.emitSearchChange();
+    this.paginationState.currentPage = 1;
+    this.loadResources();
   }
 
   onRateChange(): void {
-    this.emitSearchChange();
+    this.paginationState.currentPage = 1;
+    this.loadResources();
   }
 
   onApprovedVendorsChange(): void {
-    this.emitSearchChange();
+    this.paginationState.currentPage = 1;
+    this.loadResources();
   }
 
   toggleFilters(): void {
     this.showFilters = !this.showFilters;
+    this.changeDetectorRef.detectChanges();
   }
 
-  // Skills dropdown methods
   toggleSkillsDropdown(): void {
     this.showSkillsDropdown = !this.showSkillsDropdown;
+    this.changeDetectorRef.detectChanges();
   }
 
   toggleSkill(skillId: string): void {
@@ -378,23 +416,22 @@ export class ClientResourcesComponent implements OnInit, OnChanges, OnDestroy {
   clearFilters(): void {
     this.searchTerm = '';
     this.selectedSkillIds = [];
-    this.skillLogic = 'OR';
     this.minExperience = '';
     this.maxExperience = '';
     this.minRate = '';
     this.maxRate = '';
     this.approvedVendorsOnly = false;
-    this.emitSearchChange();
+    this.paginationState.currentPage = 1;
+    this.loadResources();
   }
 
-  // Individual filter removal methods
   removeSearchTerm(): void {
     this.searchTerm = '';
     this.onSearchChange();
   }
 
   removeSkill(skillId: string): void {
-    this.selectedSkillIds = this.selectedSkillIds.filter(s => s !== skillId);
+    this.selectedSkillIds = this.selectedSkillIds.filter(id => id !== skillId);
     this.onSkillsChange();
   }
 
@@ -415,40 +452,11 @@ export class ClientResourcesComponent implements OnInit, OnChanges, OnDestroy {
     this.onApprovedVendorsChange();
   }
 
-  // Helper method to get skill name by ID
   getSkillNameById(skillId: string): string {
     const skill = this.availableSkills.find(s => s._id === skillId);
-    return skill ? skill.name : skillId;
+    return skill ? skill.name : 'Unknown Skill';
   }
 
-  private emitSearchChange(): void {
-    const searchParams: { [key: string]: string | string[] | boolean | undefined } = {
-      search: this.searchTerm,
-      minExperience: this.minExperience || undefined,
-      maxExperience: this.maxExperience || undefined,
-      minRate: this.minRate || undefined,
-      maxRate: this.maxRate || undefined,
-      approvedVendorsOnly: this.approvedVendorsOnly || undefined
-    };
-
-    // Handle skills parameter - send as array of IDs
-    if (this.selectedSkillIds.length > 0) {
-      searchParams['skills'] = this.selectedSkillIds;
-      searchParams['skillLogic'] = this.skillLogic;
-    }
-
-    // Remove undefined values
-    Object.keys(searchParams).forEach(key => {
-      if (searchParams[key] === undefined) {
-        delete searchParams[key];
-      }
-    });
-
-    console.log('🔧 ClientResourcesComponent: Emitting search change with params:', searchParams);
-    this.searchChange.emit(searchParams);
-  }
-
-  // Check if any filters are active
   hasActiveFilters(): boolean {
     return !!(
       this.searchTerm ||
@@ -463,107 +471,68 @@ export class ClientResourcesComponent implements OnInit, OnChanges, OnDestroy {
 
   onSortChanged(event: SortChangedEvent): void {
     const sortModel = event.api.getColumnState().filter(col => col.sort);
-    if (sortModel && sortModel.length > 0) {
+    if (sortModel.length > 0) {
       const sort = sortModel[0];
-      console.log('🔧 ClientResourcesComponent: Sort changed:', sort);
-      
-      // Map AG Grid field names to backend field names
-      const fieldMapping: { [key: string]: string } = {
-        'name': 'name',
-        'skills': 'skills',
-        'experience.years': 'experience.years',
-        'rate.hourly': 'rate.hourly',
-        'availability.status': 'availability.status',
-        'location.city': 'location.city',
-        'createdAt': 'createdAt',
-        'updatedAt': 'updatedAt'
-      };
-      
-      const sortBy = fieldMapping[sort.colId] || sort.colId;
-      const sortOrder = sort.sort as 'asc' | 'desc';
-      
-      this.sortChange.emit({ sortBy, sortOrder });
+      console.log('🔄 ClientResources: Sort changed:', sort);
+      // You can implement sorting logic here if needed
     }
   }
 
   onApplyResource(resourceId: string): void {
-    console.log('🔧 ClientResourcesComponent: Applying resource:', resourceId);
-    this.applyResources.emit([resourceId]);
+    console.log('🔄 ClientResources: Applying resource:', resourceId);
+    // Navigate to apply resources page with the selected resource
+    this.router.navigate(['/client/apply-resources'], { 
+      queryParams: { resourceIds: resourceId } 
+    });
   }
 
   downloadResourceAttachment(attachment: any): void {
-    console.log('🔧 ClientResourcesComponent: Downloading attachment:', attachment);
-    
-    if (!attachment || !attachment.fileId) {
-      console.error('🔧 ClientResourcesComponent: No file ID found for download');
-      return;
+    if (attachment && attachment.url) {
+      const link = document.createElement('a');
+      link.href = attachment.url;
+      link.download = attachment.filename || 'attachment';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
-
-    // Use the API service to download the file
-    this.apiService.downloadFile(attachment.fileId).subscribe({
-      next: (response: Blob) => {
-        console.log('🔧 ClientResourcesComponent: File download successful');
-        
-        // Create download link and trigger download
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(response);
-        link.download = attachment.originalName || 'download';
-        link.target = '_blank';
-        
-        // Trigger download
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        // Clean up the object URL
-        URL.revokeObjectURL(link.href);
-      },
-      error: (error: any) => {
-        console.error('🔧 ClientResourcesComponent: File download error:', error);
-        // Handle download error - could show a toast notification here
-      }
-    });
   }
 
   getAvailabilityClass(status: string): string {
     switch (status?.toLowerCase()) {
       case 'available':
         return 'bg-green-100 text-green-800';
-      case 'busy':
+      case 'partially_available':
         return 'bg-yellow-100 text-yellow-800';
       case 'unavailable':
         return 'bg-red-100 text-red-800';
+      case 'contract_ending_soon':
+        return 'bg-orange-100 text-orange-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
   }
 
   trackById(index: number, item: Resource): string {
-    return item._id || `resource-${index}`;
+    return item._id || `item-${index}`;
   }
 
   onGridReady(params: any): void {
-    console.log('🔧 ClientResourcesComponent: Grid ready');
+    console.log('🔧 ClientResources: Grid ready');
   }
 
   onCellClicked(params: any): void {
-    // Handle apply button clicks
     if (params.column.colId === 'actions') {
-      const resourceId = params.data._id;
-      this.onApplyResource(resourceId);
+      // Handle action column clicks
+      return;
     }
     
-    // Handle attachment clicks (though the button has its own listener, this provides fallback)
-    if (params.column.colId === 'attachment') {
-      const resource = params.data;
-      const attachment = resource.attachment;
-      if (attachment && attachment.fileId) {
-        this.downloadResourceAttachment(attachment);
-      }
-    }
+    // Handle other column clicks if needed
+    console.log('🔧 ClientResources: Cell clicked:', params);
   }
 
   onPageChange(page: number): void {
-    this.pageChange.emit(page);
+    console.log('🔄 ClientResources: Page changed to:', page);
+    this.paginationState.currentPage = page;
+    this.loadResources();
   }
 }

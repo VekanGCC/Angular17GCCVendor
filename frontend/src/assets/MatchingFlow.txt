@@ -1,0 +1,341 @@
+Complete Flow Analysis with File Names
+1. Initial Data Loading Flow
+vendor-dashboard.component.ts
+typescriptngOnInit() ? loadVendorData() ? loadVendorResources()
+File: vendor-dashboard.component.ts
+typescriptasync ngOnInit(): Promise<void> {
+  console.log('?? VendorDashboard: Initializing...');
+  await this.loadVendorData();
+}
+
+private async loadVendorData(): Promise<void> {
+  console.log('Vendor Dashboard: Loading vendor data...');
+  await Promise.all([
+    this.loadVendorResources(),     // Line 320
+    this.loadVendorApplications(),  // Line 380
+    this.loadVendorRequirements(),  // Line 410
+    this.loadVendorSkills(),        // Line 415
+    this.loadVendorUsers()          // Line 435
+  ]);
+}
+2. Resources Data Building Process
+vendor-dashboard.component.ts
+A. Primary Resource Loading:
+typescript// File: vendor-dashboard.component.ts (Lines 322-378)
+private async loadVendorResources(page: number = 1): Promise<void> {
+  try {
+    this.resourcesPaginationState.isLoading = true;
+    const params: PaginationParams = {
+      page,
+      limit: this.resourcesPaginationState.pageSize,
+      sortBy: 'createdAt',
+      sortOrder: 'desc'
+    };
+    
+    const response = await this.vendorService.getResources(params).toPromise();
+    this.vendorResources = response.data;
+    
+    // Load additional data
+    await this.loadResourceApplicationCounts();
+    await this.loadResourceMatchingCounts();
+  }
+}
+B. Application Counts Enhancement:
+typescript// File: vendor-dashboard.component.ts (Lines 335-365)
+private async loadResourceApplicationCounts(): Promise<void> {
+  const resourceIds = this.vendorResources.map(resource => resource._id);
+  const response = await this.vendorService.getApplicationCountsForResources(resourceIds).toPromise();
+  
+  this.vendorResources = this.vendorResources.map(resource => ({
+    ...resource,
+    applicationCount: response.data[resource._id] || 0
+  }));
+}
+C. Matching Requirements Enhancement:
+typescript// File: vendor-dashboard.component.ts (Lines 367-397)
+private async loadResourceMatchingCounts(): Promise<void> {
+  const resourceIds = this.vendorResources.map(resource => resource._id);
+  const response = await this.vendorService.getMatchingRequirementsCountsBatch(resourceIds).toPromise();
+  
+  this.vendorResources = this.vendorResources.map(resource => {
+    const matchingData = response.data.find(item => item.resourceId === resource._id);
+    return {
+      ...resource,
+      matchingCount: matchingData ? matchingData.count : 0
+    };
+  });
+}
+3. Data Flow to Components
+vendor-dashboard.component.html
+html<!-- File: vendor-dashboard.component.html (Lines 93-103) -->
+<app-vendor-resources 
+  *ngIf="activeTab === 'resources' && !showMatchingRequirementsPage"
+  [resources]="vendorResources"
+  [isLoading]="resourcesPaginationState.isLoading"
+  [paginationState]="resourcesPaginationState"
+  (openResourceModal)="onOpenResourceModal()"
+  (editResource)="handleEditResource($event)"
+  (toggleResourceStatus)="handleToggleResourceStatus($event)"
+  (pageChange)="onResourcesPageChange($event)"
+  (applicationCountClick)="handleApplicationCountClick($event)"
+  (matchingCountClick)="handleMatchingCountClick($event)">
+</app-vendor-resources>
+4. AG Grid Column Definitions with Click Handlers
+vendor-resources.component.ts
+Applications Column:
+typescript// File: vendor-resources.component.ts (Lines 183-209)
+{
+  headerName: 'Applications',
+  field: 'applicationCount',
+  flex: 1,
+  minWidth: 100,
+  cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
+  sortable: false,
+  filter: false,
+  cellRenderer: (params: any) => {
+    const count = params.data.applicationCount || 0;
+    const resourceId = params.data._id;
+    const countClass = count > 0 ? 'bg-blue-100 text-blue-800 hover:bg-blue-200 cursor-pointer' : 'bg-gray-100 text-gray-600';
+    
+    return `
+      <div class="flex items-center justify-start">
+        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${countClass} transition-colors"
+              id="app-count-${resourceId}">
+          ${count}
+        </span>
+      </div>
+    `;
+  },
+  onCellClicked: (params: any) => {
+    const count = params.data.applicationCount || 0;
+    if (count > 0) {
+      this.onApplicationCountClick(params.data._id);
+    }
+  }
+}
+Matching Requirements Column:
+typescript// File: vendor-resources.component.ts (Lines 211-237)
+{
+  headerName: 'Matching',
+  field: 'matchingCount',
+  flex: 1,
+  minWidth: 100,
+  cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
+  sortable: false,
+  filter: false,
+  cellRenderer: (params: any) => {
+    const count = params.data.matchingCount || 0;
+    const resourceId = params.data._id;
+    const countClass = count > 0 ? 'bg-green-100 text-green-800 hover:bg-green-200 cursor-pointer' : 'bg-gray-100 text-gray-600';
+    
+    return `
+      <div class="flex items-center justify-start">
+        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${countClass} transition-colors"
+              id="matching-count-${resourceId}">
+          ${count}
+        </span>
+      </div>
+    `;
+  },
+  onCellClicked: (params: any) => {
+    const count = params.data.matchingCount || 0;
+    if (count > 0) {
+      this.onMatchingCountClick(params.data._id);
+    }
+  }
+}
+5. Navigation Flow When Clicking Hyperlinks
+vendor-resources.component.ts
+A. Application Count Click Navigation:
+typescript// File: vendor-resources.component.ts (Lines 472-475)
+onApplicationCountClick(resourceId: string): void {
+  console.log('?? VendorResources: Application count clicked for resource:', resourceId);
+  this.applicationCountClick.emit(resourceId);
+}
+
+// File: vendor-resources.component.ts (Lines 477-480)
+onMatchingCountClick(resourceId: string): void {
+  console.log('?? VendorResources: Matching count clicked for resource:', resourceId);
+  this.matchingCountClick.emit(resourceId);
+}
+vendor-dashboard.component.ts
+B. Dashboard Event Handlers:
+typescript// File: vendor-dashboard.component.ts (Lines 1180-1189)
+handleApplicationCountClick(resourceId: string): void {
+  console.log('?? VendorDashboard: Application count clicked for resource:', resourceId);
+  
+  // Set the resource filter
+  this.applicationsResourceFilter = resourceId;
+  
+  // Switch to applications tab
+  this.activeTab = 'applications';
+  
+  this.changeDetectorRef.detectChanges();
+}
+
+// File: vendor-dashboard.component.ts (Lines 1191-1200)
+handleMatchingCountClick(resourceId: string): void {
+  console.log('?? VendorDashboard: Matching count clicked for resource:', resourceId);
+  // Show matching requirements page for this resource
+  this.selectedResourceId = resourceId;
+  this.showMatchingRequirementsPage = true;
+  this.showBrowseRequirementsPage = false;
+  this.selectedRequirementId = '';
+  this.changeDetectorRef.detectChanges();
+}
+6. Template Navigation Logic
+vendor-dashboard.component.html
+html<!-- File: vendor-dashboard.component.html (Lines 93-103) -->
+<!-- Show Resources Grid -->
+<app-vendor-resources 
+  *ngIf="activeTab === 'resources' && !showMatchingRequirementsPage"
+  [resources]="vendorResources"
+  [isLoading]="resourcesPaginationState.isLoading"
+  [paginationState]="resourcesPaginationState"
+  (applicationCountClick)="handleApplicationCountClick($event)"
+  (matchingCountClick)="handleMatchingCountClick($event)">
+</app-vendor-resources>
+
+<!-- File: vendor-dashboard.component.html (Lines 105-111) -->
+<!-- Show Matching Requirements Page -->
+<app-matching-requirements
+  *ngIf="activeTab === 'resources' && showMatchingRequirementsPage"
+  [resourceId]="selectedResourceId"
+  (navigateBack)="onMatchingRequirementsBack()"
+  (onApplyRequirement)="handleApplyRequirement($event)">
+</app-matching-requirements>
+
+<!-- File: vendor-dashboard.component.html (Lines 135-145) -->
+<!-- Show Applications with Filter -->
+<app-vendor-applications 
+  *ngIf="activeTab === 'applications'"
+  [applications]="vendorApplications"
+  [isLoading]="applicationsPaginationState.isLoading"
+  [paginationState]="applicationsPaginationState"
+  [resourceFilter]="applicationsResourceFilter"
+  (updateApplicationStatus)="handleUpdateApplicationStatus($event)"
+  (viewApplicationHistory)="handleViewApplicationHistory($event)"
+  (pageChange)="onApplicationsPageChange($event)"
+  (clearFilter)="handleClearApplicationsFilter()">
+</app-vendor-applications>
+7. Matching Requirements Component Data Loading
+matching-requirements.component.ts
+typescript// File: matching-requirements.component.ts (Lines 180-187)
+ngOnInit(): void {
+  console.log('?? MatchingRequirementsComponent: ngOnInit called with resourceId:', this.resourceId);
+  if (this.resourceId) {
+    this.loadMatchingRequirements();
+  } else {
+    console.warn('?? MatchingRequirementsComponent: No resourceId provided');
+  }
+}
+
+// File: matching-requirements.component.ts (Lines 193-241)
+loadMatchingRequirements(): void {
+  if (!this.resourceId) return;
+
+  console.log('?? MatchingRequirementsComponent: Loading matching requirements for resource:', this.resourceId, 'page:', this.paginationState.currentPage);
+  this.isLoading = true;
+  
+  this.subscriptions.push(
+    this.vendorService.getMatchingRequirementsDetails(
+      this.resourceId, 
+      this.paginationState.currentPage, 
+      this.paginationState.pageSize
+    ).subscribe({
+      next: (response) => {
+        if (response.success && response.data) {
+          const data: MatchingRequirementsResponse = response.data;
+          
+          this.resource = data.resource;
+          this.matchingRequirements = data.matchingRequirements || [];
+          this.totalCount = data.totalCount || 0;
+          this.matchingCriteria = data.matchingCriteria;
+        }
+      },
+      error: (error) => {
+        console.error('?? MatchingRequirementsComponent: Error loading matching requirements:', error);
+      },
+      complete: () => {
+        this.isLoading = false;
+      }
+    })
+  );
+}
+8. API Service Flow
+vendor.service.ts
+typescript// File: vendor.service.ts (Lines 46-51)
+getResources(params?: PaginationParams): Observable<PaginatedResponse<any>> {
+  const options = { 
+    headers: this.getAuthHeaders(),
+    params: params ? this.buildHttpParams(params) : undefined 
+  };
+  return this.http.get<PaginatedResponse<any>>(`${environment.apiUrl}/resources`, options);
+}
+
+// File: vendor.service.ts (Lines 83-89)
+getApplicationCountsForResources(resourceIds: string[]): Observable<any> {
+  const params = new HttpParams().set('resourceIds', resourceIds.join(','));
+  return this.http.get(`${environment.apiUrl}/applications/counts/resources`, { 
+    headers: this.getAuthHeaders(),
+    params 
+  });
+}
+
+// File: vendor.service.ts (Lines 98-104)
+getMatchingRequirementsCountsBatch(resourceIds: string[]): Observable<any> {
+  return this.http.post(`${environment.apiUrl}/resources/matching-requirements/batch`, 
+    { resourceIds }, 
+    { headers: this.getAuthHeaders() }
+  );
+}
+
+// File: vendor.service.ts (Lines 107-122)
+getMatchingRequirementsDetails(resourceId: string, page: number = 1, limit: number = 10): Observable<any> {
+  const params = new HttpParams()
+    .set('page', page.toString())
+    .set('limit', limit.toString());
+  
+  return this.http.get(`${environment.apiUrl}/resources/${resourceId}/matching-requirements/details`, { 
+    headers: this.getAuthHeaders(),
+    params 
+  }).pipe(
+    tap((response: any) => {
+      console.log('?? VendorService: Matching requirements details response:', response);
+    }),
+    catchError(error => {
+      console.error('?? VendorService: Error in getMatchingRequirementsDetails:', error);
+      throw error;
+    })
+  );
+}
+9. Navigation Back Methods
+vendor-dashboard.component.ts
+typescript// File: vendor-dashboard.component.ts (Lines 1202-1207)
+onMatchingRequirementsBack(): void {
+  console.log('?? VendorDashboard: Navigating back from matching requirements');
+  this.showMatchingRequirementsPage = false;
+  this.selectedResourceId = '';
+  this.changeDetectorRef.detectChanges();
+}
+
+// File: vendor-dashboard.component.ts (Lines 1222-1235)
+handleClearApplicationsFilter(): void {
+  console.log('?? VendorDashboard: Clearing applications filter');
+  this.applicationsResourceFilter = '';
+  this.changeDetectorRef.detectChanges();
+}
+matching-requirements.component.ts
+typescript// File: matching-requirements.component.ts (Lines 261-264)
+onBackClick(): void {
+  this.navigateBack.emit();
+}
+Summary of Key Files:
+
+vendor-dashboard.component.ts - Main orchestrator (Lines 320-435 for data loading, Lines 1180-1235 for navigation)
+vendor-resources.component.ts - AG Grid setup and click handlers (Lines 85-280 for columns, Lines 472-480 for events)
+matching-requirements.component.ts - Detailed matching view (Lines 180-241 for data loading)
+vendor.service.ts - API service methods (Lines 46-122 for resource-related APIs)
+vendor-dashboard.component.html - Template navigation logic (Lines 93-145)
+vendor-resources.component.html - Resources grid template (Lines 1-50)
+matching-requirements.component.html - Matching requirements template (Lines 1-100)

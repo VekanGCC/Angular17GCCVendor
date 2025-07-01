@@ -106,4 +106,12 @@
       </div>
     </div>
   </div>
-</div> 
+</div>
+
+<!-- Add User Modal -->
+<app-add-user-modal 
+  *ngIf="showAddUserModal" 
+  [userType]="'client'"
+  (close)="onCloseAddUserModal()"
+  (userAdded)="onUserAdded($event)">
+</app-add-user-modal> 

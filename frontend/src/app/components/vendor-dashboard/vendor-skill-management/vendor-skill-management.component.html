@@ -84,4 +84,11 @@
       </div>
     </div>
   </div>
-</div> 
+</div>
+
+<!-- Add Vendor Skill Modal -->
+<app-add-vendor-skill-modal
+  [isOpen]="showAddSkillModal"
+  (closeModal)="onCloseAddSkillModal()"
+  (skillAdded)="onSkillAdded($event)">
+</app-add-vendor-skill-modal> 

@@ -5,17 +5,19 @@ import { AllCommunityModule } from 'ag-grid-community';
 ModuleRegistry.registerModules([AllCommunityModule]);
 
 // Angular
-import { Component, Input, Output, EventEmitter, OnInit, OnChanges, SimpleChanges, ChangeDetectorRef, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnChanges, SimpleChanges, ChangeDetectorRef, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
 import { AgGridModule } from 'ag-grid-angular';
 import { ColDef, ValueGetterParams, SortChangedEvent } from 'ag-grid-community';
+import { Router } from '@angular/router';
 import { Requirement } from '../../../models/requirement.model';
-import { PaginationState } from '../../../models/pagination.model';
+import { PaginationState, PaginationParams } from '../../../models/pagination.model';
 import { PaginationComponent } from '../../pagination/pagination.component';
 import { ApiService } from '../../../services/api.service';
 import { AdminSkill } from '../../../models/admin-skill.model';
+
 
 @Component({
   selector: 'app-vendor-requirements',
@@ -25,15 +27,18 @@ import { AdminSkill } from '../../../models/admin-skill.model';
   styleUrls: ['./vendor-requirements.component.scss']
 })
 export class VendorRequirementsComponent implements OnInit, OnChanges, OnDestroy {
-  @Input() requirements: Requirement[] = [];
-  @Input() isLoading = false;
-  @Input() paginationState!: PaginationState;
-  @Input() resourceFilter: string = '';
-  @Output() applyResources = new EventEmitter<string>();
-  @Output() pageChange = new EventEmitter<number>();
-  @Output() sortChange = new EventEmitter<{sortBy: string, sortOrder: 'asc' | 'desc'}>();
-  @Output() searchChange = new EventEmitter<any>();
-  @Output() clearFilter = new EventEmitter<void>();
+  requirements: Requirement[] = [];
+  isLoading = false;
+  paginationState: PaginationState = {
+    currentPage: 1,
+    pageSize: 10,
+    totalItems: 0,
+    totalPages: 0,
+    isLoading: false,
+    hasNextPage: false,
+    hasPreviousPage: false
+  };
+  resourceFilter: string = '';
 
   icons = {
     search: 'assets/icons/lucide/lucide/search.svg',
@@ -66,11 +71,17 @@ export class VendorRequirementsComponent implements OnInit, OnChanges, OnDestroy
       cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       cellRenderer: (params: any) => {
         const requirement = params.data;
+        const title = requirement.title || 'No Title';
+        const description = requirement.description || 'No Description';
+        
+        // Truncate title to 20 characters
+        const truncatedTitle = title.length > 20 ? title.substring(0, 20) + '...' : title;
+        
         return `
-          <div class="flex items-center justify-start text-left">
-            <div class="min-w-0 flex-1">
-              <div class="text-sm font-medium text-gray-900 truncate">${requirement.title || 'No Title'}</div>
-              <div class="text-xs text-gray-500 truncate">${requirement.description || 'No Description'}</div>
+          <div class="flex items-center justify-start text-left w-full min-w-0">
+            <div class="min-w-0 flex-1 overflow-hidden">
+              <div class="text-sm font-medium text-gray-900" title="${title}">${truncatedTitle}</div>
+              <div class="text-xs text-gray-500 truncate" title="${description}">${description}</div>
             </div>
           </div>
         `;
@@ -195,9 +206,9 @@ export class VendorRequirementsComponent implements OnInit, OnChanges, OnDestroy
           const applyBtn = document.getElementById(`apply-${requirement._id}`);
           
           if (applyBtn) {
-            applyBtn.addEventListener('click', () => this.onApplyResources(requirement._id));
+            applyBtn.addEventListener('click', () => this.onApplyRequirement(requirement._id));
           }
-        });
+        }, 100);
         
         return html;
       }
@@ -205,7 +216,7 @@ export class VendorRequirementsComponent implements OnInit, OnChanges, OnDestroy
   ];
 
   defaultColDef = { 
-    resizable: true, 
+    resizable: true,
     sortable: false, 
     filter: false,
     flex: 1,
@@ -223,22 +234,21 @@ export class VendorRequirementsComponent implements OnInit, OnChanges, OnDestroy
 
   constructor(
     private changeDetectorRef: ChangeDetectorRef,
-    private apiService: ApiService
+    private apiService: ApiService,
+    private router: Router
   ) {
-    console.log('🔧 VendorRequirementsComponent: Constructor called');
+    this.setupClickOutsideHandler();
   }
 
   ngOnInit(): void {
     console.log('🔧 VendorRequirementsComponent: ngOnInit called');
-    console.log('🔧 VendorRequirementsComponent: Requirements data:', this.requirements);
     this.loadAvailableSkills();
-    this.setupClickOutsideHandler();
+    this.loadRequirements();
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['requirements']) {
-      console.log('🔧 VendorRequirementsComponent: Requirements changed:', this.requirements);
-    }
+    // This will be called whenever the properties change
+    console.log('🔧 VendorRequirements: Requirements data changed:', this.requirements);
   }
 
   ngOnDestroy(): void {
@@ -247,7 +257,7 @@ export class VendorRequirementsComponent implements OnInit, OnChanges, OnDestroy
 
   private handleClickOutside = (event: Event) => {
     const target = event.target as HTMLElement;
-    if (!target.closest('.skills-dropdown-container')) {
+    if (!target.closest('.skills-dropdown')) {
       this.showSkillsDropdown = false;
       this.changeDetectorRef.detectChanges();
     }
@@ -258,46 +268,83 @@ export class VendorRequirementsComponent implements OnInit, OnChanges, OnDestroy
   }
 
   private loadAvailableSkills(): void {
-    this.apiService.getActiveSkills().subscribe({
+    console.log('🔧 VendorRequirements: Loading available skills...');
+    this.apiService.getAdminSkills().subscribe({
       next: (response) => {
-        if (response.success && response.data) {
-          this.availableSkills = (response.data as any[]).map(skill => ({
-            ...skill,
-            _id: skill._id || skill.id || skill.name // fallback if needed
-          }));
-          console.log('🔧 VendorRequirementsComponent: Loaded skills:', this.availableSkills);
-        }
+        console.log('✅ VendorRequirements: Skills loaded:', response);
+        this.availableSkills = response.data || [];
       },
       error: (error) => {
-        console.error('Error loading skills:', error);
+        console.error('❌ VendorRequirements: Error loading skills:', error);
+      }
+    });
+  }
+
+  loadRequirements(): void {
+    console.log('🔄 VendorRequirements: Loading requirements...');
+    this.isLoading = true;
+    this.paginationState.isLoading = true;
+
+    const params: PaginationParams = {
+      page: this.paginationState.currentPage,
+      limit: this.paginationState.pageSize,
+      search: this.searchTerm || undefined,
+      skills: this.selectedSkillIds.length > 0 ? this.selectedSkillIds : undefined,
+      skillLogic: this.selectedSkillIds.length > 0 ? this.skillLogic : undefined,
+      minBudget: this.minBudget || undefined,
+      maxBudget: this.maxBudget || undefined,
+      minDuration: this.minDuration || undefined,
+      maxDuration: this.maxDuration || undefined
+    };
+
+    this.apiService.getRequirements(params).subscribe({
+      next: (response) => {
+        console.log('✅ VendorRequirements: Requirements loaded successfully:', response);
+        this.requirements = response.data || [];
+        this.paginationState = {
+          ...this.paginationState,
+          totalItems: response.meta?.total || response.pagination?.total || 0,
+          totalPages: response.meta?.totalPages || response.pagination?.totalPages || 0,
+          hasNextPage: (response.meta?.page || response.pagination?.page || 1) < (response.meta?.totalPages || response.pagination?.totalPages || 1),
+          hasPreviousPage: (response.meta?.page || response.pagination?.page || 1) > 1,
+          isLoading: false
+        };
+        this.isLoading = false;
+      },
+      error: (error) => {
+        console.error('❌ VendorRequirements: Error loading requirements:', error);
+        this.isLoading = false;
+        this.paginationState.isLoading = false;
       }
     });
   }
 
   onSearchChange(): void {
+    this.paginationState.currentPage = 1;
     this.emitSearchChange();
   }
 
   onSkillsChange(): void {
+    this.paginationState.currentPage = 1;
     this.emitSearchChange();
   }
 
   onBudgetChange(): void {
+    this.paginationState.currentPage = 1;
     this.emitSearchChange();
   }
 
   onDurationChange(): void {
+    this.paginationState.currentPage = 1;
     this.emitSearchChange();
   }
 
   toggleFilters(): void {
     this.showFilters = !this.showFilters;
-    this.changeDetectorRef.detectChanges();
   }
 
   toggleSkillsDropdown(): void {
     this.showSkillsDropdown = !this.showSkillsDropdown;
-    this.changeDetectorRef.detectChanges();
   }
 
   toggleSkill(skillId: string): void {
@@ -334,8 +381,8 @@ export class VendorRequirementsComponent implements OnInit, OnChanges, OnDestroy
     this.maxBudget = '';
     this.minDuration = '';
     this.maxDuration = '';
-    this.emitSearchChange();
-    this.clearFilter.emit();
+    this.paginationState.currentPage = 1;
+    this.loadRequirements();
   }
 
   removeSearchTerm(): void {
@@ -344,46 +391,34 @@ export class VendorRequirementsComponent implements OnInit, OnChanges, OnDestroy
   }
 
   removeSkill(skillId: string): void {
-    this.selectedSkillIds = this.selectedSkillIds.filter(s => s !== skillId);
+    this.selectedSkillIds = this.selectedSkillIds.filter(id => id !== skillId);
     this.onSkillsChange();
   }
 
   removeBudgetFilter(): void {
     this.minBudget = '';
     this.maxBudget = '';
-    this.emitSearchChange();
+    this.onBudgetChange();
   }
 
   removeDurationFilter(): void {
     this.minDuration = '';
     this.maxDuration = '';
-    this.emitSearchChange();
+    this.onDurationChange();
   }
 
   private emitSearchChange(): void {
-    const searchParams: { [key: string]: string | string[] | undefined } = {
-      search: this.searchTerm,
-      minBudget: this.minBudget || undefined,
-      maxBudget: this.maxBudget || undefined,
-      minDuration: this.minDuration || undefined,
-      maxDuration: this.maxDuration || undefined
-    };
-
-    // Handle skills parameter - send as array of IDs
-    if (this.selectedSkillIds.length > 0) {
-      searchParams['skills'] = this.selectedSkillIds;
-      searchParams['skillLogic'] = this.skillLogic;
-    }
-
-    // Remove undefined values
-    Object.keys(searchParams).forEach(key => {
-      if (searchParams[key] === undefined) {
-        delete searchParams[key];
-      }
+    console.log('🔧 VendorRequirements: Emitting search change with filters:', {
+      searchTerm: this.searchTerm,
+      selectedSkillIds: this.selectedSkillIds,
+      skillLogic: this.skillLogic,
+      minBudget: this.minBudget,
+      maxBudget: this.maxBudget,
+      minDuration: this.minDuration,
+      maxDuration: this.maxDuration
     });
-
-    console.log('🔧 VendorRequirementsComponent: Emitting search change with params:', searchParams);
-    this.searchChange.emit(searchParams);
+    
+    this.loadRequirements();
   }
 
   hasActiveFilters(): boolean {
@@ -401,73 +436,68 @@ export class VendorRequirementsComponent implements OnInit, OnChanges, OnDestroy
     const sortModel = event.api.getColumnState().filter(col => col.sort);
     if (sortModel.length > 0) {
       const sort = sortModel[0];
-      this.sortChange.emit({
-        sortBy: sort.colId,
-        sortOrder: sort.sort || 'asc'
-      });
+      console.log('🔧 VendorRequirements: Sort changed:', sort);
+      // TODO: Implement sorting logic
     }
   }
 
   getBudgetDisplay(req: Requirement): string {
-    if (!req.budget) return 'N/A';
+    if (!req.budget) return 'Not specified';
     
-    const charge = req.budget.charge || 0;
-    const currency = req.budget.currency || 'USD';
-    const type = req.budget.type || 'hourly';
+    const { charge, currency = 'USD', type = 'hourly' } = req.budget;
+    
+    if (!charge) return 'Not specified';
     
     if (type === 'hourly') {
-      return `${currency}${charge}/hr`;
+      return `$${charge}/${currency}/hr`;
     } else if (type === 'fixed') {
-      return `${currency}${charge}`;
+      return `$${charge} ${currency}`;
     } else {
-      return `${currency}${charge}/${type}`;
+      return `$${charge} ${currency}`;
     }
   }
 
   getDurationDisplay(req: Requirement): string {
-    if (!req.duration) return 'N/A';
-    return req.duration;
+    if (!req.duration) return 'Not specified';
+    return `${req.duration} months`;
   }
 
   getLocationDisplay(req: Requirement): string {
-    if (!req.location) return 'N/A';
+    if (!req.location) return 'Not specified';
     
-    const city = req.location.city || '';
-    const state = req.location.state || '';
-    const country = req.location.country || '';
+    const { city, state, country } = req.location;
+    const parts = [city, state, country].filter(Boolean);
     
-    if (city && state) {
-      return `${city}, ${state}`;
-    } else if (city) {
-      return city;
-    } else if (state) {
-      return state;
-    } else if (country) {
-      return country;
-    }
+    if (parts.length === 0) return 'Not specified';
     
-    return 'N/A';
+    return parts.join(', ');
   }
 
-  onApplyResources(requirementId: string): void {
-    this.applyResources.emit(requirementId);
+  onApplyRequirement(requirementId: string): void {
+    console.log('🔧 Applying to requirement:', requirementId);
+    // Navigate to apply-resources route with requirementId as query parameter
+    this.router.navigate(['/vendor/apply-resources'], { 
+      queryParams: { requirementId: requirementId } 
+    });
   }
 
   onPageChange(page: number): void {
-    this.pageChange.emit(page);
+    this.paginationState.currentPage = page;
+    this.loadRequirements();
   }
 
   trackById(index: number, item: Requirement): string {
-    return item._id;
+    return item._id || `requirement-${index}`;
   }
 
   trackBySkill(index: number, skill: string): string {
     return skill;
   }
 
-  // Helper method to get skill name by ID
   getSkillNameById(skillId: string): string {
     const skill = this.availableSkills.find(s => s._id === skillId);
-    return skill ? skill.name : skillId;
+    return skill ? skill.name : 'Unknown Skill';
   }
+
+
 } 

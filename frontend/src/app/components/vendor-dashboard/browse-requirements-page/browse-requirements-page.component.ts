@@ -52,9 +52,14 @@ export class BrowseRequirementsPageComponent implements OnInit {
   ngOnInit(): void {
     console.log('🔧 BrowseRequirementsPage: Component initialized');
     this.currentUser = this.authService.getCurrentUser();
-    console.log('🔧 BrowseRequirementsPage: Current user:', this.currentUser);
-    console.log('🔧 BrowseRequirementsPage: Selected requirement ID:', this.selectedRequirementId);
-    this.loadRequirementFromInput();
+    
+    // Get requirement ID from query parameters
+    this.route.queryParams.subscribe(params => {
+      this.selectedRequirementId = params['requirementId'] || '';
+      console.log('🔧 BrowseRequirementsPage: Selected requirement ID from query params:', this.selectedRequirementId);
+      this.loadRequirementFromInput();
+    });
+    
     this.loadResources();
   }
 
@@ -247,12 +252,12 @@ export class BrowseRequirementsPageComponent implements OnInit {
 
   navigateBackToBrowse(): void {
     console.log('🔧 BrowseRequirementsPage: Navigating back to browse');
-    this.navigateBack.emit();
+    this.router.navigate(['/vendor/requirements']);
   }
 
   onCancel(): void {
     console.log('🔧 BrowseRequirementsPage: Cancel clicked');
-    this.navigateBack.emit();
+    this.router.navigate(['/vendor/requirements']);
   }
 
   @HostListener('document:click', ['$event'])

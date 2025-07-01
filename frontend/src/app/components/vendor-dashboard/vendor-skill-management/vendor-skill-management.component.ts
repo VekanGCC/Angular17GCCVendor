@@ -1,70 +1,76 @@
-import { Component, Input, Output, EventEmitter, OnInit, OnDestroy, OnChanges, SimpleChanges, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
-import { ApiService } from '../../../services/api.service';
+import { VendorService } from '../../../services/vendor.service';
 import { VendorSkill } from '../../../models/vendor-skill.model';
+import { AddVendorSkillModalComponent } from '../../modals/add-vendor-skill-modal/add-vendor-skill-modal.component';
 import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-vendor-skill-management',
   standalone: true,
-  imports: [CommonModule, LucideAngularModule],
+  imports: [CommonModule, LucideAngularModule, AddVendorSkillModalComponent],
   templateUrl: './vendor-skill-management.component.html',
   styleUrls: ['./vendor-skill-management.component.scss']
 })
-export class VendorSkillManagementComponent implements OnInit, OnDestroy, OnChanges {
-  @Input() skills: VendorSkill[] = [];
-  @Input() isLoading = false;
-  @Output() openAddSkillModal = new EventEmitter<void>();
-  @Output() skillDeleted = new EventEmitter<string>();
-
+export class VendorSkillManagementComponent implements OnInit, OnDestroy {
   vendorSkills: VendorSkill[] = [];
   loadingSkills = false;
+  showAddSkillModal = false;
   private subscription = new Subscription();
 
   constructor(
-    private apiService: ApiService,
+    private vendorService: VendorService,
     private changeDetectorRef: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
-    this.vendorSkills = this.skills || [];
-    this.loadingSkills = this.isLoading;
-    console.log('🔧 VendorSkillManagement: Initialized with skills:', this.vendorSkills);
-  }
-
-  ngOnChanges(changes: SimpleChanges): void {
-    if (changes['skills']) {
-      const newSkills = changes['skills'].currentValue || [];
-      // Always create a new array reference to ensure change detection
-      this.vendorSkills = [...newSkills];
-      console.log('🔧 VendorSkillManagement: Skills updated from parent:', this.vendorSkills);
-      // Force change detection to ensure UI updates
-      this.changeDetectorRef.detectChanges();
-    }
-    
-    if (changes['isLoading']) {
-      this.loadingSkills = changes['isLoading'].currentValue;
-      this.changeDetectorRef.detectChanges();
-    }
+    console.log('🔧 VendorSkillManagement: Initializing component');
+    this.loadSkills();
   }
 
   ngOnDestroy(): void {
     this.subscription.unsubscribe();
   }
 
+  loadSkills(): void {
+    console.log('🔧 VendorSkillManagement: Loading skills from service');
+    this.loadingSkills = true;
+
+    this.subscription.add(
+      this.vendorService.getSkills().subscribe({
+        next: (response: any) => {
+          console.log('🔧 VendorSkillManagement: Skills loaded successfully:', response);
+          if (response.success && response.data) {
+            this.vendorSkills = response.data;
+          } else {
+            this.vendorSkills = [];
+          }
+          this.loadingSkills = false;
+        },
+        error: (error: any) => {
+          console.error('🔧 VendorSkillManagement: Error loading skills:', error);
+          this.vendorSkills = [];
+          this.loadingSkills = false;
+        }
+      })
+    );
+  }
+
   onDeleteSkill(skillId: string): void {
     if (confirm('Are you sure you want to delete this skill?')) {
+      console.log('🔧 VendorSkillManagement: Deleting skill:', skillId);
       this.subscription.add(
-        this.apiService.deleteVendorSkill(skillId).subscribe({
+        this.vendorService.removeSkill(skillId).subscribe({
           next: (response: any) => {
             if (response.success) {
-              this.skillDeleted.emit(skillId);
               console.log('🔧 VendorSkillManagement: Skill deleted successfully');
+              // Remove the skill from the local array
+              this.vendorSkills = this.vendorSkills.filter(skill => skill._id !== skillId);
             }
           },
           error: (error: any) => {
-            console.error('Error deleting skill:', error);
+            console.error('🔧 VendorSkillManagement: Error deleting skill:', error);
           }
         })
       );
@@ -100,13 +106,26 @@ export class VendorSkillManagementComponent implements OnInit, OnDestroy, OnChan
   }
 
   onOpenAddSkillModal(): void {
-    this.openAddSkillModal.emit();
+    console.log('🔧 VendorSkillManagement: Opening add skill modal');
+    this.showAddSkillModal = true;
+  }
+
+  onCloseAddSkillModal(): void {
+    console.log('🔧 VendorSkillManagement: Closing add skill modal');
+    this.showAddSkillModal = false;
+  }
+
+  onSkillAdded(skill: any): void {
+    console.log('🔧 VendorSkillManagement: Skill added successfully:', skill);
+    // Add the new skill to the local array
+    this.vendorSkills = [...this.vendorSkills, skill];
+    this.showAddSkillModal = false;
   }
 
   // Force refresh the component data
   refreshData(): void {
-    this.vendorSkills = [...this.skills];
-    this.changeDetectorRef.detectChanges();
+    console.log('🔧 VendorSkillManagement: Refreshing data');
+    this.loadSkills();
   }
 
   trackById(index: number, item: VendorSkill): string {

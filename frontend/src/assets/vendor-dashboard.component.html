@@ -1,0 +1,269 @@
+<app-layout>
+  <div class="flex h-screen bg-gray-50">
+    <!-- Mobile Menu Overlay -->
+    <div *ngIf="showMobileMenu" 
+         (click)="showMobileMenu = false"
+         class="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"></div>
+
+    <!-- Sidebar -->
+    <div [class]="'bg-white shadow-sm border-r border-gray-200 flex flex-col z-50 transition-transform duration-300 ' + 
+                  (showMobileMenu ? 'fixed inset-y-0 left-0 w-64 transform translate-x-0' : 
+                   'fixed inset-y-0 left-0 w-64 transform -translate-x-full lg:relative lg:translate-x-0')">
+      <!-- Header -->
+      <div class="p-4 sm:p-6 border-b border-gray-200">
+        <div class="flex items-center justify-between">
+          <div class="flex-1 min-w-0">
+            <h1 class="text-lg sm:text-xl font-bold text-gray-900 truncate">Vendor Portal</h1>
+            <p class="text-xs sm:text-sm text-gray-600 mt-1 truncate">
+              <span *ngIf="currentUser?.firstName && currentUser?.lastName">
+                {{currentUser?.firstName}} {{currentUser?.lastName}}
+              </span>
+              <span *ngIf="!currentUser?.firstName || !currentUser?.lastName">Loading...</span>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Navigation Menu -->
+      <nav class="flex-1 p-3 sm:p-4 space-y-1 sm:space-y-2 overflow-y-auto">
+        <div *ngFor="let tab of getAvailableMenuItems()">
+          <!-- Regular menu item -->
+          <button
+            *ngIf="!tab.hasSubmenu"
+            (click)="setActiveTab(tab.id); showMobileMenu = false"
+            [class]="'w-full flex items-center px-3 py-2 sm:px-4 sm:py-3 text-left rounded-lg transition-colors text-sm sm:text-base ' + 
+              (activeTab === tab.id
+                ? 'bg-green-50 text-green-700 border border-green-200'
+                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900')">
+            <img [src]="'assets/icons/lucide/lucide/' + tab.icon" class="w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3 flex-shrink-0" [alt]="tab.label">
+            <span class="font-medium truncate">{{tab.label}}</span>
+          </button>
+
+          <!-- Finance Management menu with submenu -->
+          <div *ngIf="tab.hasSubmenu">
+            <!-- Main Finance Management button -->
+            <button
+              (click)="toggleFinanceManagementSubmenu(); showMobileMenu = false"
+              [class]="'w-full flex items-center justify-between px-3 py-2 sm:px-4 sm:py-3 text-left rounded-lg transition-colors text-sm sm:text-base ' + 
+                (showFinanceManagementSubmenu
+                  ? 'bg-green-50 text-green-700 border border-green-200'
+                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900')">
+              <div class="flex items-center">
+                <img [src]="'assets/icons/lucide/lucide/' + tab.icon" class="w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3 flex-shrink-0" [alt]="tab.label">
+                <span class="font-medium truncate">{{tab.label}}</span>
+              </div>
+              <img 
+                [src]="'assets/icons/lucide/lucide/' + (showFinanceManagementSubmenu ? 'chevron-up.svg' : 'chevron-down.svg')" 
+                class="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 chevron-rotate" 
+                [class.expanded]="showFinanceManagementSubmenu"
+                [alt]="showFinanceManagementSubmenu ? 'Collapse' : 'Expand'">
+            </button>
+
+            <!-- Submenu items -->
+            <div *ngIf="showFinanceManagementSubmenu" class="ml-4 mt-1 space-y-1 submenu-container">
+              <button
+                *ngFor="let submenuItem of tab.submenu"
+                (click)="navigateToFinanceSubmenu(submenuItem.id); showMobileMenu = false"
+                [class]="'w-full flex items-center px-3 py-2 sm:px-4 sm:py-3 text-left rounded-lg transition-colors text-sm sm:text-base submenu-item ' + 
+                  (activeFinanceSubmenu === submenuItem.id
+                    ? 'bg-green-100 text-green-700 border border-green-300'
+                    : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700')">
+                <div class="w-2 h-2 bg-gray-400 rounded-full mr-3 flex-shrink-0 submenu-dot"></div>
+                <span class="font-medium truncate">{{submenuItem.label}}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      <!-- Stats Summary -->
+      <div class="p-3 sm:p-4 border-t border-gray-200">
+        <div class="space-y-2 sm:space-y-3">
+          <div *ngFor="let stat of stats; trackBy: trackByStatTitle" class="flex items-center justify-between">
+            <div class="flex items-center min-w-0 flex-1">
+              <div [class]="'p-1.5 sm:p-2 rounded-lg flex-shrink-0 ' + stat.bg">
+                <img [src]="'assets/icons/lucide/lucide/' + stat.icon + '.svg'" [class]="'w-3 h-3 sm:w-4 sm:h-4 ' + stat.color" [alt]="stat.title">
+              </div>
+              <span class="ml-2 sm:ml-3 text-xs sm:text-sm font-medium text-gray-700 truncate">{{stat.title}}</span>
+            </div>
+            <span class="text-sm sm:text-lg font-bold text-gray-900 flex-shrink-0">{{stat.value}}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="flex-1 flex flex-col overflow-hidden">
+      <!-- Mobile Header -->
+      <div class="lg:hidden bg-white border-b border-gray-200 px-4 py-3">
+        <div class="flex items-center justify-between">
+          <button
+            (click)="showMobileMenu = true"
+            class="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg">
+            <img src="assets/icons/lucide/lucide/list.svg" class="w-5 h-5" alt="Menu">
+          </button>
+          <h1 class="text-lg font-bold text-gray-900">Vendor Portal</h1>
+          <div class="w-9"></div> <!-- Spacer for centering -->
+        </div>
+      </div>
+
+      <!-- Content Area -->
+      <div class="flex-1 overflow-y-auto">
+        <!-- Overview Tab -->
+        <app-vendor-overview 
+          *ngIf="activeTab === 'overview'"
+          [resources]="vendorResources"
+          [requirements]="requirements"
+          [applications]="vendorApplications"
+          [stats]="stats">
+        </app-vendor-overview>
+
+        <!-- Resources Tab -->
+        <app-vendor-resources 
+          *ngIf="activeTab === 'resources' && !showMatchingRequirementsPage"
+          [resources]="vendorResources"
+          [isLoading]="resourcesPaginationState.isLoading"
+          [paginationState]="resourcesPaginationState"
+          (openResourceModal)="onOpenResourceModal()"
+          (editResource)="handleEditResource($event)"
+          (toggleResourceStatus)="handleToggleResourceStatus($event)"
+          (pageChange)="onResourcesPageChange($event)"
+          (applicationCountClick)="handleApplicationCountClick($event)"
+          (matchingCountClick)="handleMatchingCountClick($event)">
+        </app-vendor-resources>
+
+        <!-- Matching Requirements Page -->
+        <app-matching-requirements
+          *ngIf="activeTab === 'resources' && showMatchingRequirementsPage"
+          [resourceId]="selectedResourceId"
+          (navigateBack)="onMatchingRequirementsBack()"
+          (onApplyRequirement)="handleApplyRequirement($event)">
+        </app-matching-requirements>
+
+        <!-- Requirements Tab -->
+        <app-vendor-requirements 
+          *ngIf="activeTab === 'requirements' && !showBrowseRequirementsPage"
+          [requirements]="requirements"
+          [isLoading]="requirementsPaginationState.isLoading"
+          [paginationState]="requirementsPaginationState"
+          [resourceFilter]="currentRequirementsSearchParams?.resourceId || ''"
+          (applyResources)="handleApplyResources($event)"
+          (pageChange)="onRequirementsPageChange($event)"
+          (sortChange)="onRequirementsSortChange($event)"
+          (searchChange)="onRequirementsSearchChange($event)"
+          (clearFilter)="handleClearRequirementsFilter()">
+        </app-vendor-requirements>
+
+        <!-- Browse Requirements Page -->
+        <app-browse-requirements-page
+          *ngIf="activeTab === 'requirements' && showBrowseRequirementsPage"
+          [selectedRequirementId]="selectedRequirementId"
+          (navigateBack)="onBrowseRequirementsBack()">
+        </app-browse-requirements-page>
+
+        <!-- Applications Tab -->
+        <app-vendor-applications 
+          *ngIf="activeTab === 'applications'"
+          [applications]="vendorApplications"
+          [isLoading]="applicationsPaginationState.isLoading"
+          [paginationState]="applicationsPaginationState"
+          [resourceFilter]="applicationsResourceFilter"
+          (updateApplicationStatus)="handleUpdateApplicationStatus($event)"
+          (viewApplicationHistory)="handleViewApplicationHistory($event)"
+          (pageChange)="onApplicationsPageChange($event)"
+          (clearFilter)="handleClearApplicationsFilter()">
+        </app-vendor-applications>
+
+        <!-- Skills Management Tab -->
+        <app-vendor-skill-management 
+          *ngIf="activeTab === 'skill-management'"
+          [skills]="organizationSkills"
+          [isLoading]="isLoading"
+          (openAddSkillModal)="onOpenAddVendorSkillModal()"
+          (skillDeleted)="onVendorSkillDeleted($event)">
+        </app-vendor-skill-management>
+
+        <!-- User Management Tab -->
+        <app-vendor-user-management 
+          *ngIf="activeTab === 'user-management'"
+          [users]="organizationUsers"
+          [isLoading]="isLoading"
+          (openAddUserModal)="showAddUserModal = true"
+          (toggleUserStatus)="handleToggleUserStatus($event)">
+        </app-vendor-user-management>
+
+        <!-- Invoice Management Tab -->
+        <app-invoice-management 
+          *ngIf="activeTab === 'invoice-management'">
+        </app-invoice-management>
+
+        <!-- SOW Approvals Tab -->
+        <app-sow-approvals 
+          *ngIf="activeTab === 'sow-approvals'">
+        </app-sow-approvals>
+
+        <!-- PO Approvals Tab -->
+        <app-po-approvals 
+          *ngIf="activeTab === 'po-approvals'">
+        </app-po-approvals>
+
+        <!-- Profile Tab -->
+        <app-profile-dashboard 
+          *ngIf="activeTab === 'profile'">
+        </app-profile-dashboard>
+      </div>
+    </div>
+
+    <!-- Resource Modal -->
+    <app-resource-modal 
+      *ngIf="showResourceModal" 
+      [resourceToEdit]="resourceToEdit"
+      (close)="onCloseResourceModal()">
+    </app-resource-modal>
+
+    <!-- Apply Resource Modal - Temporarily disabled due to interface changes -->
+    <!-- <app-apply-resource-modal
+      *ngIf="showApplyModal"
+      [requirementId]="selectedRequirement?._id || ''"
+      (close)="closeApplyModal()">
+    </app-apply-resource-modal> -->
+
+    <!-- Add User Modal -->
+    <app-add-user-modal 
+      *ngIf="showAddUserModal" 
+      [userType]="'vendor'"
+      (close)="showAddUserModal = false"
+      (userAdded)="onUserAdded($event)">
+    </app-add-user-modal>
+
+    <!-- Add Skill Modal -->
+    <app-add-skill-modal *ngIf="showAddSkillModal" (close)="showAddSkillModal = false"></app-add-skill-modal>
+
+    <!-- Add Vendor Skill Modal -->
+    <app-add-vendor-skill-modal 
+      *ngIf="showAddVendorSkillModal" 
+      [isOpen]="showAddVendorSkillModal"
+      (closeModal)="onCloseAddVendorSkillModal()"
+      (skillAdded)="onVendorSkillAdded($event)">
+    </app-add-vendor-skill-modal>
+
+    <!-- Apply Requirement Modal -->
+    <app-apply-requirement-modal
+      *ngIf="showApplyRequirementModal"
+      [requirementId]="selectedRequirementId || ''"
+      (close)="closeApplyRequirementModal()"
+      (success)="onApplicationSuccess()">
+    </app-apply-requirement-modal>
+
+    <!-- Application History Modal -->
+    <app-application-history-modal
+      [hidden]="!showHistoryModal"
+      [applicationId]="selectedApplicationId"
+      [isVisible]="showHistoryModal"
+      [isLoading]="isLoadingHistory"
+      [history]="applicationHistory"
+      [applicationDetails]="applicationDetails"
+      (close)="closeHistoryModal()">
+    </app-application-history-modal>
+  </div>
+</app-layout>

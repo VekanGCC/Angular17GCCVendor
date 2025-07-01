@@ -33,9 +33,9 @@
           <!-- Regular menu item -->
           <button
             *ngIf="!tab.hasSubmenu"
-            (click)="setActiveTab(tab.id)"
+            (click)="navigateToTab(tab.id)"
             [class]="'nav-item ' + 
-              (activeTab === tab.id ? 'active' : '')">
+              (isActiveRoute(tab.route) ? 'active' : '')">
             <img [src]="'assets/icons/lucide/lucide/' + tab.icon" [alt]="tab.label">
             <span>{{tab.label}}</span>
           </button>
@@ -60,9 +60,9 @@
             <div *ngIf="showFinanceManagementSubmenu" class="submenu-container">
               <button
                 *ngFor="let submenuItem of tab.submenu"
-                (click)="navigateToFinanceSubmenu(submenuItem.id)"
+                (click)="navigateToTab(submenuItem.id)"
                 [class]="'submenu-item ' + 
-                  (activeFinanceSubmenu === submenuItem.id ? 'active' : '')">
+                  (isActiveRoute(submenuItem.route) ? 'active' : '')">
                 <div class="submenu-dot"></div>
                 <span>{{submenuItem.label}}</span>
               </button>
@@ -96,107 +96,9 @@
 
     <!-- Main Content -->
     <div class="flex-1 flex flex-col overflow-hidden w-full lg:w-auto">
-      <!-- Main Content Area -->
-      <div class="flex-1 overflow-y-auto p-4 lg:p-6">
-        <!-- Overview Tab -->
-        <app-client-overview 
-          *ngIf="activeTab === 'overview'"
-          [resources]="resources"
-          [requirements]="requirements"
-          [applications]="clientApplications"
-          [stats]="stats">
-        </app-client-overview>
-
-        <!-- Requirements Tab -->
-        <app-client-requirements 
-          *ngIf="activeTab === 'requirements'"
-          [requirements]="clientRequirements"
-          [isLoading]="requirementsPaginationState.isLoading"
-          [paginationState]="requirementsPaginationState"
-          (openRequirementModal)="openRequirementModal()"
-          (openCloseRequirementModal)="openCloseRequirementModal($event)"
-          (openEditRequirementModal)="openEditRequirementModal($event)"
-          (pageChange)="onRequirementsPageChange($event)"
-          (sortChange)="onRequirementsSortChange($event)"
-          (viewApplications)="onViewApplications($event)"
-          (viewMatchingResources)="onViewMatchingResources($event)">
-        </app-client-requirements>
-
-        <!-- Resources Tab -->
-        <app-client-resources 
-          *ngIf="activeTab === 'resources'"
-          [resources]="resources"
-          [isLoading]="resourcesPaginationState.isLoading"
-          [paginationState]="resourcesPaginationState"
-          (applyResources)="applyMultipleResources($event)"
-          (sortChange)="onResourcesSortChange($event)"
-          (pageChange)="onResourcesPageChange($event)"
-          (searchChange)="onResourcesSearchChange($event)">
-        </app-client-resources>
-
-        <!-- Applications Tab -->
-        <app-client-applications 
-          *ngIf="activeTab === 'applications'"
-          [applications]="clientApplications"
-          [isLoading]="applicationsPaginationState.isLoading"
-          [paginationState]="applicationsPaginationState"
-          [currentFilter]="currentApplicationFilter"
-          (updateApplicationStatus)="handleUpdateApplicationStatus($event)"
-          (viewApplicationHistory)="handleViewApplicationHistory($event)"
-          (viewApplicationDetails)="handleViewApplicationDetails($event)"
-          (pageChange)="onApplicationsPageChange($event)"
-          (sortChange)="onApplicationsSortChange($event)"
-          (clearFilter)="onClearApplicationFilter()">
-        </app-client-applications>
-
-        <!-- User Management Tab -->
-        <app-client-user-management 
-          *ngIf="activeTab === 'user-management'"
-          [users]="organizationUsers"
-          [isLoading]="isLoading"
-          (openAddUserModal)="showAddUserModal = true"
-          (toggleUserStatus)="handleToggleUserStatus($event)">
-        </app-client-user-management>
-
-        <!-- Apply Resources Tab -->
-        <app-apply-resources-page 
-          *ngIf="activeTab === 'apply-resources'"
-          [selectedResourceIds]="selectedResourceIds"
-          (navigateBack)="navigateBackToBrowse()">
-        </app-apply-resources-page>
-
-        <!-- Matching Resources Tab -->
-        <app-matching-resources 
-          *ngIf="activeTab === 'matching-resources'"
-          [requirementId]="currentRequirementId"
-          (navigateBack)="navigateBackToRequirements()"
-          (onApplyResource)="onApplyResourceFromMatching($event)">
-        </app-matching-resources>
-
-        <!-- SOW Management Tab -->
-        <app-sow-management 
-          *ngIf="activeTab === 'sow-management'">
-        </app-sow-management>
-
-        <!-- PO Management Tab -->
-        <app-po-management 
-          *ngIf="activeTab === 'po-management'">
-        </app-po-management>
-
-        <!-- Invoice Management Tab -->
-        <app-invoice-management 
-          *ngIf="activeTab === 'invoice-management'">
-        </app-invoice-management>
-
-        <!-- Payment Management Tab -->
-        <app-payment-management 
-          *ngIf="activeTab === 'payment-management'">
-        </app-payment-management>
-        
-        <!-- Profile Tab -->
-        <app-profile-dashboard 
-          *ngIf="activeTab === 'profile'">
-        </app-profile-dashboard>
+      <!-- Content Area with Router Outlet -->
+      <div class="flex-1 overflow-y-auto">
+        <router-outlet></router-outlet>
       </div>
     </div>
   </div>

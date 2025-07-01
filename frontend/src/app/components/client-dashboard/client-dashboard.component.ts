@@ -1,6 +1,6 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router, ActivatedRoute } from '@angular/router';
+import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { AppService } from '../../services/app.service';
 import { ClientService } from '../../services/client.service';
@@ -11,9 +11,9 @@ import { Application } from '../../models/application.model';
 import { VendorUser } from '../../models/vendor-user.model';
 import { LayoutComponent } from '../layout/layout.component';
 import { RequirementModalComponent } from '../modals/requirement-modal/requirement-modal.component';
-import { ClientOverviewComponent } from './client-overview/client-overview.component';
+
 import { ClientRequirementsComponent } from './client-requirements/client-requirements.component';
-import { ClientResourcesComponent } from './client-resources/client-resources.component';
+
 import { ClientApplicationsComponent } from './client-applications/client-applications.component';
 import { ClientUserManagementComponent } from './client-user-management/client-user-management.component';
 import { ApplicationHistoryModalComponent, ApplicationHistoryEntry } from '../modals/application-history-modal/application-history-modal.component';
@@ -41,12 +41,11 @@ import { PaymentManagementComponent } from './payment-management/payment-managem
   selector: 'app-client-dashboard',
   standalone: true,
   imports: [
-    CommonModule, 
+    CommonModule,
+    RouterModule,
     LayoutComponent, 
     RequirementModalComponent,
-    ClientOverviewComponent,
     ClientRequirementsComponent,
-    ClientResourcesComponent,
     ClientApplicationsComponent,
     ClientUserManagementComponent,
     ApplicationHistoryModalComponent,
@@ -201,65 +200,22 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // Set current user and load data
     this.currentUser = user;
+    console.log('🔧 ClientDashboard: Current user:', this.currentUser);
+
+    // Load initial data
     this.loadClientData();
-
-    // Check for profile fragment in URL
-    const fragment = this.router.url.split('#')[1];
-    if (fragment === 'profile') {
-      this.activeTab = 'profile';
-    }
-
-    // Check for tab query parameter (for returning from apply resources page)
-    this.route.queryParams.subscribe(params => {
-      if (params['tab'] && ['overview', 'requirements', 'resources', 'applications', 'profile', 'matching-resources'].includes(params['tab'])) {
-        this.activeTab = params['tab'];
-        console.log('Set active tab from query params:', this.activeTab);
-      }
-    });
-
-    // Subscribe to user changes
-    this.subscriptions.push(this.authService.user$.subscribe((user: User | null) => {
-      if (user) {
-        this.currentUser = user;
-        this.loadClientData();
-      } else {
-        this.currentUser = null;
-        this.loadClientData();
-      }
-    }));
-
-    this.loadApplications();
-    this.loadResources();
-    this.loadRequirements();
-    this.initializeActiveTab();
+    
+    // Subscribe to route changes to update active state
+    this.subscriptions.push(
+      this.router.events.subscribe(() => {
+        this.changeDetectorRef.detectChanges();
+      })
+    );
   }
 
   ngOnDestroy(): void {
     this.subscriptions.forEach(sub => sub.unsubscribe());
-  }
-
-  private initializeActiveTab(): void {
-    // Get the fragment from the URL
-    this.route.fragment.subscribe(fragment => {
-      if (fragment && ['overview', 'requirements', 'resources', 'applications', 'profile', 'user-management', 'apply-resources', 'matching-resources'].includes(fragment)) {
-        this.activeTab = fragment as 'overview' | 'requirements' | 'resources' | 'applications' | 'profile' | 'user-management' | 'apply-resources' | 'matching-resources';
-        console.log('Restored active tab from URL:', this.activeTab);
-      } else {
-        // Default to overview if no valid fragment
-        this.activeTab = 'overview';
-        this.updateUrlFragment('overview');
-      }
-    });
-  }
-
-  private updateUrlFragment(tab: string): void {
-    // Update the URL fragment without triggering navigation
-    // Use location.replaceState to avoid navigation issues
-    const currentUrl = window.location.href.split('#')[0];
-    const newUrl = `${currentUrl}#${tab}`;
-    window.history.replaceState(null, '', newUrl);
   }
 
   private loadClientData(): void {
@@ -422,31 +378,25 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
   onViewApplications(requirementId: string): void {
     console.log('🔧 ClientDashboard: Viewing applications for requirement:', requirementId);
     
-    // Switch to applications tab
-    this.activeTab = 'applications';
-    this.updateUrlFragment('applications');
-    
-    // Set the requirement filter for applications
+    // Set filter to show applications for this requirement
     this.currentApplicationFilter = { requirementId };
     
-    // Reload applications with the filter
-    this.loadApplicationsWithFilter();
+    // Navigate to applications page with filter
+    this.router.navigate(['/client/applications'], { 
+      queryParams: { requirementId } 
+    });
   }
 
   onViewMatchingResources(requirementId: string): void {
     console.log('🔧 ClientDashboard: Viewing matching resources for requirement:', requirementId);
     
-    // Set the current requirement ID and switch to matching resources tab
+    // Store the requirement ID for the matching resources component
     this.currentRequirementId = requirementId;
-    this.activeTab = 'matching-resources';
-    this.updateUrlFragment('matching-resources');
     
-    console.log('🔧 ClientDashboard: Updated state:', {
-      currentRequirementId: this.currentRequirementId,
-      activeTab: this.activeTab
+    // Navigate to matching resources page
+    this.router.navigate(['/client/matching-resources'], { 
+      queryParams: { requirementId } 
     });
-    
-    this.changeDetectorRef.detectChanges();
   }
 
   onApplicationsPageChange(page: number): void {
@@ -539,39 +489,36 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
     this.stats[3].value = this.clientApplications.filter(a => a.status === 'accepted').length;
   }
 
-  setActiveTab(tab: 'overview' | 'requirements' | 'resources' | 'applications' | 'profile' | 'user-management' | 'apply-resources' | 'matching-resources' | 'sow-management' | 'po-management' | 'invoice-management' | 'payment-management'): void {
-    console.log('Setting active tab to:', tab);
-    this.activeTab = tab;
-    this.updateUrlFragment(tab);
+  navigateToTab(tabId: string): void {
+    console.log('🔄 ClientDashboard: Navigating to tab:', tabId);
     
-    // Close sidebar on mobile when switching tabs
-    this.closeSidebar();
+    // Map tab IDs to routes
+    const routeMap: { [key: string]: string } = {
+      'overview': '/client/overview',
+      'requirements': '/client/requirements',
+      'resources': '/client/resources',
+      'applications': '/client/applications',
+      'user-management': '/client/user-management',
+      'apply-resources': '/client/apply-resources',
+      'matching-resources': '/client/matching-resources',
+      'sow-management': '/client/sow-management',
+      'po-management': '/client/po-management',
+      'invoice-management': '/client/invoice-management',
+      'payment-management': '/client/payment-management',
+      'profile': '/client/profile'
+    };
     
-    // Reload data when switching to certain tabs
-    switch (tab) {
-      case 'requirements':
-        console.log('🔧 ClientDashboard: Switching to requirements tab, reloading data...');
-        this.loadRequirements(this.requirementsPaginationState.currentPage);
-        break;
-      case 'applications':
-        console.log('🔧 ClientDashboard: Switching to applications tab, reloading data...');
-        this.loadApplications(this.applicationsPaginationState.currentPage);
-        break;
-      case 'resources':
-        console.log('🔧 ClientDashboard: Switching to resources tab, reloading data...');
-        this.loadResourcesWithSearch(this.currentSearchParams, this.resourcesPaginationState.currentPage);
-        break;
-      case 'user-management':
-        console.log('🔧 ClientDashboard: Switching to user management tab, reloading data...');
-        this.loadOrganizationUsers();
-        break;
-      case 'overview':
-        console.log('🔧 ClientDashboard: Switching to overview tab, updating stats...');
-        this.updateStats();
-        break;
+    const route = routeMap[tabId];
+    if (route) {
+      this.router.navigate([route]);
     }
     
-    this.changeDetectorRef.detectChanges();
+    // Close mobile sidebar
+    this.closeSidebar();
+  }
+
+  isActiveRoute(route: string): boolean {
+    return this.router.url === route;
   }
 
   // Modal handlers
@@ -854,32 +801,27 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
   }
 
   applyMultipleResources(resourceIds: string[]): void {
-    console.log('🔧 ClientDashboard: applyMultipleResources called with resourceIds:', resourceIds);
+    console.log('🔧 ClientDashboard: Applying multiple resources:', resourceIds);
     console.log('🔧 ClientDashboard: Current route:', this.router.url);
     
     // Store the selected resource IDs
     this.selectedResourceIds = resourceIds;
     
-    // Set the active tab to apply-resources
-    this.activeTab = 'apply-resources';
+    // Navigate to apply-resources page
+    this.router.navigate(['/client/apply-resources']);
     
-    console.log('🔧 ClientDashboard: Setting active tab to apply-resources with resourceIds:', resourceIds);
-    
-    this.changeDetectorRef.detectChanges();
+    console.log('🔧 ClientDashboard: Navigating to apply-resources with resourceIds:', resourceIds);
   }
 
   navigateBackToBrowse(): void {
     console.log('🔧 ClientDashboard: Navigating back to browse resources');
-    this.activeTab = 'resources';
-    this.changeDetectorRef.detectChanges();
+    this.router.navigate(['/client/resources']);
   }
 
   navigateBackToRequirements(): void {
     console.log('🔧 ClientDashboard: Navigating back to requirements');
-    this.activeTab = 'requirements';
     this.currentRequirementId = '';
-    this.updateUrlFragment('requirements');
-    this.changeDetectorRef.detectChanges();
+    this.router.navigate(['/client/requirements']);
   }
 
   onApplyResourceFromMatching(resourceId: string): void {
@@ -891,25 +833,25 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
   // User Management Methods
   getAvailableMenuItems(): any[] {
     const allMenuItems = [
-      { id: 'overview', label: 'Overview', icon: 'home.svg' },
-      { id: 'requirements', label: 'My Requirements', icon: 'briefcase.svg' },
-      { id: 'resources', label: 'Browse Resources', icon: 'users.svg' },
-      { id: 'applications', label: 'Applications', icon: 'trending-up.svg' },
+      { id: 'overview', label: 'Overview', icon: 'home.svg', route: '/client/overview' },
+      { id: 'requirements', label: 'My Requirements', icon: 'briefcase.svg', route: '/client/requirements' },
+      { id: 'resources', label: 'Browse Resources', icon: 'users.svg', route: '/client/resources' },
+      { id: 'applications', label: 'Applications', icon: 'trending-up.svg', route: '/client/applications' },
       { 
         id: 'finance-management', 
         label: 'Finance Management', 
         icon: 'dollar-sign.svg', 
         hasSubmenu: true,
         submenu: [
-          { id: 'sow-management', label: 'SOW Management', route: '/finance/sow-management' },
-          { id: 'po-management', label: 'PO Management', route: '/finance/po-management' },
-          { id: 'invoice-management', label: 'Invoice Management', route: '/finance/invoice-management' },
-          { id: 'payment-management', label: 'Payment Management', route: '/finance/payment-management' }
+          { id: 'sow-management', label: 'SOW Management', route: '/client/sow-management' },
+          { id: 'po-management', label: 'PO Management', route: '/client/po-management' },
+          { id: 'invoice-management', label: 'Invoice Management', route: '/client/invoice-management' },
+          { id: 'payment-management', label: 'Payment Management', route: '/client/payment-management' }
         ],
         roles: ['client_owner', 'client_account']
       },
-      { id: 'user-management', label: 'User Management', icon: 'user-plus.svg' },
-      { id: 'profile', label: 'Profile', icon: 'user.svg' }
+      { id: 'user-management', label: 'User Management', icon: 'user-plus.svg', route: '/client/user-management' },
+      { id: 'profile', label: 'Profile', icon: 'user.svg', route: '/client/profile' }
     ];
 
     // If user is client_employee, hide user management and finance management
@@ -1050,11 +992,14 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
 
   navigateToFinanceSubmenu(submenuId: string): void {
     this.activeFinanceSubmenu = submenuId as 'sow-management' | 'po-management' | 'invoice-management' | 'payment-management';
-    this.setActiveTab(submenuId as any);
+    this.navigateToTab(submenuId);
     this.changeDetectorRef.detectChanges();
   }
 
   isFinanceRoute(): boolean {
-    return ['sow-management', 'po-management', 'invoice-management', 'payment-management'].includes(this.activeTab);
+    const currentUrl = this.router.url;
+    return ['sow-management', 'po-management', 'invoice-management', 'payment-management'].some(route => 
+      currentUrl.includes(route)
+    );
   }
 }

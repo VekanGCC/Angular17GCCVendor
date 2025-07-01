@@ -1,8 +1,10 @@
-import { Component, OnInit, Input } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Resource } from '../../../models/resource.model';
 import { Requirement } from '../../../models/requirement.model';
 import { Application } from '../../../models/application.model';
+import { ClientService } from '../../../services/client.service';
+import { ApiService } from '../../../services/api.service';
 
 @Component({
   selector: 'app-client-overview',
@@ -12,33 +14,85 @@ import { Application } from '../../../models/application.model';
   styleUrls: ['./client-overview.component.scss']
 })
 export class ClientOverviewComponent implements OnInit {
-  @Input() resources: Resource[] = [];
-  @Input() requirements: Requirement[] = [];
-  @Input() applications: Application[] = [];
-  @Input() stats: any[] = [];
+  resources: Resource[] = [];
+  requirements: Requirement[] = [];
+  applications: Application[] = [];
+  stats: any[] = [];
+  isLoading = false;
 
-  constructor() {}
+  constructor(
+    private clientService: ClientService,
+    private apiService: ApiService
+  ) {}
 
-  ngOnInit(): void {}
-
-  getApplicationResourceName(app: any): string {
-    if (typeof app.resource === 'object' && app.resource?.name) {
-      return app.resource.name;
-    } else if (typeof app.resource === 'string') {
-      const resource = this.resources.find(r => r._id === app.resource);
-      return resource ? resource.name : 'Unknown Resource';
-    }
-    return 'Unknown Resource';
+  ngOnInit(): void {
+    console.log('🔧 ClientOverviewComponent: ngOnInit called');
+    this.loadOverviewData();
   }
 
-  getApplicationRequirementTitle(app: any): string {
-    if (typeof app.requirement === 'object' && app.requirement?.title) {
-      return app.requirement.title;
-    } else if (typeof app.requirement === 'string') {
-      const requirement = this.requirements.find(r => r._id === app.requirement);
-      return requirement ? requirement.title : 'Unknown Requirement';
+  loadOverviewData(): void {
+    console.log('🔄 ClientOverview: Loading overview data...');
+    this.isLoading = true;
+
+    // Load resources
+    this.apiService.getResources({ page: 1, limit: 5 }).subscribe({
+      next: (response) => {
+        console.log('✅ ClientOverview: Resources loaded:', response);
+        this.resources = response.data || [];
+      },
+      error: (error) => {
+        console.error('❌ ClientOverview: Error loading resources:', error);
+      }
+    });
+
+    // Load requirements
+    this.clientService.getRequirements({ page: 1, limit: 5 }).subscribe({
+      next: (response) => {
+        console.log('✅ ClientOverview: Requirements loaded:', response);
+        this.requirements = response.data || [];
+      },
+      error: (error) => {
+        console.error('❌ ClientOverview: Error loading requirements:', error);
+      }
+    });
+
+    // Load applications
+    this.clientService.getApplications({ page: 1, limit: 5 }).subscribe({
+      next: (response) => {
+        console.log('✅ ClientOverview: Applications loaded:', response);
+        this.applications = response.data || [];
+        this.isLoading = false;
+      },
+      error: (error) => {
+        console.error('❌ ClientOverview: Error loading applications:', error);
+        this.isLoading = false;
+      }
+    });
+
+    // Load stats
+    this.clientService.getAnalytics().subscribe({
+      next: (response) => {
+        console.log('✅ ClientOverview: Analytics loaded:', response);
+        this.stats = response.data || [];
+      },
+      error: (error) => {
+        console.error('❌ ClientOverview: Error loading analytics:', error);
+      }
+    });
+  }
+
+  getApplicationResourceName(app: Application): string {
+    if (typeof app.resource === 'string') {
+      return 'Unknown Resource';
     }
-    return 'Unknown Requirement';
+    return app.resource?.name || 'Unknown Resource';
+  }
+
+  getApplicationRequirementTitle(app: Application): string {
+    if (typeof app.requirement === 'string') {
+      return 'Unknown Requirement';
+    }
+    return app.requirement?.title || 'Unknown Requirement';
   }
 
   getStatusBadge(status: string): { color: string; icon: string } {
@@ -73,6 +127,10 @@ export class ClientOverviewComponent implements OnInit {
   }
 
   formatStatus(status: string): string {
-    return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    return status?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Unknown';
+  }
+
+  trackById(index: number, item: any): string {
+    return item._id || `item-${index}`;
   }
 } 

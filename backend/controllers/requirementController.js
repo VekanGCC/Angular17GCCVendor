@@ -101,6 +101,8 @@ const getRequirements = asyncHandler(async (req, res, next) => {
   const requirements = await Requirement.find(query)
     .populate('category', 'name description') // Only select needed fields
     .populate('skills', 'name description')   // Only select needed fields
+    .populate('createdBy', 'firstName lastName companyName') // Populate creator info
+    .populate('organizationId', 'name') // Populate organization info
     .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
     .limit(parseInt(limit))
     .skip((parseInt(page) - 1) * parseInt(limit))

@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, Input, Output, EventEmitter, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AgGridModule } from 'ag-grid-angular';
 import { ColDef } from 'ag-grid-community';
@@ -6,7 +6,6 @@ import { Subscription } from 'rxjs';
 import { VendorService } from '../../../services/vendor.service';
 import { PaginationComponent } from '../../pagination/pagination.component';
 import { PaginationState } from '../../../models/pagination.model';
-import { Router, ActivatedRoute } from '@angular/router';
 
 // Interfaces for API response data
 interface MatchingRequirement {
@@ -88,7 +87,8 @@ interface MatchingRequirementsResponse {
   styleUrls: ['./matching-requirements.component.scss']
 })
 export class MatchingRequirementsComponent implements OnInit, OnDestroy {
-  resourceId: string = '';
+  @Input() resourceId: string = '';
+  @Output() navigateBack = new EventEmitter<void>();
 
   isLoading = false;
   resource: any = null;
@@ -237,7 +237,7 @@ export class MatchingRequirementsComponent implements OnInit, OnDestroy {
         button.className = 'inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500';
         button.innerHTML = 'Apply';
         button.addEventListener('click', () => {
-          this.onApplyRequirement(params.data._id);
+          this.onApplyRequirement.emit(params.data._id);
         });
         return button;
       }
@@ -267,26 +267,19 @@ export class MatchingRequirementsComponent implements OnInit, OnDestroy {
     hasPreviousPage: false
   };
 
+  @Output() onApplyRequirement = new EventEmitter<string>();
+
   private subscriptions: Subscription[] = [];
 
-  constructor(private vendorService: VendorService, private changeDetectorRef: ChangeDetectorRef, private router: Router, private route: ActivatedRoute) {}
+  constructor(private vendorService: VendorService, private changeDetectorRef: ChangeDetectorRef) {}
 
   ngOnInit(): void {
-    console.log('🔧 MatchingRequirementsComponent: ngOnInit called');
-    
-    // Get resourceId from route parameters
-    this.route.queryParams.subscribe(params => {
-      this.resourceId = params['resourceId'] || '';
-      console.log('🔧 MatchingRequirementsComponent: Resource ID from route:', this.resourceId);
-      
-      if (this.resourceId) {
-        this.loadMatchingRequirements();
-      } else {
-        console.error('❌ MatchingRequirementsComponent: No resource ID provided');
-        // Navigate back to resources page
-        this.router.navigate(['/vendor/resources']);
-      }
-    });
+    console.log('🔧 MatchingRequirementsComponent: ngOnInit called with resourceId:', this.resourceId);
+    if (this.resourceId) {
+      this.loadMatchingRequirements();
+    } else {
+      console.warn('🔧 MatchingRequirementsComponent: No resourceId provided');
+    }
   }
 
   ngOnDestroy(): void {
@@ -361,18 +354,12 @@ export class MatchingRequirementsComponent implements OnInit, OnDestroy {
   }
 
   onBackClick(): void {
-    this.router.navigate(['/vendor-dashboard']);
+    this.navigateBack.emit();
   }
 
   onPageChange(page: number): void {
     this.paginationState.currentPage = page;
     this.loadMatchingRequirements();
-  }
-
-  onApplyRequirement(requirementId: string): void {
-    console.log('🔄 MatchingRequirementsComponent: Applying for requirement:', requirementId);
-    // TODO: Implement apply requirement logic (modal or page)
-    alert(`Apply functionality for requirement ${requirementId} will be implemented soon.`);
   }
 
   getMatchPercentageColor(percentage: number): string {

@@ -3,7 +3,7 @@ import { AllCommunityModule } from 'ag-grid-community';
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
-import { Component, Input, Output, EventEmitter, OnInit, OnChanges, SimpleChanges, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
 import { Requirement } from '../../../models/requirement.model';
@@ -13,6 +13,9 @@ import { PaginationComponent } from '../../pagination/pagination.component';
 import { PaginationState } from '../../../models/pagination.model';
 import { ClientService } from '../../../services/client.service';
 import { ApiService } from '../../../services/api.service';
+import { Router } from '@angular/router';
+import { forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 
 @Component({
   selector: 'app-client-requirements',
@@ -21,10 +24,10 @@ import { ApiService } from '../../../services/api.service';
   templateUrl: './client-requirements.component.html',
   styleUrls: ['./client-requirements.component.scss']
 })
-export class ClientRequirementsComponent implements OnInit, OnChanges {
-  @Input() requirements: Requirement[] = [];
-  @Input() isLoading = false;
-  @Input() paginationState: PaginationState = {
+export class ClientRequirementsComponent implements OnInit, OnDestroy {
+  requirements: Requirement[] = [];
+  isLoading = false;
+  paginationState: PaginationState = {
     currentPage: 1,
     pageSize: 10,
     totalItems: 0,
@@ -33,13 +36,6 @@ export class ClientRequirementsComponent implements OnInit, OnChanges {
     hasNextPage: false,
     hasPreviousPage: false
   };
-  @Output() openRequirementModal = new EventEmitter<void>();
-  @Output() openCloseRequirementModal = new EventEmitter<Requirement>();
-  @Output() openEditRequirementModal = new EventEmitter<Requirement>();
-  @Output() pageChange = new EventEmitter<number>();
-  @Output() sortChange = new EventEmitter<{sortBy: string, sortOrder: 'asc' | 'desc'}>();
-  @Output() viewApplications = new EventEmitter<string>();
-  @Output() viewMatchingResources = new EventEmitter<string>();
 
   columnDefs: ColDef[] = [
     {
@@ -219,7 +215,7 @@ export class ClientRequirementsComponent implements OnInit, OnChanges {
         if (count > 0) {
           button.addEventListener('click', (event) => {
             event.stopPropagation();
-            this.viewApplications.emit(params.data._id);
+            this.onViewApplications(params.data._id);
           });
         }
         
@@ -248,7 +244,7 @@ export class ClientRequirementsComponent implements OnInit, OnChanges {
         if (count > 0) {
           button.addEventListener('click', (event) => {
             event.stopPropagation();
-            this.viewMatchingResources.emit(params.data._id);
+            this.onViewMatchingResources(params.data._id);
           });
         }
         
@@ -301,7 +297,6 @@ export class ClientRequirementsComponent implements OnInit, OnChanges {
     },
     {
       headerName: 'Actions',
-      field: 'actions',
       flex: 1,
       cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       sortable: false,
@@ -374,99 +369,204 @@ export class ClientRequirementsComponent implements OnInit, OnChanges {
     suppressCellFocus: true
   };
 
-  constructor(private changeDetectorRef: ChangeDetectorRef, private clientService: ClientService, private apiService: ApiService) {}
+  constructor(
+    private changeDetectorRef: ChangeDetectorRef, 
+    private clientService: ClientService, 
+    private apiService: ApiService,
+    private router: Router
+  ) {}
 
   ngOnInit(): void {
-    // Component initialization
+    console.log('🔧 ClientRequirementsComponent: ngOnInit called');
+    this.loadRequirements();
   }
 
-  ngOnChanges(changes: SimpleChanges): void {
-    if (changes['requirements'] && !changes['requirements'].firstChange) {
-      // Update pagination state when requirements change
-      this.updatePaginationState();
+  ngOnDestroy(): void {
+    // Clean up any subscriptions if needed
+  }
+
+  private loadRequirements(): void {
+    console.log('🔄 ClientRequirements: Loading requirements...');
+    this.isLoading = true;
+    this.paginationState.isLoading = true;
+
+    const params: any = {
+      page: this.paginationState.currentPage,
+      limit: this.paginationState.pageSize
+    };
+
+    this.clientService.getRequirements(params).subscribe({
+      next: (response) => {
+        console.log('✅ ClientRequirements: Requirements loaded:', response);
+        if (response.success && response.data) {
+          this.requirements = response.data;
+          
+          // Update pagination state
+          const paginationData = response.pagination || response.meta;
+          if (paginationData) {
+            this.paginationState = {
+              currentPage: paginationData.page || 1,
+              pageSize: paginationData.limit || 10,
+              totalItems: paginationData.total || 0,
+              totalPages: paginationData.totalPages || Math.ceil((paginationData.total || 0) / (paginationData.limit || 10)),
+              isLoading: false,
+              hasNextPage: (paginationData.page || 1) < (paginationData.totalPages || Math.ceil((paginationData.total || 0) / (paginationData.limit || 10))),
+              hasPreviousPage: (paginationData.page || 1) > 1
+            };
+          }
+          
+          // Load counts for the requirements
+          this.loadRequirementsWithCounts();
+        }
+        this.isLoading = false;
+        this.paginationState.isLoading = false;
+        this.changeDetectorRef.detectChanges();
+      },
+      error: (error) => {
+        console.error('❌ ClientRequirements: Error loading requirements:', error);
+        this.requirements = [];
+        this.isLoading = false;
+        this.paginationState.isLoading = false;
+        this.changeDetectorRef.detectChanges();
+      }
+    });
+  }
+
+  private loadRequirementsWithCounts(): void {
+    console.log('🔄 ClientRequirements: Loading counts for requirements...');
+    
+    if (this.requirements.length === 0) {
+      console.log('🔄 ClientRequirements: No requirements to load counts for');
+      return;
     }
-  }
 
-  updatePaginationState(): void {
-    // This will be called by parent component when pagination data is available
+    const requirementIds = this.requirements.map(req => req._id);
+    
+    // Use forkJoin to load both application counts and matching resources counts in parallel
+    const requests = {
+      applicationCounts: this.clientService.getApplicationCountsForRequirements(requirementIds).pipe(
+        catchError(error => {
+          console.error('❌ ClientRequirements: Error loading application counts:', error);
+          return of({ success: false, data: {} });
+        })
+      ),
+      matchingResourcesCounts: this.clientService.getMatchingResourcesCountsForRequirements(requirementIds).pipe(
+        catchError(error => {
+          console.error('❌ ClientRequirements: Error loading matching resources counts:', error);
+          return of({ success: false, data: {} });
+        })
+      )
+    };
+
+    forkJoin(requests).subscribe({
+      next: (results) => {
+        console.log('✅ ClientRequirements: Counts loaded:', results);
+        
+        // Update requirements with application counts
+        if (results.applicationCounts.success && results.applicationCounts.data) {
+          this.requirements = this.requirements.map(req => ({
+            ...req,
+            applicationCount: results.applicationCounts.data[req._id] || 0
+          }));
+        }
+        
+        // Update requirements with matching resources counts
+        if (results.matchingResourcesCounts.success && results.matchingResourcesCounts.data) {
+          this.requirements = this.requirements.map(req => ({
+            ...req,
+            matchingResourcesCount: results.matchingResourcesCounts.data[req._id] || 0
+          }));
+        }
+        
+        console.log('✅ ClientRequirements: Requirements updated with counts:', this.requirements);
+        this.changeDetectorRef.detectChanges();
+      },
+      error: (error) => {
+        console.error('❌ ClientRequirements: Error loading counts:', error);
+      }
+    });
   }
 
   onPageChange(page: number): void {
-    this.pageChange.emit(page);
+    console.log('🔄 ClientRequirements: Page changed to:', page);
+    this.paginationState.currentPage = page;
+    this.loadRequirements();
   }
 
   onSortChanged(event: SortChangedEvent): void {
     const sortModel = event.api.getColumnState().filter(col => col.sort);
-    if (sortModel && sortModel.length > 0) {
+    if (sortModel.length > 0) {
       const sort = sortModel[0];
-      console.log('Sort changed:', sort);
-      
-      // Map AG Grid field names to backend field names
-      const fieldMapping: { [key: string]: string } = {
-        'title': 'title',
-        'skills': 'skills',
-        'category': 'category',
-        'experience.minYears': 'experience.minYears',
-        'location.city': 'location.city',
-        'status': 'status',
-        'createdAt': 'createdAt'
-      };
-      
-      const sortBy = fieldMapping[sort.colId] || sort.colId;
-      const sortOrder = sort.sort as 'asc' | 'desc';
-      
-      this.sortChange.emit({ sortBy, sortOrder });
+      console.log('🔄 ClientRequirements: Sort changed:', sort);
+      // You can implement sorting logic here if needed
     }
   }
 
   getStatusClass(status: string): string {
-    switch (status.toLowerCase()) {
+    switch (status?.toLowerCase()) {
       case 'open':
         return 'bg-green-100 text-green-800';
+      case 'in_progress':
+        return 'bg-blue-100 text-blue-800';
+      case 'on_hold':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'completed':
+        return 'bg-gray-100 text-gray-800';
       case 'cancelled':
         return 'bg-red-100 text-red-800';
-      case 'completed':
-        return 'bg-blue-100 text-blue-800';
-      case 'in_progress':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'on_hold':
-        return 'bg-orange-100 text-orange-800';
       case 'draft':
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-purple-100 text-purple-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
   }
 
   onOpenRequirementModal(): void {
-    this.openRequirementModal.emit();
-    // Force change detection to ensure modal opens immediately
-    this.changeDetectorRef.detectChanges();
+    console.log('🔄 ClientRequirements: Opening requirement modal');
+    // Navigate to a modal route or show modal
+    // For now, we'll just log it
   }
 
   onOpenCloseRequirementModal(requirement: Requirement): void {
-    console.log('🔍 DEBUG: Opening close requirement modal for:', requirement._id);
-    this.openCloseRequirementModal.emit(requirement);
-    // Force change detection to ensure modal opens immediately
-    this.changeDetectorRef.detectChanges();
+    console.log('🔄 ClientRequirements: Opening close requirement modal for:', requirement._id);
+    // Navigate to close requirement modal or show modal
+    // For now, we'll just log it
   }
 
   onOpenEditRequirementModal(requirement: Requirement): void {
-    this.openEditRequirementModal.emit(requirement);
+    console.log('🔄 ClientRequirements: Opening edit requirement modal for:', requirement._id);
+    // Navigate to edit requirement modal or show modal
+    // For now, we'll just log it
+  }
+
+  onViewApplications(requirementId: string): void {
+    console.log('🔄 ClientRequirements: Viewing applications for requirement:', requirementId);
+    // Navigate to applications page with filter
+    this.router.navigate(['/client/applications'], { 
+      queryParams: { requirementId } 
+    });
+  }
+
+  onViewMatchingResources(requirementId: string): void {
+    console.log('🔄 ClientRequirements: Viewing matching resources for requirement:', requirementId);
+    // Navigate to matching resources page
+    this.router.navigate(['/client/matching-resources'], { 
+      queryParams: { requirementId } 
+    });
   }
 
   downloadAttachment(requirement: Requirement): void {
-    console.log('🔧 ClientRequirementsComponent: Downloading attachment:', requirement.attachment);
+    console.log('🔄 ClientRequirements: Downloading attachment for requirement:', requirement._id);
     
     if (!requirement.attachment || !requirement.attachment.fileId) {
-      console.error('🔧 ClientRequirementsComponent: No file ID found for download');
+      console.error('🔄 ClientRequirements: No file ID found for download');
       return;
     }
 
     // Use the API service to download the file
     this.apiService.downloadFile(requirement.attachment.fileId).subscribe({
       next: (response: Blob) => {
-        console.log('🔧 ClientRequirementsComponent: File download successful');
+        console.log('🔄 ClientRequirements: File download successful');
         
         // Create download link and trigger download
         const link = document.createElement('a');
@@ -483,7 +583,7 @@ export class ClientRequirementsComponent implements OnInit, OnChanges {
         URL.revokeObjectURL(link.href);
       },
       error: (error: any) => {
-        console.error('🔧 ClientRequirementsComponent: File download error:', error);
+        console.error('🔄 ClientRequirements: File download error:', error);
         // Handle download error - could show a toast notification here
       }
     });
