@@ -1,7 +1,7 @@
 import { inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
-import { map, take } from 'rxjs/operators';
+import { map } from 'rxjs/operators';
 
 export const ClientGuard = () => {
   const authService = inject(AuthService);
@@ -9,9 +9,16 @@ export const ClientGuard = () => {
 
   console.log('Client Guard: Checking client access');
   
-  return authService.user$.pipe(
-    take(1),
-    map(user => {
+  return authService.initialized$.pipe(
+    map((initialized) => {
+      console.log('Client Guard: Initialized:', initialized);
+      
+      if (!initialized) {
+        console.log('Client Guard: Still initializing, waiting...');
+        return false; // Still initializing, don't redirect yet
+      }
+      
+      const user = authService.getCurrentUser();
       console.log('Client Guard: Current user:', user);
       const isAuthenticated = authService.isAuthenticated();
       const isClient = user?.userType === 'client';

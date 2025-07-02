@@ -5,7 +5,7 @@
       <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
         <img src="assets/icons/lucide/lucide/users.svg" alt="resources" class="w-4 h-4 text-white" />
       </div>
-      <h1 class="text-xl font-semibold text-gray-900">Apply Resources to Requirements</h1>
+      <h1 class="text-xl font-semibold text-gray-900">Apply Resources to Requirements 123</h1>
     </div>
     
     <div class="flex items-center gap-3">
@@ -20,6 +20,13 @@
         class="px-6 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
         <span *ngIf="isLoading">Creating Applications...</span>
         <span *ngIf="!isLoading">Apply Resources</span>
+      </button>
+      <!-- Debug button - remove after fixing -->
+      <button
+        *ngIf="isLoading"
+        (click)="resetLoadingState()"
+        class="px-4 py-2 text-red-700 bg-red-100 rounded-lg hover:bg-red-200 transition-colors text-sm">
+        Reset Loading
       </button>
     </div>
   </div>

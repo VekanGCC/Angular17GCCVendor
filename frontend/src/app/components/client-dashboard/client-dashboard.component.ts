@@ -4,6 +4,7 @@ import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { AppService } from '../../services/app.service';
 import { ClientService } from '../../services/client.service';
+import { ClientApplicationsService } from '../../services/client-applications.service';
 import { User } from '../../models/user.model';
 import { Resource } from '../../models/resource.model';
 import { Requirement } from '../../models/requirement.model';
@@ -90,6 +91,7 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
   applicationHistory: ApplicationHistoryEntry[] = [];
   showApplicationDetailsModal = false;
   selectedApplication: Application | null = null;
+  applicationDetails: any = null;
 
   // Pagination states
   requirementsPaginationState: PaginationState = {
@@ -177,6 +179,7 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
     private router: Router,
     private route: ActivatedRoute,
     private clientService: ClientService,
+    private clientApplicationsService: ClientApplicationsService,
     private apiService: ApiService,
     private changeDetectorRef: ChangeDetectorRef,
     private ngZone: NgZone
@@ -210,6 +213,28 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
     this.subscriptions.push(
       this.router.events.subscribe(() => {
         this.changeDetectorRef.detectChanges();
+      })
+    );
+
+    // Subscribe to application modal actions
+    this.subscriptions.push(
+      this.clientApplicationsService.modalAction$.subscribe(action => {
+        console.log('🔧 ClientDashboard: Received modal action:', action);
+        if (action.type === 'viewHistory' && action.applicationId) {
+          if (action.history && action.applicationDetails) {
+            // Use the data provided by the service
+            this.handleViewHistory({
+              applicationId: action.applicationId,
+              history: action.history,
+              applicationDetails: action.applicationDetails
+            });
+          } else {
+            // Fallback to loading data manually
+            this.handleViewApplicationHistory(action.applicationId);
+          }
+        } else if (action.type === 'viewDetails' && action.application) {
+          this.handleViewApplicationDetails(action.application);
+        }
       })
     );
   }
@@ -692,6 +717,21 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
     this.changeDetectorRef.detectChanges();
   }
 
+  handleViewHistory(data: {
+    applicationId: string;
+    history: any[];
+    applicationDetails: any;
+  }): void {
+    console.log('🔧 ClientDashboard: handleViewHistory called with data:', data);
+    this.selectedApplicationId = data.applicationId;
+    this.applicationHistory = data.history;
+    this.applicationDetails = data.applicationDetails;
+    this.showHistoryModal = true;
+    this.isLoadingHistory = false;
+    // Force change detection to ensure the modal opens immediately
+    this.changeDetectorRef.detectChanges();
+  }
+
   handleViewApplicationDetails(application: Application): void {
     console.log('Viewing application details for:', application);
     this.selectedApplication = application;
@@ -700,21 +740,26 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
   }
 
   private loadApplicationHistory(applicationId: string): void {
+    console.log('🔧 ClientDashboard: Loading application history for:', applicationId);
     this.isLoadingHistory = true;
     this.clientService.getApplicationHistory(applicationId).subscribe({
       next: (response) => {
-        console.log('Application history loaded:', response);
+        console.log('🔧 ClientDashboard: Application history API response:', response);
         if (response.success && response.data) {
           this.applicationHistory = response.data;
+          console.log('🔧 ClientDashboard: History data set:', this.applicationHistory);
+          console.log('🔧 ClientDashboard: History length:', this.applicationHistory.length);
         } else {
           this.applicationHistory = [];
+          console.log('🔧 ClientDashboard: No history data in response');
         }
         this.isLoadingHistory = false;
+        console.log('🔧 ClientDashboard: Loading completed, isLoadingHistory = false');
         // Force change detection immediately after setting isLoading to false
         this.changeDetectorRef.detectChanges();
       },
       error: (error) => {
-        console.error('Error loading application history:', error);
+        console.error('🔧 ClientDashboard: Error loading application history:', error);
         this.applicationHistory = [];
         this.isLoadingHistory = false;
         // Force change detection immediately after setting isLoading to false
@@ -724,9 +769,20 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
   }
 
   closeHistoryModal(): void {
+    console.log('🔧 ClientDashboard: closeHistoryModal called');
     this.showHistoryModal = false;
     this.selectedApplicationId = '';
     this.applicationHistory = [];
+    this.applicationDetails = null;
+    this.isLoadingHistory = false;
+    console.log('🔧 ClientDashboard: Modal closed, showHistoryModal = false');
+    // Force change detection to ensure UI updates immediately
+    this.changeDetectorRef.detectChanges();
+  }
+
+  handleModalClose(): void {
+    console.log('🔧 ClientDashboard: handleModalClose called');
+    this.closeHistoryModal();
   }
 
   closeApplicationDetailsModal(): void {

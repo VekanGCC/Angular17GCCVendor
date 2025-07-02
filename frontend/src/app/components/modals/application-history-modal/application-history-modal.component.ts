@@ -447,12 +447,27 @@ export class ApplicationHistoryModalComponent implements OnInit, OnChanges, OnDe
   constructor(private cdr: ChangeDetectorRef) {}
 
   ngOnInit(): void {
-    // Component initialization
+    console.log('🔧 ApplicationHistoryModal: ngOnInit called');
+    console.log('🔧 ApplicationHistoryModal: Initial state:', {
+      applicationId: this.applicationId,
+      isVisible: this.isVisible,
+      isLoading: this.isLoading,
+      history: this.history
+    });
   }
 
   ngOnChanges(changes: SimpleChanges): void {
+    console.log('🔧 ApplicationHistoryModal: ngOnChanges called with changes:', changes);
+    
     // Force change detection for all input changes
     if (changes['isLoading'] || changes['history'] || changes['applicationId'] || changes['isVisible']) {
+      console.log('🔧 ApplicationHistoryModal: Current state after changes:', {
+        applicationId: this.applicationId,
+        isVisible: this.isVisible,
+        isLoading: this.isLoading,
+        history: this.history,
+        historyLength: this.history?.length
+      });
       this.cdr.detectChanges();
     }
   }
@@ -462,14 +477,20 @@ export class ApplicationHistoryModalComponent implements OnInit, OnChanges, OnDe
   }
 
   handleBackdropClick(event: MouseEvent): void {
+    console.log('🔧 ApplicationHistoryModal: Backdrop clicked');
     if (event.target === event.currentTarget) {
+      console.log('🔧 ApplicationHistoryModal: Emitting close event from backdrop click');
       this.close.emit();
+      this.cdr.detectChanges();
     }
   }
 
   onClose(): void {
+    console.log('🔧 ApplicationHistoryModal: onClose called, isLoading =', this.isLoading);
     if (!this.isLoading) {
+      console.log('🔧 ApplicationHistoryModal: Emitting close event from onClose');
       this.close.emit();
+      this.cdr.detectChanges();
     }
   }
 
@@ -540,23 +561,40 @@ export class ApplicationHistoryModalComponent implements OnInit, OnChanges, OnDe
   }
 
   closeModal(): void {
-    // Emit close event (you'll need to add Output if you want to handle this)
+    console.log('🔧 ApplicationHistoryModal: closeModal called');
+    this.close.emit();
+    this.cdr.detectChanges();
   }
 
   // Helper method to check if modal should show content
   shouldShowContent(): boolean {
     const result = this.isVisible && !this.isLoading;
+    console.log('🔧 ApplicationHistoryModal: shouldShowContent =', result, {
+      isVisible: this.isVisible,
+      isLoading: this.isLoading
+    });
     return result;
   }
 
   // Helper method to check if we have history data
   hasHistoryData(): boolean {
     const result = this.history && this.history.length > 0;
+    console.log('🔧 ApplicationHistoryModal: hasHistoryData =', result, {
+      history: this.history,
+      historyLength: this.history?.length
+    });
     return result;
   }
 
   // Debug method to log current state
   logCurrentState(): void {
-    // Implement debug logging if needed
+    console.log('🔧 ApplicationHistoryModal: Current state:', {
+      applicationId: this.applicationId,
+      isVisible: this.isVisible,
+      isLoading: this.isLoading,
+      history: this.history,
+      historyLength: this.history?.length,
+      applicationDetails: this.applicationDetails
+    });
   }
 } 

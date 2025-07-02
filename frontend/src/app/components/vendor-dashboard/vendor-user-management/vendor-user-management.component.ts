@@ -38,6 +38,8 @@ export class VendorUserManagementComponent implements OnInit, OnDestroy {
           console.log('🔧 VendorUserManagement: Users loaded successfully:', response);
           if (response.success && response.data) {
             this.users = response.data;
+            console.log('🔧 VendorUserManagement: Users data:', this.users);
+            console.log('🔧 VendorUserManagement: First user details:', this.users[0]);
           } else {
             this.users = [];
           }
@@ -101,7 +103,7 @@ export class VendorUserManagementComponent implements OnInit, OnDestroy {
     
     // Update the user status in the local array
     this.users = this.users.map(user => 
-      user.id === id ? { ...user, status: newStatus } : user
+      user._id === id ? { ...user, status: newStatus } : user
     );
     
     // TODO: Call API to update user status
@@ -109,6 +111,6 @@ export class VendorUserManagementComponent implements OnInit, OnDestroy {
   }
 
   trackById(index: number, item: any): string {
-    return item.id || `user-${index}`;
+    return item._id || `user-${index}`;
   }
 } 

@@ -13,6 +13,7 @@ import { ClientDashboardComponent } from './components/client-dashboard/client-d
 import { ProfileComponent } from './components/profile/profile.component';
 import { CLIENT_ROUTES } from './components/client/client.routes';
 
+
 console.log('🔧 AppRoutes: Loading main app routes configuration');
 console.log('🔧 AppRoutes: CLIENT_ROUTES:', CLIENT_ROUTES);
 
@@ -110,10 +111,11 @@ export const routes: Routes = [
         loadComponent: () => import('./components/vendor-dashboard/matching-requirements/matching-requirements.component')
           .then(m => m.MatchingRequirementsComponent)
       },
+      // Move this back to children
       { 
-        path: 'apply-resources', 
-        loadComponent: () => import('./components/vendor-dashboard/browse-requirements-page/browse-requirements-page.component')
-          .then(m => m.BrowseRequirementsPageComponent)
+        path: 'apply-requirement-page', 
+        loadComponent: () => import('./components/vendor-dashboard/apply-requirement-page/apply-requirement-page.component')
+          .then(m => m.ApplyRequirementPageComponent)
       },
     ]
   },

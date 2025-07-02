@@ -5,6 +5,8 @@ import { AuthService } from '../../services/auth.service';
 import { User } from '../../models/user.model';
 import { Subscription } from 'rxjs';
 import { LayoutComponent } from '../layout/layout.component';
+import { VendorApplicationsService } from '../../services/vendor-applications.service';
+import { ApplicationHistoryModalComponent } from '../modals/application-history-modal/application-history-modal.component';
 
 
 @Component({
@@ -13,7 +15,8 @@ import { LayoutComponent } from '../layout/layout.component';
   imports: [
     CommonModule,
     RouterModule,
-    LayoutComponent
+    LayoutComponent,
+    ApplicationHistoryModalComponent
   ],
   templateUrl: './vendor-dashboard.component.html',
   styleUrls: ['./vendor-dashboard.component.css']
@@ -23,14 +26,20 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
   showMobileMenu = false;
   showFinanceManagementSubmenu = false;
 
-
+  // Application History Modal State
+  showHistoryModal = false;
+  selectedApplicationId: string = '';
+  isLoadingHistory = false;
+  applicationHistory: any[] = [];
+  applicationDetails: any = null;
 
   private subscriptions: Subscription[] = [];
 
   constructor(
     private authService: AuthService,
     private router: Router,
-    private changeDetectorRef: ChangeDetectorRef
+    private changeDetectorRef: ChangeDetectorRef,
+    private vendorApplicationsService: VendorApplicationsService
   ) {}
 
   ngOnInit(): void {
@@ -68,8 +77,35 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
       })
     );
 
+    // Subscribe to route changes to debug routing issues
+    this.subscriptions.push(
+      this.router.events.subscribe(event => {
+        console.log('🔄 VendorDashboard: Router event:', event);
+        console.log('🔄 VendorDashboard: Current URL:', this.router.url);
+      })
+    );
 
-
+    // Subscribe to application modal actions
+    this.subscriptions.push(
+      this.vendorApplicationsService.modalAction$.subscribe(action => {
+        console.log('🔧 VendorDashboard: Received modal action:', action);
+        if (action.type === 'viewHistory' && action.applicationId) {
+          if (action.history && action.applicationDetails) {
+            // Use the data provided by the service
+            this.handleViewHistory({
+              applicationId: action.applicationId,
+              history: action.history,
+              applicationDetails: action.applicationDetails
+            });
+          } else {
+            // Fallback to loading data manually
+            this.handleViewApplicationHistory(action.applicationId);
+          }
+        } else if (action.type === 'viewDetails' && action.application) {
+          this.handleViewApplicationDetails(action.application);
+        }
+      })
+    );
 
   }
 
@@ -150,10 +186,60 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
   // Add this method (replaces the modal approach)
   handleApplyResources(requirementId: string): void {
     console.log('🔄 VendorDashboard: Applying resources to requirement:', requirementId);
-    // Navigate to the apply-resources route with requirementId as query parameter
-    this.router.navigate(['/vendor/apply-resources'], { 
+    console.log('🔄 VendorDashboard: Current URL before navigation:', this.router.url);
+    
+    // Navigate to the apply-requirement-page route with requirementId as query parameter
+    this.router.navigate(['/vendor/apply-requirement-page'], { 
       queryParams: { requirementId: requirementId } 
+    }).then(() => {
+      console.log('🔄 VendorDashboard: Navigation completed successfully');
+      console.log('🔄 VendorDashboard: New URL after navigation:', this.router.url);
+    }).catch(error => {
+      console.error('🔄 VendorDashboard: Navigation error:', error);
     });
   }
 
+  // Application History Methods
+  handleViewHistory(data: {
+    applicationId: string;
+    history: any[];
+    applicationDetails: any;
+  }): void {
+    console.log('🔧 VendorDashboard: handleViewHistory called with data:', data);
+    this.selectedApplicationId = data.applicationId;
+    this.applicationHistory = data.history;
+    this.applicationDetails = data.applicationDetails;
+    this.showHistoryModal = true;
+    this.isLoadingHistory = false;
+    // Force change detection to ensure the modal opens immediately
+    this.changeDetectorRef.detectChanges();
+  }
+
+  handleViewApplicationHistory(applicationId: string): void {
+    console.log('🔧 VendorDashboard: handleViewApplicationHistory called for:', applicationId);
+    this.selectedApplicationId = applicationId;
+    this.showHistoryModal = true;
+    this.isLoadingHistory = true;
+    this.applicationHistory = [];
+    this.applicationDetails = null;
+    // Force change detection to ensure the modal opens immediately
+    this.changeDetectorRef.detectChanges();
+  }
+
+  handleViewApplicationDetails(application: any): void {
+    console.log('🔧 VendorDashboard: handleViewApplicationDetails called for:', application._id);
+    // TODO: Implement application details modal
+  }
+
+  closeHistoryModal(): void {
+    console.log('🔧 VendorDashboard: closeHistoryModal called');
+    this.showHistoryModal = false;
+    this.selectedApplicationId = '';
+    this.applicationHistory = [];
+    this.applicationDetails = null;
+    this.isLoadingHistory = false;
+    console.log('🔧 VendorDashboard: Modal closed, showHistoryModal = false');
+    // Force change detection to ensure UI updates immediately
+    this.changeDetectorRef.detectChanges();
+  }
 }

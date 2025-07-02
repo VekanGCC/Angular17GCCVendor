@@ -16,17 +16,20 @@ import { ApiService } from '../../../services/api.service';
 import { Router } from '@angular/router';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
+import { RequirementModalComponent } from '../../modals/requirement-modal/requirement-modal.component';
 
 @Component({
   selector: 'app-client-requirements',
   standalone: true,
-  imports: [CommonModule, LucideAngularModule, AgGridModule, PaginationComponent],
+  imports: [CommonModule, LucideAngularModule, AgGridModule, PaginationComponent, RequirementModalComponent],
   templateUrl: './client-requirements.component.html',
   styleUrls: ['./client-requirements.component.scss']
 })
 export class ClientRequirementsComponent implements OnInit, OnDestroy {
   requirements: Requirement[] = [];
   isLoading = false;
+  showRequirementModal = false;
+  requirementToEdit: Requirement | null = null;
   paginationState: PaginationState = {
     currentPage: 1,
     pageSize: 10,
@@ -522,21 +525,73 @@ export class ClientRequirementsComponent implements OnInit, OnDestroy {
   }
 
   onOpenRequirementModal(): void {
-    console.log('🔄 ClientRequirements: Opening requirement modal');
-    // Navigate to a modal route or show modal
-    // For now, we'll just log it
+    console.log('🔄 ClientRequirements: Opening new requirement modal');
+    this.requirementToEdit = null; // Clear any existing requirement to edit
+    this.showRequirementModal = true;
   }
 
   onOpenCloseRequirementModal(requirement: Requirement): void {
     console.log('🔄 ClientRequirements: Opening close requirement modal for:', requirement._id);
-    // Navigate to close requirement modal or show modal
-    // For now, we'll just log it
+    this.requirementToEdit = requirement;
+    this.showRequirementModal = true;
   }
 
   onOpenEditRequirementModal(requirement: Requirement): void {
     console.log('🔄 ClientRequirements: Opening edit requirement modal for:', requirement._id);
-    // Navigate to edit requirement modal or show modal
-    // For now, we'll just log it
+    this.requirementToEdit = requirement;
+    this.showRequirementModal = true;
+  }
+
+  onCloseRequirementModal(): void {
+    console.log('🔄 ClientRequirements: Closing requirement modal');
+    this.showRequirementModal = false;
+    this.requirementToEdit = null;
+    // Refresh requirements data after modal is closed
+    this.loadRequirements();
+  }
+
+  onRequirementCreated(requirement: Requirement): void {
+    console.log('🔄 ClientRequirements: New requirement created:', requirement);
+    
+    // Make API call to create the requirement
+    this.clientService.createRequirement(requirement).subscribe({
+      next: (response) => {
+        console.log('✅ ClientRequirements: Requirement created successfully:', response);
+        if (response.success) {
+          // Refresh the requirements list to show new data
+          this.loadRequirements();
+        } else {
+          console.error('❌ ClientRequirements: Failed to create requirement:', response.message);
+        }
+        this.onCloseRequirementModal();
+      },
+      error: (error) => {
+        console.error('❌ ClientRequirements: Error creating requirement:', error);
+        this.onCloseRequirementModal();
+      }
+    });
+  }
+
+  onRequirementUpdated(requirement: Requirement): void {
+    console.log('🔄 ClientRequirements: Requirement updated:', requirement);
+    
+    // Make API call to update the requirement
+    this.clientService.updateRequirement(requirement._id, requirement).subscribe({
+      next: (response) => {
+        console.log('✅ ClientRequirements: Requirement updated successfully:', response);
+        if (response.success) {
+          // Refresh the requirements list to show updated data
+          this.loadRequirements();
+        } else {
+          console.error('❌ ClientRequirements: Failed to update requirement:', response.message);
+        }
+        this.onCloseRequirementModal();
+      },
+      error: (error) => {
+        console.error('❌ ClientRequirements: Error updating requirement:', error);
+        this.onCloseRequirementModal();
+      }
+    });
   }
 
   onViewApplications(requirementId: string): void {

@@ -57,4 +57,13 @@
       </div>
     </div>
   </div>
-</div> 
+</div>
+
+<!-- Requirement Modal -->
+<app-requirement-modal 
+  *ngIf="showRequirementModal"
+  [requirement]="requirementToEdit"
+  [mode]="requirementToEdit ? 'edit' : 'create'"
+  (close)="onCloseRequirementModal()"
+  (confirm)="requirementToEdit ? onRequirementUpdated($event) : onRequirementCreated($event)">
+</app-requirement-modal> 

@@ -12,6 +12,7 @@ import { ColDef, ValueGetterParams, SortChangedEvent, GridReadyEvent } from 'ag-
 import { PaginationComponent } from '../../pagination/pagination.component';
 import { PaginationState } from '../../../models/pagination.model';
 import { ClientService } from '../../../services/client.service';
+import { ClientApplicationsService } from '../../../services/client-applications.service';
 import { Router, ActivatedRoute } from '@angular/router';
 
 @Component({
@@ -72,7 +73,8 @@ export class ClientApplicationsComponent implements OnInit, OnDestroy {
       },
       cellRenderer: (params: any) => {
         const resourceName = this.getResourceName(params.data);
-        return `<div class="text-sm text-gray-900">${resourceName}</div>`;
+        const truncatedName = resourceName.length > 20 ? resourceName.substring(0, 20) + '...' : resourceName;
+        return `<div class="text-sm text-gray-900 truncate" title="${resourceName}">${truncatedName}</div>`;
       }
     },
     { 
@@ -88,7 +90,8 @@ export class ClientApplicationsComponent implements OnInit, OnDestroy {
       },
       cellRenderer: (params: any) => {
         const requirementTitle = this.getRequirementTitle(params.data);
-        return `<div class="text-sm text-gray-900">${requirementTitle}</div>`;
+        const truncatedTitle = requirementTitle.length > 20 ? requirementTitle.substring(0, 20) + '...' : requirementTitle;
+        return `<div class="text-sm text-gray-900 truncate" title="${requirementTitle}">${truncatedTitle}</div>`;
       }
     },
     { 
@@ -219,6 +222,7 @@ export class ClientApplicationsComponent implements OnInit, OnDestroy {
   constructor(
     private changeDetectorRef: ChangeDetectorRef, 
     private clientService: ClientService,
+    private clientApplicationsService: ClientApplicationsService,
     private router: Router,
     private route: ActivatedRoute
   ) {}
@@ -461,14 +465,12 @@ export class ClientApplicationsComponent implements OnInit, OnDestroy {
 
   onViewHistory(applicationId: string): void {
     console.log('🔧 ClientApplicationsComponent: View history clicked for application:', applicationId);
-    // Navigate to application history modal or page
-    // For now, we'll just log it
+    this.clientApplicationsService.viewApplicationHistory(applicationId);
   }
 
   onViewDetails(application: Application): void {
     console.log('🔧 ClientApplicationsComponent: View details clicked for application:', application._id);
-    // Navigate to application details modal or page
-    // For now, we'll just log it
+    this.clientApplicationsService.viewApplicationDetails(application);
   }
 
   getAvailableStatuses(currentStatus: string): any[] {

@@ -130,11 +130,12 @@
 
   <!-- Application History Modal -->
   <app-application-history-modal
-    [hidden]="!showHistoryModal"
+    *ngIf="showHistoryModal"
     [applicationId]="selectedApplicationId"
     [isVisible]="showHistoryModal"
     [isLoading]="isLoadingHistory"
     [history]="applicationHistory"
+    [applicationDetails]="applicationDetails"
     (close)="closeHistoryModal()">
   </app-application-history-modal>
 

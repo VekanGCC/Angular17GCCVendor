@@ -51,11 +51,23 @@ export class VendorService {
 
   // Get vendor resources with pagination
   getResources(params?: PaginationParams): Observable<PaginatedResponse<any>> {
+   
+    console.log('🔧 VendorService: getResources called with params:', params);
+    console.log('🔧 VendorService: Full URL will be:', `${environment.apiUrl}/resources`);
     const options = { 
       headers: this.getAuthHeaders(),
       params: params ? this.buildHttpParams(params) : undefined 
     };
+    console.log('🔧 VendorService: Request options:', options);
     return this.http.get<PaginatedResponse<any>>(`${environment.apiUrl}/resources`, options);
+  }
+
+  // Get requirement by ID
+  getRequirement(requirementId: string): Observable<any> {
+    console.log('🔧 VendorService: getRequirement called with ID:', requirementId);
+    return this.http.get(`${environment.apiUrl}/requirements/${requirementId}`, { 
+      headers: this.getAuthHeaders() 
+    });
   }
 
   // Create new resource

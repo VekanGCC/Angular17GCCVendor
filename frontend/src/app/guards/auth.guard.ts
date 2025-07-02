@@ -1,17 +1,24 @@
 import { inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
-import { map, take } from 'rxjs/operators';
+import { map } from 'rxjs/operators';
 
 export const AuthGuard = () => {
   const authService = inject(AuthService);
   const router = inject(Router);
 
-  console.log('Auth Guard: Checking authentication 1');
+  console.log('Auth Guard: Checking authentication');
     
-  return authService.user$.pipe(
-    take(1),
-    map(user => {
+  return authService.initialized$.pipe(
+    map((initialized) => {
+      console.log('Auth Guard: Initialized:', initialized);
+      
+      if (!initialized) {
+        console.log('Auth Guard: Still initializing, waiting...');
+        return false; // Still initializing, don't redirect yet
+      }
+      
+      const user = authService.getCurrentUser();
       console.log('Auth Guard: Current user:', user);
       const isAuthenticated = authService.isAuthenticated();
       console.log('Auth Guard: Is authenticated:', isAuthenticated);

@@ -54,4 +54,11 @@
       </div>
     </div>
   </div>
-</div> 
+</div>
+
+<!-- Resource Modal -->
+<app-resource-modal 
+  *ngIf="showResourceModal"
+  [resourceToEdit]="resourceToEdit"
+  (close)="onCloseResourceModal()">
+</app-resource-modal> 

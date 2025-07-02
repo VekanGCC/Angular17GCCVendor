@@ -8,14 +8,32 @@ ModuleRegistry.registerModules([AllCommunityModule]);
 import { Component, OnInit, OnChanges, SimpleChanges, ViewChild, ChangeDetectorRef, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AgGridModule, AgGridAngular } from 'ag-grid-angular';
-import { ColDef, ValueGetterParams } from 'ag-grid-community';
+import { ColDef, ValueGetterParams, SortChangedEvent, GridReadyEvent } from 'ag-grid-community';
 import { Application } from '../../../models/application.model';
 import { PaginationState, PaginationParams, PaginatedResponse } from '../../../models/pagination.model';
 import { PaginationComponent } from '../../pagination/pagination.component';
-import { ApplicationActionModalComponent, ApplicationActionData } from '../../modals/application-action-modal/application-action-modal.component';
+import { ApplicationActionModalComponent } from '../../modals/application-action-modal/application-action-modal.component';
 import { VendorService } from '../../../services/vendor.service';
+import { VendorApplicationsService } from '../../../services/vendor-applications.service';
 import { Router, ActivatedRoute } from '@angular/router';
 import { Observable } from 'rxjs';
+
+export interface ApplicationActionData {
+  applicationId: string;
+  status: string;
+  decisionReason?: {
+    category?: string;
+    details?: string;
+    rating?: number;
+    criteria?: string[];
+    notes?: string;
+  };
+  notifyCandidate?: boolean;
+  notifyClient?: boolean;
+  followUpRequired?: boolean;
+  followUpDate?: Date;
+  followUpNotes?: string;
+}
 
 @Component({
   selector: 'app-vendor-applications',
@@ -46,6 +64,8 @@ export class VendorApplicationsComponent implements OnInit, OnChanges {
   showActionModal = false;
   selectedApplication: Application | null = null;
   selectedActionType: 'revoke' | 'accept_offer' | 'reject_offer' = 'revoke';
+
+
 
   // AG Grid properties
   columnDefs: ColDef[] = [
@@ -187,9 +207,11 @@ export class VendorApplicationsComponent implements OnInit, OnChanges {
           }
           
           if (historyBtn) {
-            historyBtn.addEventListener('click', () => this.onViewHistory(application._id));
+            historyBtn.addEventListener('click', () => {
+              this.onViewHistory(application._id);
+            });
           }
-        });
+        }, 100); // Increased timeout to ensure DOM is ready
         
         return html;
       }
@@ -222,6 +244,7 @@ export class VendorApplicationsComponent implements OnInit, OnChanges {
   constructor(
     private changeDetectorRef: ChangeDetectorRef,
     private vendorService: VendorService,
+    private vendorApplicationsService: VendorApplicationsService,
     private router: Router,
     private activatedRoute: ActivatedRoute
   ) {}
@@ -482,7 +505,7 @@ export class VendorApplicationsComponent implements OnInit, OnChanges {
 
   onViewHistory(applicationId: string): void {
     console.log('🔄 VendorApplications: Viewing history for application:', applicationId);
-    // TODO: Navigate to history view or show modal
+    this.vendorApplicationsService.viewApplicationHistory(applicationId);
   }
 
   onPageChange(page: number): void {
@@ -500,4 +523,6 @@ export class VendorApplicationsComponent implements OnInit, OnChanges {
   trackById(index: number, item: Application): string {
     return item._id || `application-${index}`;
   }
+
+
 } 

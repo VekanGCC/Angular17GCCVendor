@@ -123,4 +123,15 @@
     </div>
   </div>
 
+  <!-- Application History Modal -->
+  <app-application-history-modal
+    *ngIf="showHistoryModal"
+    [applicationId]="selectedApplicationId"
+    [isVisible]="showHistoryModal"
+    [isLoading]="isLoadingHistory"
+    [history]="applicationHistory"
+    [applicationDetails]="applicationDetails"
+    (close)="closeHistoryModal()">
+  </app-application-history-modal>
+
 </app-layout>

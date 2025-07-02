@@ -17,17 +17,20 @@ import { ApiService } from '../../../services/api.service';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { Router } from '@angular/router';
+import { ResourceModalComponent } from '../../modals/resource-modal/resource-modal.component';
 
 @Component({
   selector: 'app-vendor-resources',
   standalone: true,
-  imports: [CommonModule, AgGridModule, PaginationComponent],
+  imports: [CommonModule, AgGridModule, PaginationComponent, ResourceModalComponent],
   templateUrl: './vendor-resources.component.html',
   styleUrls: ['./vendor-resources.component.scss']
 })
 export class VendorResourcesComponent implements OnInit, OnChanges {
   resources: Resource[] = [];
   isLoading = false;
+  showResourceModal = false;
+  resourceToEdit: Resource | null = null;
   paginationState: PaginationState = {
     currentPage: 1,
     pageSize: 10,
@@ -169,6 +172,19 @@ export class VendorResourcesComponent implements OnInit, OnChanges {
             </button>
           </div>
         `;
+      },
+      onCellClicked: (params: any) => {
+        const target = params.event.target as HTMLElement;
+        const resource = params.data;
+        
+        console.log('🔧 VendorResources: Attachment cell clicked, target:', target);
+        console.log('🔧 VendorResources: Resource data:', resource);
+        
+        // Check if the download button or its child was clicked
+        if (target.classList.contains('download-btn') || target.closest('.download-btn')) {
+          console.log('🔧 VendorResources: Download button clicked for resource:', resource._id);
+          this.downloadAttachment(resource);
+        }
       }
     },
     {
@@ -265,10 +281,18 @@ export class VendorResourcesComponent implements OnInit, OnChanges {
         const target = params.event.target as HTMLElement;
         const resource = params.data;
         
+        console.log('🔧 VendorResources: Actions cell clicked, target:', target);
+        console.log('🔧 VendorResources: Target classes:', target.classList);
+        console.log('🔧 VendorResources: Resource data:', resource);
+        
         if (target.classList.contains('edit-btn')) {
+          console.log('🔧 VendorResources: Edit button clicked for resource:', resource._id);
           this.onEditResource(resource);
         } else if (target.classList.contains('toggle-btn')) {
+          console.log('🔧 VendorResources: Toggle button clicked for resource:', resource._id);
           this.onToggleResourceStatus(resource);
+        } else {
+          console.log('🔧 VendorResources: Unknown button clicked');
         }
       }
     }
@@ -584,12 +608,28 @@ export class VendorResourcesComponent implements OnInit, OnChanges {
 
   onOpenResourceModal(): void {
     console.log('🔄 VendorResources: Opening resource modal');
-    // TODO: Implement modal opening logic
+    this.resourceToEdit = null; // Clear any existing resource to edit
+    this.showResourceModal = true;
   }
 
   onEditResource(resource: Resource): void {
     console.log('🔄 VendorResources: Editing resource:', resource._id);
-    // TODO: Implement edit logic
+    this.resourceToEdit = resource;
+    this.showResourceModal = true;
+    console.log('🔄 VendorResources: Modal state after setting:', { showResourceModal: this.showResourceModal, resourceToEdit: this.resourceToEdit });
+    
+    // Force change detection
+    setTimeout(() => {
+      console.log('🔄 VendorResources: Modal state after timeout:', { showResourceModal: this.showResourceModal, resourceToEdit: this.resourceToEdit });
+    }, 100);
+  }
+
+  onCloseResourceModal(): void {
+    console.log('🔄 VendorResources: Closing resource modal');
+    this.showResourceModal = false;
+    this.resourceToEdit = null;
+    // Refresh resources data after modal is closed
+    this.loadResources();
   }
 
   trackById(index: number, item: Resource): string {
@@ -597,13 +637,21 @@ export class VendorResourcesComponent implements OnInit, OnChanges {
   }
 
   downloadAttachment(resource: Resource): void {
+    console.log('🔄 VendorResources: Starting download for resource:', resource._id);
+    console.log('🔄 VendorResources: Attachment data:', resource.attachment);
+    
     if (!resource.attachment || !resource.attachment.fileId) {
-      console.error('No attachment found for resource:', resource._id);
+      console.error('❌ VendorResources: No attachment found for resource:', resource._id);
       return;
     }
 
+    console.log('🔄 VendorResources: Downloading file with ID:', resource.attachment.fileId);
+    console.log('🔄 VendorResources: File name:', resource.attachment.originalName);
+
     this.apiService.downloadFile(resource.attachment.fileId).subscribe(
       (response: Blob) => {
+        console.log('✅ VendorResources: File download successful, blob size:', response.size);
+        
         const link = document.createElement('a');
         link.href = URL.createObjectURL(response);
         link.download = resource.attachment!.originalName;
@@ -613,9 +661,11 @@ export class VendorResourcesComponent implements OnInit, OnChanges {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+        
+        console.log('✅ VendorResources: Download link clicked for file:', resource.attachment!.originalName);
       },
       (error) => {
-        console.error('Error downloading file:', error);
+        console.error('❌ VendorResources: Error downloading file:', error);
       }
     );
   }

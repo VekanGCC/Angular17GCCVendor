@@ -24,11 +24,13 @@ interface UsersResponse {
 export class AuthService {
   private currentUserSubject = new BehaviorSubject<User | null>(null);
   private loadingSubject = new BehaviorSubject<boolean>(false);
+  private initializedSubject = new BehaviorSubject<boolean>(false);
 
   // Expose observables
   public user$ = this.currentUserSubject.asObservable();
   public currentUser$ = this.user$; // Alias for backward compatibility
   public loading$ = this.loadingSubject.asObservable();
+  public initialized$ = this.initializedSubject.asObservable();
 
   constructor(
     private apiService: ApiService,
@@ -77,6 +79,9 @@ export class AuthService {
       console.log('Auth Service: No token or user data found');
       this.clearAuthState();
     }
+    
+    // Mark initialization as complete
+    this.initializedSubject.next(true);
   }
 
   clearAuthState(): void {

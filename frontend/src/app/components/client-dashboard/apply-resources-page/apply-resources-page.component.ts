@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectorRef, HostListener, Input, Output, EventEmitter } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, HostListener, Input, Output, EventEmitter, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
@@ -43,7 +43,8 @@ export class ApplyResourcesPageComponent implements OnInit {
     private appService: AppService,
     private changeDetectorRef: ChangeDetectorRef,
     private route: ActivatedRoute,
-    private router: Router
+    private router: Router,
+    private ngZone: NgZone
   ) {
     console.log('🔧 ApplyResourcesPage: Constructor called');
   }
@@ -52,8 +53,19 @@ export class ApplyResourcesPageComponent implements OnInit {
     console.log('🔧 ApplyResourcesPage: Component initialized');
     this.currentUser = this.authService.getCurrentUser();
     console.log('🔧 ApplyResourcesPage: Current user:', this.currentUser);
-    console.log('🔧 ApplyResourcesPage: Selected resource IDs:', this.selectedResourceIds);
-    this.loadResourcesFromInput();
+    
+    // Read resource IDs from query parameters
+    this.route.queryParams.subscribe(params => {
+      console.log('🔧 ApplyResourcesPage: Query params:', params);
+      const resourceIdsParam = params['resourceIds'];
+      if (resourceIdsParam) {
+        // Handle both single ID and comma-separated IDs
+        this.selectedResourceIds = resourceIdsParam.split(',').map((id: string) => id.trim());
+        console.log('🔧 ApplyResourcesPage: Resource IDs from query params:', this.selectedResourceIds);
+      }
+      this.loadResourcesFromInput();
+    });
+    
     this.loadRequirements();
   }
 
@@ -67,24 +79,41 @@ export class ApplyResourcesPageComponent implements OnInit {
     
     console.log('🔧 ApplyResourcesPage: Loading resources with IDs:', this.selectedResourceIds);
     
-    // Subscribe to resources from app service to ensure they're loaded
-    this.appService.resources$.subscribe(resources => {
-      console.log('🔧 ApplyResourcesPage: Available resources from service:', resources);
-      
-      // Load resources from the app service
-      this.resources = this.selectedResourceIds
-        .map((id: string) => this.appService.getResourceById(id))
-        .filter((resource: Resource | undefined) => resource !== undefined) as Resource[];
-      
-      console.log('🔧 ApplyResourcesPage: Loaded resources:', this.resources);
-      
-      if (this.resources.length === 0) {
-        console.error('🔧 ApplyResourcesPage: No resources found with IDs:', this.selectedResourceIds);
-        this.errorMessage = 'Resources not found';
-      }
-      
-      this.changeDetectorRef.detectChanges();
-    });
+    // First, try to get resources from the current app service state
+    let availableResources = this.appService.resources;
+    console.log('🔧 ApplyResourcesPage: Current resources in app service:', availableResources);
+    
+    // If no resources are loaded, try to reload them
+    if (availableResources.length === 0) {
+      console.log('🔧 ApplyResourcesPage: No resources in app service, reloading...');
+      this.appService.reloadResources().then(() => {
+        availableResources = this.appService.resources;
+        console.log('🔧 ApplyResourcesPage: Resources after reload:', availableResources);
+        this.loadResourcesFromAvailableData(availableResources);
+      });
+    } else {
+      this.loadResourcesFromAvailableData(availableResources);
+    }
+  }
+
+  private loadResourcesFromAvailableData(availableResources: Resource[]): void {
+    console.log('🔧 ApplyResourcesPage: Loading from available data:', availableResources.length, 'resources');
+    
+    // Load resources from the available data
+    this.resources = this.selectedResourceIds
+      .map((id: string) => availableResources.find(resource => resource._id === id))
+      .filter((resource: Resource | undefined) => resource !== undefined) as Resource[];
+    
+    console.log('🔧 ApplyResourcesPage: Loaded resources:', this.resources);
+    
+    if (this.resources.length === 0) {
+      console.error('🔧 ApplyResourcesPage: No resources found with IDs:', this.selectedResourceIds);
+      this.errorMessage = 'Resources not found. Please try again.';
+    } else {
+      this.errorMessage = ''; // Clear any previous error
+    }
+    
+    this.changeDetectorRef.detectChanges();
   }
 
   private loadRequirements(): void {
@@ -205,6 +234,18 @@ export class ApplyResourcesPageComponent implements OnInit {
     this.errorMessage = '';
     this.applicationResults = [];
     
+    const totalApplications = this.resources.length * this.selectedRequirementIds.length;
+    let completedApplications = 0;
+    
+    console.log('🔧 ApplyResourcesPage: Starting to create', totalApplications, 'applications');
+    
+    // Safety timeout - if applications don't complete within 10 seconds, force reset
+    const safetyTimeout = setTimeout(() => {
+      console.warn('🔧 ApplyResourcesPage: Safety timeout reached, forcing isLoading to false');
+      this.isLoading = false;
+      this.changeDetectorRef.detectChanges();
+    }, 10000);
+    
     this.resources.forEach(resource => {
       this.selectedRequirementIds.forEach(requirementId => {
         const applicationData = {
@@ -213,16 +254,22 @@ export class ApplyResourcesPageComponent implements OnInit {
           notes: this.notes
         };
         
+        console.log('🔧 ApplyResourcesPage: Creating application for resource', resource._id, 'and requirement', requirementId);
+        
         this.clientService.createApplication(applicationData).subscribe({
           next: (response) => {
+            console.log('🔧 ApplyResourcesPage: Application response:', response);
             this.applicationResults.push({
               success: response.success,
               message: response.success ? 'Application created successfully' : (response.message || 'Failed to create application'),
               resourceId: resource._id,
               requirementId: requirementId
             });
+            completedApplications++;
+            this.checkAllApplicationsCompleted(totalApplications, completedApplications, safetyTimeout);
           },
           error: (error) => {
+            console.error('🔧 ApplyResourcesPage: Application error:', error);
             const errorMessage = error.error?.message || 'An error occurred while creating the application';
             this.applicationResults.push({
               success: false,
@@ -230,20 +277,41 @@ export class ApplyResourcesPageComponent implements OnInit {
               resourceId: resource._id,
               requirementId: requirementId
             });
+            completedApplications++;
+            this.checkAllApplicationsCompleted(totalApplications, completedApplications, safetyTimeout);
           }
         });
       });
     });
+  }
+
+  private checkAllApplicationsCompleted(totalApplications: number, completedApplications: number, safetyTimeout: any): void {
+    console.log('🔧 ApplyResourcesPage: Completed', completedApplications, 'of', totalApplications, 'applications');
+    console.log('🔧 ApplyResourcesPage: Current isLoading state:', this.isLoading);
+    console.log('🔧 ApplyResourcesPage: Application results:', this.applicationResults);
     
-    setTimeout(() => {
-      this.isLoading = false;
-      if (this.applicationResults.every(result => result.success)) {
-        this.navigateBackToBrowse();
-      } else {
-        this.errorMessage = 'Some applications failed. Please try again.';
+    if (completedApplications === totalApplications) {
+      console.log('🔧 ApplyResourcesPage: All applications completed, setting isLoading to false');
+      clearTimeout(safetyTimeout); // Clear the safety timeout
+      
+      this.ngZone.run(() => {
+        this.isLoading = false;
         this.changeDetectorRef.detectChanges();
-      }
-    }, 2000);
+        
+        console.log('🔧 ApplyResourcesPage: isLoading after setting to false:', this.isLoading);
+        
+        if (this.applicationResults.every(result => result.success)) {
+          console.log('🔧 ApplyResourcesPage: All applications successful, navigating back');
+          this.navigateBackToBrowse();
+        } else {
+          console.log('🔧 ApplyResourcesPage: Some applications failed');
+          this.errorMessage = 'Some applications failed. Please try again.';
+          this.changeDetectorRef.detectChanges();
+        }
+      });
+    } else {
+      console.log('🔧 ApplyResourcesPage: Still waiting for', totalApplications - completedApplications, 'more applications to complete');
+    }
   }
 
   navigateBackToBrowse(): void {
@@ -254,6 +322,15 @@ export class ApplyResourcesPageComponent implements OnInit {
   onCancel(): void {
     console.log('🔧 ApplyResourcesPage: Cancel clicked');
     this.navigateBack.emit();
+  }
+
+  // Manual reset method for debugging
+  resetLoadingState(): void {
+    console.log('🔧 ApplyResourcesPage: Manually resetting loading state');
+    this.isLoading = false;
+    this.errorMessage = '';
+    this.applicationResults = [];
+    this.changeDetectorRef.detectChanges();
   }
 
   @HostListener('document:click', ['$event'])

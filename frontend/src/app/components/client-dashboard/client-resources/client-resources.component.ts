@@ -226,7 +226,8 @@ export class ClientResourcesComponent implements OnInit, OnDestroy {
 
   gridOptions: any = {
     suppressRowClickSelection: true,
-    suppressCellFocus: true
+    suppressCellFocus: true,
+    rowHeight: 70
   };
 
   constructor(

@@ -8,6 +8,7 @@ import { Requirement } from '../../../models/requirement.model';
 import { AuthService } from '../../../services/auth.service';
 import { VendorService } from '../../../services/vendor.service';
 import { AppService } from '../../../services/app.service';
+import { ApiService } from '../../../services/api.service';
 import { User } from '../../../models/user.model';
 
 
@@ -42,6 +43,7 @@ export class BrowseRequirementsPageComponent implements OnInit {
     private authService: AuthService,
     private vendorService: VendorService,
     private appService: AppService,
+    private apiService: ApiService,
     private changeDetectorRef: ChangeDetectorRef,
     private route: ActivatedRoute,
     private router: Router
@@ -73,26 +75,28 @@ export class BrowseRequirementsPageComponent implements OnInit {
     
     console.log('🔧 BrowseRequirementsPage: Loading requirement with ID:', this.selectedRequirementId);
     
-    // Load requirement from the app service
-    this.requirement = this.appService.getRequirementById(this.selectedRequirementId) || null;
-    
-    console.log('🔧 BrowseRequirementsPage: Loaded requirement:', this.requirement);
-    console.log('🔧 BrowseRequirementsPage: Requirement skills:', this.requirement?.skills);
-    console.log('🔧 BrowseRequirementsPage: Skills type:', typeof this.requirement?.skills);
-    console.log('🔧 BrowseRequirementsPage: Skills length:', this.requirement?.skills?.length);
-    
-    if (this.requirement?.skills && this.requirement.skills.length > 0) {
-      console.log('🔧 BrowseRequirementsPage: First skill:', this.requirement.skills[0]);
-      console.log('🔧 BrowseRequirementsPage: First skill type:', typeof this.requirement.skills[0]);
-      console.log('🔧 BrowseRequirementsPage: First skill keys:', Object.keys(this.requirement.skills[0]));
-    }
-    
-    if (!this.requirement) {
-      console.error('🔧 BrowseRequirementsPage: No requirement found with ID:', this.selectedRequirementId);
-      this.errorMessage = 'Requirement not found';
-    }
-    
-    this.changeDetectorRef.detectChanges();
+    // Load requirement from API
+    this.isLoading = true;
+    this.apiService.getRequirement(this.selectedRequirementId).subscribe({
+      next: (response: any) => {
+        console.log('🔧 BrowseRequirementsPage: API response:', response);
+        if (response.success && response.data) {
+          this.requirement = response.data;
+          console.log('🔧 BrowseRequirementsPage: Loaded requirement:', this.requirement);
+        } else {
+          console.error('🔧 BrowseRequirementsPage: No requirement found with ID:', this.selectedRequirementId);
+          this.errorMessage = 'Requirement not found';
+        }
+        this.isLoading = false;
+        this.changeDetectorRef.detectChanges();
+      },
+      error: (error: any) => {
+        console.error('🔧 BrowseRequirementsPage: Error loading requirement:', error);
+        this.errorMessage = 'Failed to load requirement';
+        this.isLoading = false;
+        this.changeDetectorRef.detectChanges();
+      }
+    });
   }
 
   private loadResources(): void {
@@ -251,7 +255,7 @@ export class BrowseRequirementsPageComponent implements OnInit {
   }
 
   navigateBackToBrowse(): void {
-    console.log('🔧 BrowseRequirementsPage: Navigating back to browse');
+    console.log('🔧 BrowseRequirementsPage: Navigating back to requirements');
     this.router.navigate(['/vendor/requirements']);
   }
 

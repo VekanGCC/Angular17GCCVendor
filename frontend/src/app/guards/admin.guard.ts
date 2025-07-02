@@ -1,7 +1,7 @@
 import { inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
-import { map, take } from 'rxjs/operators';
+import { map } from 'rxjs/operators';
 
 export const AdminGuard = () => {
   const authService = inject(AuthService);
@@ -9,10 +9,16 @@ export const AdminGuard = () => {
 
   console.log('Admin Guard: Checking admin access');
   
-  
-  return authService.user$.pipe(
-    take(1),
-    map(user => {
+  return authService.initialized$.pipe(
+    map((initialized) => {
+      console.log('Admin Guard: Initialized:', initialized);
+      
+      if (!initialized) {
+        console.log('Admin Guard: Still initializing, waiting...');
+        return false; // Still initializing, don't redirect yet
+      }
+      
+      const user = authService.getCurrentUser();
       console.log('Admin Guard: Current user:', user);
       const isAuthenticated = authService.isAuthenticated();
       const isAdmin = user?.userType === 'admin';

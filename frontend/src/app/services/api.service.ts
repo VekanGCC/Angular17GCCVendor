@@ -191,6 +191,14 @@ export class ApiService {
     return this.get<PaginatedResponse<any>>('/requirements', params);
   }
 
+  // Get single requirement by ID
+  getRequirement(id: string): Observable<any> {
+   
+    console.log('📋 API: Fetching requirement by ID:', id);
+    console.log('📋 API: Full URL will be:', `${this.apiUrl}/requirements/${id}`);
+    return this.get<any>(`/requirements/${id}`);
+  }
+
   // Application APIs with pagination
   getApplications(params?: PaginationParams): Observable<PaginatedResponse<any>> {
     console.log('📊 API: Fetching applications...');
@@ -460,7 +468,16 @@ export class ApiService {
       return this.http.post(`${this.apiUrl}/applications`, application, this.getHttpOptions()).pipe(
         catchError(error => {
           console.error('❌ API: Create application error:', error);
-          return of({ success: false, message: 'Error creating application' });
+          
+          // Extract the specific error message from the backend response
+          let errorMessage = 'Error creating application';
+          if (error.error && error.error.message) {
+            errorMessage = error.error.message;
+          } else if (error.message) {
+            errorMessage = error.message;
+          }
+          
+          return of({ success: false, message: errorMessage });
         })
       );
     }

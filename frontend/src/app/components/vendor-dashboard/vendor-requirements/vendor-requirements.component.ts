@@ -252,6 +252,7 @@ export class VendorRequirementsComponent implements OnInit, OnChanges, OnDestroy
   }
 
   ngOnDestroy(): void {
+    console.log('🔄 VendorRequirements: Component being destroyed');
     document.removeEventListener('click', this.handleClickOutside);
   }
 
@@ -474,10 +475,29 @@ export class VendorRequirementsComponent implements OnInit, OnChanges, OnDestroy
   }
 
   onApplyRequirement(requirementId: string): void {
-    console.log('🔧 Applying to requirement:', requirementId);
-    // Navigate to apply-resources route with requirementId as query parameter
-    this.router.navigate(['/vendor/apply-resources'], { 
+   
+    console.log('🔧 VendorRequirements: Applying to requirement:', requirementId);
+    console.log('🔧 VendorRequirements: Current URL before navigation:', this.router.url);
+    
+    // Navigate to apply-requirement-page route with requirementId as query parameter
+    const targetUrl = `/vendor/apply-requirement-page?requirementId=${requirementId}`;
+    console.log('🔧 VendorRequirements: Target URL:', targetUrl);
+    
+   
+    this.router.navigate(['/vendor/apply-requirement-page'], { 
       queryParams: { requirementId: requirementId } 
+    }).then(() => {
+    
+      console.log('🔧 VendorRequirements: Navigation completed to apply-requirement-page');
+      console.log('🔧 VendorRequirements: Final URL after navigation:', this.router.url);
+    }).catch(error => {
+     
+      console.error('🔧 VendorRequirements: Navigation error:', error);
+      console.error('🔧 VendorRequirements: Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
     });
   }
 
