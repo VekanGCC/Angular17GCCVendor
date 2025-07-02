@@ -33,6 +33,15 @@ const createPO = asyncHandler(async (req, res, next) => {
     return next(new ErrorResponse('PO can only be created for accepted SOWs', 400));
   }
 
+  // Check if a PO already exists for this SOW
+  const existingPO = await PO.findOne({ sowId: sowId });
+  if (existingPO) {
+    console.log('🔧 PO creation blocked: SOW already has a PO', { sowId, existingPOId: existingPO._id });
+    return next(new ErrorResponse('A Purchase Order has already been created for this SOW. SOW amount is already utilized.', 400));
+  }
+
+  console.log('🔧 SOW validation passed: No existing PO found for SOW', sowId);
+
   // Validate vendor exists and is approved
   const vendor = await User.findById(vendorId);
   if (!vendor || vendor.userType !== 'vendor' || vendor.approvalStatus !== 'approved') {
@@ -40,7 +49,7 @@ const createPO = asyncHandler(async (req, res, next) => {
   }
 
   // Create PO
-  const po = await PO.create({
+  const poData = {
     sowId,
     clientId: req.user.id,
     vendorId,
@@ -53,18 +62,37 @@ const createPO = asyncHandler(async (req, res, next) => {
     vendorOrganizationId: vendor.organizationId,
     createdBy: req.user.id,
     updatedBy: req.user.id
+  };
+
+  // Generate PO number
+  const year = new Date().getFullYear();
+  const count = await PO.countDocuments({ 
+    createdAt: { 
+      $gte: new Date(year, 0, 1), 
+      $lt: new Date(year + 1, 0, 1) 
+    } 
   });
+  poData.poNumber = `PO-${year}-${(count + 1).toString().padStart(4, '0')}`;
 
-  // Populate vendor, client, and SOW details
-  await po.populate([
-    { path: 'vendorId', select: 'firstName lastName companyName email' },
-    { path: 'clientId', select: 'firstName lastName companyName email' },
-    { path: 'sowId', select: 'title description estimatedCost' }
-  ]);
+  console.log('🔧 Creating PO with data:', poData);
 
-  res.status(201).json(
-    ApiResponse.success(po, 'PO created successfully')
-  );
+  try {
+    const po = await PO.create(poData);
+
+    // Populate vendor, client, and SOW details
+    await po.populate([
+      { path: 'vendorId', select: 'firstName lastName companyName email' },
+      { path: 'clientId', select: 'firstName lastName companyName email' },
+      { path: 'sowId', select: 'title description estimatedCost' }
+    ]);
+
+    res.status(201).json(
+      ApiResponse.success(po, 'PO created successfully')
+    );
+  } catch (error) {
+    console.error('🔧 Error creating PO:', error);
+    return next(new ErrorResponse(`Failed to create PO: ${error.message}`, 500));
+  }
 });
 
 // @desc    Get all POs for current user

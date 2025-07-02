@@ -306,8 +306,21 @@ export class SOWManagementComponent implements OnInit, OnDestroy {
     });
 
     this.pmApprovalForm = this.fb.group({
-      comments: ['', Validators.required]
+      comments: ['', [Validators.required, this.noWhitespaceValidator]]
     });
+
+    // Set up form validation triggers
+    this.pmApprovalForm.get('comments')?.valueChanges.subscribe(() => {
+      this.pmApprovalForm.updateValueAndValidity();
+    });
+  }
+
+  // Custom validator to ensure comments are not just whitespace
+  private noWhitespaceValidator(control: any) {
+    if (control.value && control.value.trim().length === 0) {
+      return { whitespaceOnly: true };
+    }
+    return null;
   }
 
   loadSOWs(): void {
@@ -463,10 +476,15 @@ export class SOWManagementComponent implements OnInit, OnDestroy {
       this.showViewModal = false;
       this.showCreateModal = false;
       
-      // Reset and initialize PM approval form
+      // Reset and initialize PM approval form with proper validation
       this.pmApprovalForm.reset();
-      this.pmApprovalForm.markAsUntouched();
-      this.pmApprovalForm.markAsPristine();
+      this.pmApprovalForm.get('comments')?.setValue('');
+      this.pmApprovalForm.get('comments')?.markAsUntouched();
+      this.pmApprovalForm.get('comments')?.markAsPristine();
+      this.pmApprovalForm.updateValueAndValidity();
+      
+      // Force change detection
+      this.changeDetectorRef.detectChanges();
     } else {
       console.log('🔧 SOW Management: Opening action modal');
       this.showActionModal = true;
@@ -542,6 +560,16 @@ export class SOWManagementComponent implements OnInit, OnDestroy {
             this.isLoading = false;
           }
         });
+    }
+  }
+
+  onCommentsInput(): void {
+    // Trigger form validation when user types in comments
+    const commentsControl = this.pmApprovalForm.get('comments');
+    if (commentsControl) {
+      commentsControl.markAsTouched();
+      this.pmApprovalForm.updateValueAndValidity();
+      this.changeDetectorRef.detectChanges();
     }
   }
 

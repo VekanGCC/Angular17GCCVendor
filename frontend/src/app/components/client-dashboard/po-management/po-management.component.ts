@@ -292,6 +292,7 @@ export class POManagementComponent implements OnInit, OnDestroy {
       startDate: ['', Validators.required],
       endDate: ['', Validators.required],
       paymentTerms: ['net_30', Validators.required],
+      customPaymentTerms: [''],
       justification: ['']
     });
 
@@ -461,6 +462,10 @@ export class POManagementComponent implements OnInit, OnDestroy {
             // Fallback to old structure
             this.availableSOWs = response.data || [];
           }
+          
+          // Filter out SOWs that already have POs created
+          this.filterSOWsWithoutPOs();
+          
           this.updateSOWDisplayOptions();
         },
         error: (error: any) => {
@@ -489,6 +494,8 @@ export class POManagementComponent implements OnInit, OnDestroy {
         } else {
           vendorId = selectedSOW.vendorId as string;
         }
+        
+        console.log('🔧 Setting vendor ID from SOW:', vendorId);
         this.poForm.get('vendorId')?.setValue(vendorId);
         this.poForm.get('vendorId')?.disable(); // Make vendor field non-editable
         
@@ -497,12 +504,15 @@ export class POManagementComponent implements OnInit, OnDestroy {
           id: vendorId,
           display: this.getVendorDisplay(selectedSOW.vendorId)
         }];
+        
+        console.log('🔧 Vendor field disabled, value set to:', this.poForm.get('vendorId')?.value);
       }
     } else {
       // Clear vendor when SOW is deselected
       this.poForm.get('vendorId')?.setValue('');
       this.poForm.get('vendorId')?.enable(); // Re-enable vendor field
       this.vendorDisplayOptions = []; // Clear vendor options
+      console.log('🔧 Vendor field cleared and re-enabled');
     }
     
     // Check amount validation
@@ -571,27 +581,70 @@ export class POManagementComponent implements OnInit, OnDestroy {
 
   onSubmitPO(): void {
     if (this.poForm.valid) {
+      // Additional validation to ensure vendorId is present
+      const vendorId = this.poForm.get('vendorId')?.value;
+      if (!vendorId) {
+        console.error('🔧 Error: Vendor ID is missing from form');
+        return;
+      }
+
       this.isLoading = true;
-      const formValue = this.poForm.value;
       
+      // Use getRawValue() to include disabled form controls (like vendorId)
+      const formValue = this.poForm.getRawValue();
+      
+      // Map form data to backend model structure
+      // Note: Frontend uses 'poAmount' but backend expects 'totalAmount'
       const poData = {
-        ...formValue,
-        poAmount: {
+        sowId: formValue.sowId,
+        vendorId: formValue.vendorId,
+        startDate: formValue.startDate,
+        endDate: formValue.endDate,
+        totalAmount: {
           amount: parseFloat(formValue.poAmount.amount),
           currency: formValue.poAmount.currency
-        }
+        },
+        paymentTerms: formValue.paymentTerms,
+        customPaymentTerms: formValue.customPaymentTerms || null
       };
+
+      console.log('🔧 Submitting PO data:', poData);
 
       this.poService.createPO(poData)
         .pipe(takeUntil(this.destroy$))
         .subscribe({
           next: (response) => {
+            console.log('🔧 PO created successfully:', response);
             this.showCreateModal = false;
             this.loadPOs();
             this.isLoading = false;
           },
           error: (error) => {
-            console.error('Error creating PO:', error);
+            console.error('🔧 Error creating PO:', error);
+            console.error('🔧 Error details:', {
+              status: error.status,
+              message: error.error?.message || error.message,
+              error: error.error
+            });
+            
+            // Handle specific error messages
+            let errorMessage = 'Failed to create Purchase Order';
+            if (error.error?.message) {
+              if (error.error.message.includes('SOW amount is already utilized')) {
+                errorMessage = 'This SOW has already been used to create a Purchase Order. Each SOW can only be used once.';
+              } else if (error.error.message.includes('Only clients can create POs')) {
+                errorMessage = 'You do not have permission to create Purchase Orders.';
+              } else if (error.error.message.includes('PO can only be created for accepted SOWs')) {
+                errorMessage = 'Purchase Orders can only be created for SOWs that have been accepted by the vendor.';
+              } else if (error.error.message.includes('Invalid vendor or vendor not approved')) {
+                errorMessage = 'The selected vendor is not valid or not approved.';
+              } else {
+                errorMessage = error.error.message;
+              }
+            }
+            
+            // You can add a toast notification here if you have one
+            alert(errorMessage);
             this.isLoading = false;
           }
         });
@@ -739,5 +792,32 @@ export class POManagementComponent implements OnInit, OnDestroy {
       return vendorId.companyName;
     }
     return 'Unknown Vendor';
+  }
+
+  private filterSOWsWithoutPOs(): void {
+    // Get all existing POs to check which SOWs already have POs
+    this.poService.getPOs({ page: 1, limit: 1000 })
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response: any) => {
+          const existingPOs = response.data?.docs || response.data || [];
+          const sowIdsWithPOs = new Set(existingPOs.map((po: any) => po.sowId));
+          
+          // Filter out SOWs that already have POs
+          this.availableSOWs = this.availableSOWs.filter(sow => !sowIdsWithPOs.has(sow._id));
+          
+          console.log('🔧 Filtered SOWs:', {
+            totalSOWs: this.availableSOWs.length,
+            excludedSOWs: sowIdsWithPOs.size
+          });
+          
+          this.updateSOWDisplayOptions();
+        },
+        error: (error: any) => {
+          console.error('Error filtering SOWs:', error);
+          // If filtering fails, still show all SOWs (backend will handle validation)
+          this.updateSOWDisplayOptions();
+        }
+      });
   }
 } 

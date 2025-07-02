@@ -58,7 +58,7 @@ const sowSchema = new mongoose.Schema({
   
   status: {
     type: String,
-    enum: ['draft', 'submitted', 'pm_approval_pending', 'internal_approved', 'sent_to_vendor', 'vendor_accepted', 'vendor_rejected', 'cancelled'],
+    enum: ['draft', 'submitted', 'internal_approved', 'sent_to_vendor', 'vendor_accepted', 'vendor_rejected', 'cancelled'],
     default: 'draft'
   },
   
@@ -145,6 +145,9 @@ sowSchema.index({ createdAt: -1 });
 
 // Virtual for formatted status
 sowSchema.virtual('statusDisplay').get(function() {
+  if (!this.status) {
+    return 'Unknown Status';
+  }
   return this.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 });
 

@@ -5,6 +5,20 @@ const asyncHandler = require('../utils/asyncHandler');
 const ErrorResponse = require('../utils/errorResponse');
 const ApiResponse = require('../models/ApiResponse');
 
+// Helper function to map user organization roles to SOW approval roles
+const mapUserRoleToSOWRole = (userOrganizationRole) => {
+  const roleMapping = {
+    'client_owner': 'client_admin',
+    'client_employee': 'client_account',
+    'client_account': 'client_account',
+    'vendor_owner': 'vendor_admin',
+    'vendor_employee': 'vendor_account',
+    'vendor_account': 'vendor_account'
+  };
+  
+  return roleMapping[userOrganizationRole] || 'client_account';
+};
+
 // @desc    Create new SOW
 // @route   POST /api/sow
 // @access  Private (Client only)
@@ -214,7 +228,7 @@ const submitSOW = asyncHandler(async (req, res, next) => {
   sow.approvals.push({
     userId: req.user.id,
     status: 'approved',
-    role: user.organizationRole,
+    role: mapUserRoleToSOWRole(user.organizationRole),
     comments: 'Submitted for internal approval'
   });
   sow.updatedBy = req.user.id;
@@ -256,12 +270,15 @@ const submitForPMApproval = asyncHandler(async (req, res, next) => {
     return next(new ErrorResponse('SOW can only be submitted for PM approval from draft status', 400));
   }
 
+  // Map user organization role to SOW approval role
+  const sowApprovalRole = mapUserRoleToSOWRole(user.organizationRole);
+
   // Update status and add approval record
   sow.status = 'pm_approval_pending';
   sow.approvals.push({
     userId: req.user.id,
     status: 'approved',
-    role: user.organizationRole,
+    role: sowApprovalRole,
     comments: req.body.comments || 'Submitted for PM approval'
   });
   sow.updatedBy = req.user.id;
@@ -313,7 +330,7 @@ const approveSOW = asyncHandler(async (req, res, next) => {
   sow.approvals.push({
     userId: req.user.id,
     status: 'approved',
-    role: user.organizationRole,
+    role: mapUserRoleToSOWRole(user.organizationRole),
     comments: req.body.comments || 'Internally approved'
   });
   sow.updatedBy = req.user.id;
@@ -413,7 +430,7 @@ const vendorResponse = asyncHandler(async (req, res, next) => {
   sow.approvals.push({
     userId: req.user.id,
     status: status === 'accepted' ? 'approved' : 'rejected',
-    role: user.organizationRole,
+    role: mapUserRoleToSOWRole(user.organizationRole),
     comments
   });
   sow.updatedBy = req.user.id;
