@@ -8,6 +8,8 @@ import { Requirement } from '../../../models/requirement.model';
 import { AuthService } from '../../../services/auth.service';
 import { ApiService } from '../../../services/api.service';
 import { User } from '../../../models/user.model';
+import { Subject } from 'rxjs';
+import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 
 @Component({
   selector: 'app-apply-requirement-page',
@@ -39,7 +41,6 @@ export class ApplyRequirementPageComponent implements OnInit, AfterViewInit, OnD
   resources: Resource[] = [];
   filteredResources: Resource[] = [];
   requirement: Requirement | null = null;
-  notes: string = '';
   isLoading = false;
   errorMessage = '';
   applicationResults: { success: boolean; message: string; resourceId: string; resourceName: string; requirementId: string; requirementName: string }[] = [];
@@ -48,6 +49,9 @@ export class ApplyRequirementPageComponent implements OnInit, AfterViewInit, OnD
   showResourcesDropdown = false;
   resourceSearchTerm = '';
   selectedResourceIds: string[] = [];
+
+  // Debounced search for resources
+  private resourceSearchSubject = new Subject<string>();
 
   // Computed properties for template
   get successfulApplications() {
@@ -77,6 +81,14 @@ export class ApplyRequirementPageComponent implements OnInit, AfterViewInit, OnD
     console.log('🔧 ApplyRequirementPage: Constructor - Current URL:', this.router.url);
     console.log('🔧 ApplyRequirementPage: Constructor - Route params:', this.route.snapshot.params);
     console.log('🔧 ApplyRequirementPage: Constructor - Query params:', this.route.snapshot.queryParams);
+    
+    // Setup debounced search
+    this.resourceSearchSubject.pipe(
+      debounceTime(300),
+      distinctUntilChanged()
+    ).subscribe(searchTerm => {
+      this.loadResourcesWithSearch(searchTerm);
+    });
     
     // Initialize the component immediately in constructor
     this.initializeComponent();
@@ -113,6 +125,8 @@ export class ApplyRequirementPageComponent implements OnInit, AfterViewInit, OnD
 
   ngOnDestroy(): void {
     console.log('🔧 ApplyRequirementPage: ngOnDestroy called - Instance #', this.instanceId);
+    // Cleanup subscription
+    this.resourceSearchSubject.complete();
   }
 
   private loadRequirement(requirementId: string): void {
@@ -141,27 +155,7 @@ export class ApplyRequirementPageComponent implements OnInit, AfterViewInit, OnD
 
   private loadResources(): void {
     console.log('🔧 Loading vendor resources...');
-    this.isLoading = true;
-    this.apiService.getResources().subscribe({
-      next: (response) => {
-        console.log('🔧 Resources response:', response);
-        if (response.success && response.data) {
-          // Filter resources to only show vendor's resources
-          // For now, show all resources since vendorId is not in the model
-          this.resources = response.data;
-          this.filteredResources = [...this.resources];
-          console.log('🔧 Loaded vendor resources:', this.resources.length);
-        }
-        this.isLoading = false;
-        this.changeDetectorRef.detectChanges();
-      },
-      error: (error) => {
-        console.error('Error loading resources:', error);
-        this.errorMessage = 'Failed to load resources';
-        this.isLoading = false;
-        this.changeDetectorRef.detectChanges();
-      }
-    });
+    this.loadResourcesWithSearch(''); // Load all resources initially
   }
 
   // Multi-select dropdown methods
@@ -178,24 +172,41 @@ export class ApplyRequirementPageComponent implements OnInit, AfterViewInit, OnD
 
   filterResources() {
     console.log('🔧 Filtering resources, search term:', this.resourceSearchTerm);
-    console.log('🔧 Total resources available:', this.resources.length);
+    this.resourceSearchSubject.next(this.resourceSearchTerm);
+  }
+
+  private loadResourcesWithSearch(searchTerm: string): void {
+    console.log('🔧 Loading resources with search:', searchTerm);
+    this.isLoading = true;
     
-    if (!this.resourceSearchTerm.trim()) {
-      this.filteredResources = [...this.resources];
-      console.log('🔧 No search term, showing all resources:', this.filteredResources.length);
-    } else {
-      const searchTerm = this.resourceSearchTerm.toLowerCase();
-      this.filteredResources = this.resources.filter(resource =>
-        resource.name.toLowerCase().includes(searchTerm) ||
-        resource.description.toLowerCase().includes(searchTerm) ||
-        (resource.skills && resource.skills.some((skill: any) => 
-          skill.name.toLowerCase().includes(searchTerm)
-        ))
-      );
-      console.log('🔧 Filtered resources:', this.filteredResources.length);
-    }
+    // Use search parameter which now includes skill name search
+    const params = {
+      search: searchTerm,
+      status: 'active',
+      limit: 50 // Limit results for better performance
+    };
     
-    this.changeDetectorRef.detectChanges();
+    console.log('🔧 Frontend: Sending search params:', params);
+    
+    this.apiService.getResources(params).subscribe({
+      next: (response) => {
+        console.log('🔧 Resources search response:', response);
+        if (response.success && response.data) {
+          this.resources = response.data;
+          this.filteredResources = [...this.resources];
+          
+          console.log('🔧 Loaded resources with search:', this.resources.length);
+        }
+        this.isLoading = false;
+        this.changeDetectorRef.detectChanges();
+      },
+      error: (error) => {
+        console.error('Error loading resources with search:', error);
+        this.errorMessage = 'Failed to load resources';
+        this.isLoading = false;
+        this.changeDetectorRef.detectChanges();
+      }
+    });
   }
 
   toggleResourceSelection(resourceId: string) {
@@ -257,7 +268,6 @@ export class ApplyRequirementPageComponent implements OnInit, AfterViewInit, OnD
     console.log('🔧 Submitting application...');
     console.log('🔧 Selected resources:', this.selectedResourceIds);
     console.log('🔧 Requirement ID:', this.requirement._id);
-    console.log('🔧 Notes:', this.notes);
 
     this.isLoading = true;
     this.applicationResults = [];
@@ -267,9 +277,6 @@ export class ApplyRequirementPageComponent implements OnInit, AfterViewInit, OnD
       const application = {
         requirement: this.requirement!._id,  // Backend expects 'requirement', not 'requirementId'
         resource: resourceId,                // Backend expects 'resource', not 'resourceId'
-        notes: this.notes
-        // Backend will set status to 'applied' by default
-        // Backend will get vendorId from the authenticated user's organizationId
       };
 
       return this.apiService.createApplication(application).toPromise();
@@ -371,7 +378,22 @@ export class ApplyRequirementPageComponent implements OnInit, AfterViewInit, OnD
   }
 
   getRequirementName(requirementId: string): string {
-    return this.requirement ? this.requirement.title : 'Unknown Requirement';
+    return this.requirement?.title || 'Unknown Requirement';
+  }
+
+  // Helper methods to safely get category and skill names
+  getCategoryName(category: any): string {
+    if (typeof category === 'object' && category?.name) {
+      return category.name;
+    }
+    return category || 'No Category';
+  }
+
+  getSkillName(skill: any): string {
+    if (typeof skill === 'object' && skill?.name) {
+      return skill.name;
+    }
+    return skill || 'Unknown Skill';
   }
 
   private updateSelectedResources(): void {

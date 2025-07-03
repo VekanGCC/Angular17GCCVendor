@@ -10,6 +10,7 @@ import { ClientService } from '../../../services/client.service';
 import { AppService } from '../../../services/app.service';
 import { SkillsService } from '../../../services/skills.service';
 import { User } from '../../../models/user.model';
+import { Subject, debounceTime, distinctUntilChanged } from 'rxjs';
 
 @Component({
   selector: 'app-apply-resources-page',
@@ -32,13 +33,9 @@ export class ApplyResourcesPageComponent implements OnInit {
   showRequirementsDropdown = false;
   requirementSearchTerm = '';
   selectedRequirementIds: string[] = [];
-
-  // Skills filter properties
-  showSkillsDropdown = false;
-  skillSearchTerm = '';
-  selectedSkills: string[] = [];
-  allSkills: string[] = [];
-  filteredSkills: string[] = [];
+  
+  // Search debouncing
+  private searchSubject = new Subject<string>();
 
   @Input() selectedResourceIds: string[] = [];
   @Output() selectedResourceIdsChange = new EventEmitter<string[]>();
@@ -62,6 +59,15 @@ export class ApplyResourcesPageComponent implements OnInit {
     this.currentUser = this.authService.getCurrentUser();
     console.log('🔧 ApplyResourcesPage: Current user:', this.currentUser);
     
+    // Set up search debouncing
+    this.searchSubject.pipe(
+      debounceTime(300), // Wait 300ms after user stops typing
+      distinctUntilChanged() // Only emit if value has changed
+    ).subscribe(searchTerm => {
+      console.log('🔧 Search debounced, making API call with term:', searchTerm);
+      this.loadRequirementsWithSearch(searchTerm);
+    });
+    
     // Read resource IDs from query parameters
     this.route.queryParams.subscribe(params => {
       console.log('🔧 ApplyResourcesPage: Query params:', params);
@@ -75,7 +81,12 @@ export class ApplyResourcesPageComponent implements OnInit {
     });
     
     this.loadRequirements();
-    this.loadSkills();
+    
+    // Test dropdown functionality after a short delay
+    setTimeout(() => {
+      console.log('🔧 Testing dropdown functionality...');
+      console.log('🔧 Requirements dropdown state:', this.showRequirementsDropdown);
+    }, 2000);
   }
 
   private loadResourcesFromInput(): void {
@@ -150,138 +161,38 @@ export class ApplyResourcesPageComponent implements OnInit {
     });
   }
 
-  private loadSkills(): void {
-    console.log('🔧 Loading skills from service...');
-    this.skillsService.getSkills().subscribe({
-      next: (skills) => {
-        console.log('🔧 Skills response:', skills);
-        // Extract skill names and filter out inactive skills
-        this.allSkills = skills
-          .filter(skill => skill.isActive)
-          .map(skill => skill.name)
-          .sort();
-        this.filteredSkills = [...this.allSkills];
-        console.log('🔧 Loaded skills from service:', this.allSkills);
+  private loadRequirementsWithSearch(searchTerm: string): void {
+    console.log('🔧 Loading requirements with search:', searchTerm);
+    this.isLoading = true;
+    
+    // Use search parameter which now includes skill name search
+    const params = {
+      search: searchTerm,
+      status: 'open',
+      limit: 50 // Limit results for better performance
+    };
+    
+    console.log('🔧 Frontend: Sending search params:', params);
+    
+    this.clientService.getRequirements(params).subscribe({
+      next: (response) => {
+        console.log('🔧 Requirements search response:', response);
+        if (response.success && response.data) {
+          this.requirements = response.data;
+          this.filteredRequirements = [...this.requirements];
+          
+          console.log('🔧 Loaded requirements with search:', this.requirements.length);
+        }
+        this.isLoading = false;
         this.changeDetectorRef.detectChanges();
       },
       error: (error) => {
-        console.error('Error loading skills:', error);
-        // Fallback to extracting from requirements if skills service fails
-        this.extractAllSkills();
+        console.error('Error loading requirements with search:', error);
+        this.errorMessage = 'Failed to load requirements';
+        this.isLoading = false;
+        this.changeDetectorRef.detectChanges();
       }
     });
-  }
-
-  private extractAllSkills(): void {
-    const skillsSet = new Set<string>();
-    
-    this.requirements.forEach(requirement => {
-      if (requirement.skills && Array.isArray(requirement.skills)) {
-        requirement.skills.forEach(skill => {
-          const skillName = this.getSkillDisplayName(skill);
-          if (skillName && skillName !== 'Unknown Skill') {
-            skillsSet.add(skillName);
-          }
-        });
-      }
-    });
-    
-    this.allSkills = Array.from(skillsSet).sort();
-    this.filteredSkills = [...this.allSkills];
-    console.log('🔧 Extracted skills from requirements:', this.allSkills);
-  }
-
-  // Multi-select dropdown methods
-  toggleRequirementsDropdown() {
-    console.log('🔧 Toggle dropdown clicked, current state:', this.showRequirementsDropdown);
-    console.log('🔧 Available requirements:', this.requirements.length);
-    this.showRequirementsDropdown = !this.showRequirementsDropdown;
-    if (this.showRequirementsDropdown) {
-      this.filteredRequirements = [...this.requirements];
-    }
-    console.log('🔧 New dropdown state:', this.showRequirementsDropdown);
-    this.changeDetectorRef.detectChanges();
-  }
-
-  filterRequirements() {
-    console.log('🔧 Filtering requirements, search term:', this.requirementSearchTerm);
-    console.log('🔧 Total requirements available:', this.requirements.length);
-    
-    if (!this.requirementSearchTerm.trim()) {
-      this.filteredRequirements = [...this.requirements];
-      console.log('🔧 No search term, showing all requirements:', this.filteredRequirements.length);
-    } else {
-      const searchTerm = this.requirementSearchTerm.toLowerCase();
-      this.filteredRequirements = this.requirements.filter(requirement =>
-        requirement.title.toLowerCase().includes(searchTerm) ||
-        requirement.description.toLowerCase().includes(searchTerm) ||
-        (requirement.skills && requirement.skills.some((skill: string) => 
-          skill.toLowerCase().includes(searchTerm)
-        ))
-      );
-      console.log('🔧 Filtered requirements:', this.filteredRequirements.length);
-    }
-    
-    // Apply skills filter
-    this.applySkillsFilter();
-    
-    this.changeDetectorRef.detectChanges();
-  }
-
-  clearRequirementSearch() {
-    this.requirementSearchTerm = '';
-    this.filterRequirements();
-    this.changeDetectorRef.detectChanges();
-  }
-
-  toggleRequirementSelection(requirementId: string) {
-    const index = this.selectedRequirementIds.indexOf(requirementId);
-    if (index > -1) {
-      this.selectedRequirementIds.splice(index, 1);
-    } else {
-      this.selectedRequirementIds.push(requirementId);
-    }
-    this.updateSelectedRequirements();
-    this.changeDetectorRef.detectChanges();
-  }
-
-  isRequirementSelected(requirementId: string): boolean {
-    return this.selectedRequirementIds.includes(requirementId);
-  }
-
-  areAllRequirementsSelected(): boolean {
-    return this.filteredRequirements.length > 0 && 
-           this.filteredRequirements.every(req => this.isRequirementSelected(req._id));
-  }
-
-  toggleAllRequirements() {
-    if (this.areAllRequirementsSelected()) {
-      // Deselect all filtered requirements
-      this.filteredRequirements.forEach(req => {
-        const index = this.selectedRequirementIds.indexOf(req._id);
-        if (index > -1) {
-          this.selectedRequirementIds.splice(index, 1);
-        }
-      });
-    } else {
-      // Select all filtered requirements
-      this.filteredRequirements.forEach(req => {
-        if (!this.isRequirementSelected(req._id)) {
-          this.selectedRequirementIds.push(req._id);
-        }
-      });
-    }
-    this.updateSelectedRequirements();
-    this.changeDetectorRef.detectChanges();
-  }
-
-  removeRequirement(requirementId: string) {
-    const index = this.selectedRequirementIds.indexOf(requirementId);
-    if (index > -1) {
-      this.selectedRequirementIds.splice(index, 1);
-      this.updateSelectedRequirements();
-      this.changeDetectorRef.detectChanges();
-    }
   }
 
   onSubmit(): void {
@@ -396,11 +307,8 @@ export class ApplyResourcesPageComponent implements OnInit {
   onDocumentClick(event: Event): void {
     // Close dropdowns if clicking outside
     const target = event.target as HTMLElement;
-    if (!target.closest('.requirements-dropdown-container')) {
+    if (!target.closest('.requirements-section')) {
       this.showRequirementsDropdown = false;
-    }
-    if (!target.closest('.skills-dropdown-container')) {
-      this.showSkillsDropdown = false;
     }
     this.changeDetectorRef.detectChanges();
   }
@@ -441,6 +349,94 @@ export class ApplyResourcesPageComponent implements OnInit {
     }
   }
 
+  private updateSelectedRequirements(): void {
+    this.selectedRequirements = this.requirements.filter(req => 
+      this.selectedRequirementIds.includes(req._id)
+    );
+  }
+
+  // Multi-select dropdown methods
+  toggleRequirementsDropdown() {
+    console.log('🔧 Toggle dropdown clicked, current state:', this.showRequirementsDropdown);
+    console.log('🔧 Available requirements:', this.requirements.length);
+    this.showRequirementsDropdown = !this.showRequirementsDropdown;
+    if (this.showRequirementsDropdown) {
+      this.filteredRequirements = [...this.requirements];
+    }
+    console.log('🔧 New dropdown state:', this.showRequirementsDropdown);
+    this.changeDetectorRef.detectChanges();
+  }
+
+  filterRequirements() {
+    console.log('🔧 Filtering requirements, search term:', this.requirementSearchTerm);
+    
+    if (!this.requirementSearchTerm.trim()) {
+      // If search is cleared, load all requirements
+      this.loadRequirements();
+    } else {
+      // Emit search term to trigger debounced API call
+      this.searchSubject.next(this.requirementSearchTerm);
+    }
+    
+    this.changeDetectorRef.detectChanges();
+  }
+
+  clearRequirementSearch() {
+    this.requirementSearchTerm = '';
+    this.loadRequirements(); // Load all requirements when search is cleared
+    this.changeDetectorRef.detectChanges();
+  }
+
+  toggleRequirementSelection(requirementId: string) {
+    const index = this.selectedRequirementIds.indexOf(requirementId);
+    if (index > -1) {
+      this.selectedRequirementIds.splice(index, 1);
+    } else {
+      this.selectedRequirementIds.push(requirementId);
+    }
+    this.updateSelectedRequirements();
+    this.changeDetectorRef.detectChanges();
+  }
+
+  isRequirementSelected(requirementId: string): boolean {
+    return this.selectedRequirementIds.includes(requirementId);
+  }
+
+  areAllRequirementsSelected(): boolean {
+    return this.filteredRequirements.length > 0 && 
+           this.filteredRequirements.every(req => this.isRequirementSelected(req._id));
+  }
+
+  toggleAllRequirements() {
+    if (this.areAllRequirementsSelected()) {
+      // Deselect all filtered requirements
+      this.filteredRequirements.forEach(req => {
+        const index = this.selectedRequirementIds.indexOf(req._id);
+        if (index > -1) {
+          this.selectedRequirementIds.splice(index, 1);
+        }
+      });
+    } else {
+      // Select all filtered requirements
+      this.filteredRequirements.forEach(req => {
+        if (!this.isRequirementSelected(req._id)) {
+          this.selectedRequirementIds.push(req._id);
+        }
+      });
+    }
+    this.updateSelectedRequirements();
+    this.changeDetectorRef.detectChanges();
+  }
+
+  removeRequirement(requirementId: string) {
+    const index = this.selectedRequirementIds.indexOf(requirementId);
+    if (index > -1) {
+      this.selectedRequirementIds.splice(index, 1);
+      this.updateSelectedRequirements();
+      this.changeDetectorRef.detectChanges();
+    }
+  }
+
   getSkillDisplayName(skill: any): string {
     if (!skill) return 'Unknown Skill';
     
@@ -456,115 +452,5 @@ export class ApplyResourcesPageComponent implements OnInit {
     
     // Fallback
     return 'Unknown Skill';
-  }
-
-  private updateSelectedRequirements(): void {
-    this.selectedRequirements = this.requirements.filter(req => 
-      this.selectedRequirementIds.includes(req._id)
-    );
-  }
-
-  // Skills filter methods
-  toggleSkillsDropdown() {
-    console.log('🔧 Toggle skills dropdown clicked, current state:', this.showSkillsDropdown);
-    this.showSkillsDropdown = !this.showSkillsDropdown;
-    if (this.showSkillsDropdown) {
-      this.filteredSkills = [...this.allSkills];
-    }
-    console.log('🔧 New skills dropdown state:', this.showSkillsDropdown);
-    this.changeDetectorRef.detectChanges();
-  }
-
-  onSkillSearchChange() {
-    console.log('🔧 Filtering skills, search term:', this.skillSearchTerm);
-    
-    if (!this.skillSearchTerm.trim()) {
-      this.filteredSkills = [...this.allSkills];
-    } else {
-      const searchTerm = this.skillSearchTerm.toLowerCase();
-      this.filteredSkills = this.allSkills.filter(skill =>
-        skill.toLowerCase().includes(searchTerm)
-      );
-    }
-    
-    this.changeDetectorRef.detectChanges();
-  }
-
-  toggleSkillSelection(skill: string) {
-    const index = this.selectedSkills.indexOf(skill);
-    if (index > -1) {
-      this.selectedSkills.splice(index, 1);
-    } else {
-      this.selectedSkills.push(skill);
-    }
-    
-    console.log('🔧 Selected skills:', this.selectedSkills);
-    this.applySkillsFilter();
-    this.changeDetectorRef.detectChanges();
-  }
-
-  isSkillSelected(skill: string): boolean {
-    return this.selectedSkills.includes(skill);
-  }
-
-  removeSkill(skill: string) {
-    const index = this.selectedSkills.indexOf(skill);
-    if (index > -1) {
-      this.selectedSkills.splice(index, 1);
-      this.applySkillsFilter();
-      this.changeDetectorRef.detectChanges();
-    }
-  }
-
-  clearSkillsFilter() {
-    this.selectedSkills = [];
-    this.applySkillsFilter();
-    this.changeDetectorRef.detectChanges();
-  }
-
-  private applySkillsFilter(): void {
-    if (this.selectedSkills.length === 0) {
-      // No skills selected, show all requirements (but still apply search filter)
-      if (!this.requirementSearchTerm.trim()) {
-        this.filteredRequirements = [...this.requirements];
-      } else {
-        const searchTerm = this.requirementSearchTerm.toLowerCase();
-        this.filteredRequirements = this.requirements.filter(requirement =>
-          requirement.title.toLowerCase().includes(searchTerm) ||
-          requirement.description.toLowerCase().includes(searchTerm) ||
-          (requirement.skills && requirement.skills.some((skill: string) => 
-            skill.toLowerCase().includes(searchTerm)
-          ))
-        );
-      }
-    } else {
-      // Filter requirements by selected skills
-      this.filteredRequirements = this.requirements.filter(requirement => {
-        // First apply search filter if there's a search term
-        let passesSearch = true;
-        if (this.requirementSearchTerm.trim()) {
-          const searchTerm = this.requirementSearchTerm.toLowerCase();
-          passesSearch = requirement.title.toLowerCase().includes(searchTerm) ||
-                        requirement.description.toLowerCase().includes(searchTerm) ||
-                        (requirement.skills && requirement.skills.some((skill: string) => 
-                          skill.toLowerCase().includes(searchTerm)
-                        ));
-        }
-        
-        if (!passesSearch) return false;
-        
-        // Then apply skills filter
-        if (!requirement.skills || !Array.isArray(requirement.skills)) {
-          return false;
-        }
-        
-        const requirementSkills = requirement.skills.map(skill => this.getSkillDisplayName(skill));
-        return this.selectedSkills.some(selectedSkill => 
-          requirementSkills.includes(selectedSkill)
-        );
-      });
-    }
-    
-    console.log('🔧 Requirements after skills filter:', this.filteredRequirements.length);
   }
 } 

@@ -1,10 +1,11 @@
 export interface Requirement {
   _id: string;
-  clientId: string;
-  clientName: string;
+  clientId?: string;
+  clientName?: string;
+  clientType?: string;
   title: string;
-  category: string;
-  skills: string[];
+  category: any; // Can be string or object with _id and name
+  skills: any[]; // Can be string[] or object[] with _id and name
   experience: {
     minYears: number;
     level: string;
@@ -14,8 +15,9 @@ export interface Requirement {
     state: string;
     country: string;
     remote: boolean;
+    onsite?: boolean;
   };
-  duration: string;
+  duration: number | string;
   budget: {
     charge: number;
     currency: string;
@@ -23,7 +25,12 @@ export interface Requirement {
   };
   description: string;
   status: 'draft' | 'open' | 'in_progress' | 'on_hold' | 'completed' | 'cancelled';
-  createdBy: string;
+  priority?: string;
+  createdBy: any; // Can be string or object with user details
+  organizationId?: any; // Can be string or object with organization details
+  contactPerson?: string;
+  contactEmail?: string;
+  contactCompany?: string;
   createdAt: string;
   updatedAt: string;
   startDate: string;

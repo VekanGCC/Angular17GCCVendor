@@ -6,6 +6,10 @@ export const VENDOR_ROUTES: Routes = [
     loadComponent: () => import('../vendor-dashboard/vendor-dashboard.component').then(m => m.VendorDashboardComponent)
   },
   {
+    path: 'requirements/:id',
+    loadComponent: () => import('../vendor-dashboard/requirement-details/requirement-details.component').then(m => m.RequirementDetailsComponent)
+  },
+  {
     path: 'finance/sow-approval',
     loadComponent: () => import('../vendor-dashboard/sow-approvals/sow-approvals.component').then(m => m.SOWApprovalsComponent)
   },

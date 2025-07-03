@@ -39,10 +39,31 @@ const getRequirements = asyncHandler(async (req, res, next) => {
   }
 
   if (search) {
+    console.log('🔧 Backend: Searching for term:', search);
+    
+    // First, try to find skills by name that match the search term
+    const AdminSkill = require('../models/AdminSkill');
+    const matchingSkills = await AdminSkill.find({
+      name: { $regex: search, $options: 'i' }
+    }).select('_id name');
+    
+    console.log('🔧 Backend: Found matching skills:', matchingSkills);
+    
+    const skillIds = matchingSkills.map(skill => skill._id);
+    
+    // Build search query to include title, description, and skills
     query.$or = [
       { title: { $regex: search, $options: 'i' } },
       { description: { $regex: search, $options: 'i' } }
     ];
+    
+    // If we found matching skills, also search in skills field
+    if (skillIds.length > 0) {
+      query.$or.push({ skills: { $in: skillIds } });
+      console.log('🔧 Backend: Added skills search with IDs:', skillIds);
+    }
+    
+    console.log('🔧 Backend: Final search query:', JSON.stringify(query, null, 2));
   }
 
   if (status) {
@@ -101,18 +122,37 @@ const getRequirements = asyncHandler(async (req, res, next) => {
   const requirements = await Requirement.find(query)
     .populate('category', 'name description') // Only select needed fields
     .populate('skills', 'name description')   // Only select needed fields
-    .populate('createdBy', 'firstName lastName companyName') // Populate creator info
-    .populate('organizationId', 'name') // Populate organization info
+    .populate('createdBy', 'firstName lastName email companyName contactPerson') // Populate creator info
+    .populate('organizationId', 'name organizationType') // Populate organization info
     .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
     .limit(parseInt(limit))
     .skip((parseInt(page) - 1) * parseInt(limit))
     .lean(); // Use lean() for better performance when you don't need Mongoose documents
 
+  // Add client information to each requirement
+  const requirementsWithClientInfo = requirements.map(requirement => {
+    const requirementWithClientInfo = { ...requirement };
+    
+    // Add client name and contact person
+    if (requirement.organizationId) {
+      requirementWithClientInfo.clientName = requirement.organizationId.name;
+      requirementWithClientInfo.clientType = requirement.organizationId.organizationType;
+    }
+    
+    if (requirement.createdBy) {
+      requirementWithClientInfo.contactPerson = `${requirement.createdBy.firstName} ${requirement.createdBy.lastName}`;
+      requirementWithClientInfo.contactEmail = requirement.createdBy.email;
+      requirementWithClientInfo.contactCompany = requirement.createdBy.companyName;
+    }
+    
+    return requirementWithClientInfo;
+  });
+
   const total = await Requirement.countDocuments(query);
 
   res.status(200).json(
     ApiResponse.success(
-      requirements,
+      requirementsWithClientInfo,
       'Requirements retrieved successfully',
       {
         page: parseInt(page),
@@ -130,14 +170,31 @@ const getRequirements = asyncHandler(async (req, res, next) => {
 const getRequirement = asyncHandler(async (req, res, next) => {
   const requirement = await Requirement.findById(req.params.id)
     .populate('category')
-    .populate('skills');
+    .populate('skills')
+    .populate('createdBy', 'firstName lastName email companyName contactPerson')
+    .populate('organizationId', 'name organizationType');
 
   if (!requirement) {
     return next(new ErrorResponse('Requirement not found', 404));
   }
 
+  // Add client information to the response
+  const requirementWithClientInfo = requirement.toObject();
+  
+  // Add client name and contact person
+  if (requirement.organizationId) {
+    requirementWithClientInfo.clientName = requirement.organizationId.name;
+    requirementWithClientInfo.clientType = requirement.organizationId.organizationType;
+  }
+  
+  if (requirement.createdBy) {
+    requirementWithClientInfo.contactPerson = `${requirement.createdBy.firstName} ${requirement.createdBy.lastName}`;
+    requirementWithClientInfo.contactEmail = requirement.createdBy.email;
+    requirementWithClientInfo.contactCompany = requirement.createdBy.companyName;
+  }
+
   res.status(200).json(
-    ApiResponse.success(requirement, 'Requirement retrieved successfully')
+    ApiResponse.success(requirementWithClientInfo, 'Requirement retrieved successfully')
   );
 });
 
@@ -191,10 +248,27 @@ const updateRequirement = asyncHandler(async (req, res, next) => {
     runValidators: true
   })
   .populate('category')
-  .populate('skills');
+  .populate('skills')
+  .populate('createdBy', 'firstName lastName email companyName contactPerson')
+  .populate('organizationId', 'name organizationType');
+
+  // Add client information to the response
+  const requirementWithClientInfo = requirement.toObject();
+  
+  // Add client name and contact person
+  if (requirement.organizationId) {
+    requirementWithClientInfo.clientName = requirement.organizationId.name;
+    requirementWithClientInfo.clientType = requirement.organizationId.organizationType;
+  }
+  
+  if (requirement.createdBy) {
+    requirementWithClientInfo.contactPerson = `${requirement.createdBy.firstName} ${requirement.createdBy.lastName}`;
+    requirementWithClientInfo.contactEmail = requirement.createdBy.email;
+    requirementWithClientInfo.contactCompany = requirement.createdBy.companyName;
+  }
 
   res.status(200).json(
-    ApiResponse.success(requirement, 'Requirement updated successfully')
+    ApiResponse.success(requirementWithClientInfo, 'Requirement updated successfully')
   );
 });
 
@@ -230,10 +304,27 @@ const updateRequirementStatus = asyncHandler(async (req, res, next) => {
     }
   )
   .populate('category')
-  .populate('skills');
+  .populate('skills')
+  .populate('createdBy', 'firstName lastName email companyName contactPerson')
+  .populate('organizationId', 'name organizationType');
+
+  // Add client information to the response
+  const requirementWithClientInfo = requirement.toObject();
+  
+  // Add client name and contact person
+  if (requirement.organizationId) {
+    requirementWithClientInfo.clientName = requirement.organizationId.name;
+    requirementWithClientInfo.clientType = requirement.organizationId.organizationType;
+  }
+  
+  if (requirement.createdBy) {
+    requirementWithClientInfo.contactPerson = `${requirement.createdBy.firstName} ${requirement.createdBy.lastName}`;
+    requirementWithClientInfo.contactEmail = requirement.createdBy.email;
+    requirementWithClientInfo.contactCompany = requirement.createdBy.companyName;
+  }
 
   res.status(200).json(
-    ApiResponse.success(requirement, 'Requirement status updated successfully')
+    ApiResponse.success(requirementWithClientInfo, 'Requirement status updated successfully')
   );
 });
 

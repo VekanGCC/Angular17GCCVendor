@@ -96,7 +96,8 @@ export class VendorApplicationsComponent implements OnInit, OnChanges {
       },
       cellRenderer: (params: any) => {
         const resourceName = this.getResourceName(params.data);
-        return `<div class="text-sm text-gray-900">${resourceName}</div>`;
+        const displayName = resourceName.length > 20 ? resourceName.substring(0, 20) + '...' : resourceName;
+        return `<div class="text-sm text-gray-900" title="${resourceName}">${displayName}</div>`;
       }
     },
     { 
@@ -114,7 +115,8 @@ export class VendorApplicationsComponent implements OnInit, OnChanges {
       },
       cellRenderer: (params: any) => {
         const requirementTitle = this.getRequirementTitle(params.data);
-        return `<div class="text-sm text-gray-900">${requirementTitle}</div>`;
+        const displayTitle = requirementTitle.length > 20 ? requirementTitle.substring(0, 20) + '...' : requirementTitle;
+        return `<div class="text-sm text-gray-900" title="${requirementTitle}">${displayTitle}</div>`;
       }
     },
     { 

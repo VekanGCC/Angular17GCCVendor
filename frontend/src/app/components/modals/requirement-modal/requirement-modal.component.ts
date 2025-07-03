@@ -184,7 +184,7 @@ export class RequirementModalComponent implements OnInit, OnChanges {
       category: (this.requirement.category as any)?._id || this.requirement.category, // Handle both object and string
       location: (this.requirement.location as any)?.city || this.requirement.location,
       timeline: {
-        duration: parseInt(this.requirement.duration) || 6,
+        duration: typeof this.requirement.duration === 'string' ? parseInt(this.requirement.duration) : this.requirement.duration || 6,
         start_date: this.requirement.startDate ? new Date(this.requirement.startDate).toISOString().split('T')[0] : this.today
       },
       budget: {

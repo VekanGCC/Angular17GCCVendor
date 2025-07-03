@@ -117,6 +117,11 @@ export const routes: Routes = [
         loadComponent: () => import('./components/vendor-dashboard/apply-requirement-page/apply-requirement-page.component')
           .then(m => m.ApplyRequirementPageComponent)
       },
+      { 
+        path: 'requirements/:id', 
+        loadComponent: () => import('./components/vendor-dashboard/requirement-details/requirement-details.component')
+          .then(m => m.RequirementDetailsComponent)
+      },
     ]
   },
   {

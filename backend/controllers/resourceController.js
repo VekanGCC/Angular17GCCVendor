@@ -30,10 +30,31 @@ const getResources = asyncHandler(async (req, res, next) => {
   let query = {};
 
   if (search) {
+    console.log('🔧 Backend ResourceController: Searching for term:', search);
+    
+    // First, try to find skills by name that match the search term
+    const AdminSkill = require('../models/AdminSkill');
+    const matchingSkills = await AdminSkill.find({
+      name: { $regex: search, $options: 'i' }
+    }).select('_id name');
+    
+    console.log('🔧 Backend ResourceController: Found matching skills:', matchingSkills);
+    
+    const skillIds = matchingSkills.map(skill => skill._id);
+    
+    // Build search query to include name, description, and skills
     query.$or = [
       { name: { $regex: search, $options: 'i' } },
       { description: { $regex: search, $options: 'i' } }
     ];
+    
+    // If we found matching skills, also search in skills field
+    if (skillIds.length > 0) {
+      query.$or.push({ skills: { $in: skillIds } });
+      console.log('🔧 Backend ResourceController: Added skills search with IDs:', skillIds);
+    }
+    
+    console.log('🔧 Backend ResourceController: Final search query:', JSON.stringify(query, null, 2));
   }
 
   if (status) {

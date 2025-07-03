@@ -62,9 +62,9 @@ export class VendorRequirementsComponent implements OnInit, OnChanges, OnDestroy
 
   // AG Grid properties
   columnDefs: ColDef[] = [
-    { 
-      headerName: 'Opportunity', 
-      field: 'title', 
+    {
+      headerName: 'Opportunity',
+      field: 'title',
       flex: 2,
       sortable: false,
       filter: false,
@@ -73,18 +73,31 @@ export class VendorRequirementsComponent implements OnInit, OnChanges, OnDestroy
         const requirement = params.data;
         const title = requirement.title || 'No Title';
         const description = requirement.description || 'No Description';
-        
-        // Truncate title to 20 characters
         const truncatedTitle = title.length > 20 ? title.substring(0, 20) + '...' : title;
-        
+
         return `
           <div class="flex items-center justify-start text-left w-full min-w-0">
             <div class="min-w-0 flex-1 overflow-hidden">
-              <div class="text-sm font-medium text-gray-900" title="${title}">${truncatedTitle}</div>
+              <div class="text-sm font-medium text-blue-600 hover:text-blue-800 cursor-pointer underline requirement-link"
+                   title="${title}"
+                   data-requirement-id="${requirement._id}">
+                ${truncatedTitle}
+              </div>
               <div class="text-xs text-gray-500 truncate" title="${description}">${description}</div>
             </div>
           </div>
         `;
+      },
+      onCellClicked: (params: any) => {
+        const target = params.event.target as HTMLElement;
+        const id = target?.getAttribute('data-requirement-id');
+        if (id) {
+          // Use window object to get component reference
+          const component = (window as any).vendorRequirementsComponent;
+          if (component) {
+            component.onNavigateToRequirement(id);
+          }
+        }
       }
     },
     {
@@ -244,6 +257,9 @@ export class VendorRequirementsComponent implements OnInit, OnChanges, OnDestroy
     console.log('🔧 VendorRequirementsComponent: ngOnInit called');
     this.loadAvailableSkills();
     this.loadRequirements();
+    
+    // Set component reference for AG Grid
+    (window as any).vendorRequirementsComponent = this;
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -254,6 +270,9 @@ export class VendorRequirementsComponent implements OnInit, OnChanges, OnDestroy
   ngOnDestroy(): void {
     console.log('🔄 VendorRequirements: Component being destroyed');
     document.removeEventListener('click', this.handleClickOutside);
+    
+    // Clean up component reference
+    delete (window as any).vendorRequirementsComponent;
   }
 
   private handleClickOutside = (event: Event) => {
@@ -499,6 +518,12 @@ export class VendorRequirementsComponent implements OnInit, OnChanges, OnDestroy
         name: error.name
       });
     });
+  }
+
+  onNavigateToRequirement(requirementId: string): void {
+    this.router.navigate(['/vendor/requirements', requirementId])
+      .then(() => console.log('✅ Navigated to requirement details:', this.router.url))
+      .catch(error => console.error('❌ Navigation error:', error));
   }
 
   onPageChange(page: number): void {
