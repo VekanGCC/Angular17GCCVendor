@@ -15,8 +15,27 @@ const {
   getTransaction,
   updateTransaction,
   getAdminUsers,
-  createAdminUser
+  createAdminUser,
+  getVendorEmployees
 } = require('../controllers/adminController');
+
+const {
+  getUserGrowthReport,
+  getRevenueReport,
+  getServicePerformanceReport,
+  getVendorPerformanceReport,
+  getClientActivityReport,
+  getUserRegistrationReport,
+  getResourcesReport,
+  getRequirementsReport,
+  getApplicationsReport,
+  getSkillsReport,
+  getFinancialReport,
+  getMonthlyGrowthReport,
+  createCustomReport,
+  getReportTemplates,
+  saveReportTemplate
+} = require('../controllers/adminReportController');
 const { protect } = require('../middleware/adminMiddleware');
 
 // All routes are protected and admin-only
@@ -51,5 +70,27 @@ router.route('/transactions/:id')
 router.route('/users')
   .get(getAdminUsers)
   .post(createAdminUser);
+
+// Vendor employee management (Admin access)
+router.get('/vendor-employees', getVendorEmployees);
+
+// Admin reporting routes
+router.get('/reports/user-growth-reporting', getUserGrowthReport);
+router.get('/reports/revenue-reporting', getRevenueReport);
+router.get('/reports/service-performance-reporting', getServicePerformanceReport);
+router.get('/reports/vendor-performance-reporting', getVendorPerformanceReport);
+router.get('/reports/client-activity-reporting', getClientActivityReport);
+router.get('/reports/user-registration-reporting', getUserRegistrationReport);
+router.get('/reports/resources-reporting', getResourcesReport);
+router.get('/reports/requirements-reporting', getRequirementsReport);
+router.get('/reports/applications-reporting', getApplicationsReport);
+router.get('/reports/skills-reporting', getSkillsReport);
+router.get('/reports/financial-reporting', getFinancialReport);
+router.get('/reports/monthly-growth-reporting', getMonthlyGrowthReport);
+
+// Custom reporting routes
+router.post('/reports/custom-reporting', createCustomReport);
+router.get('/reports/templates-reporting', getReportTemplates);
+router.post('/reports/save-template-reporting', saveReportTemplate);
 
 module.exports = router;

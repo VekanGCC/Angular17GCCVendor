@@ -259,4 +259,37 @@ export class AdminService {
   getUserProfile(userId: string): Observable<ApiResponse<any>> {
     return this.apiService.get<ApiResponse<any>>(`/admin/users/${userId}/profile`);
   }
+
+  // Admin-only profile update methods
+  updateUserProfile(userId: string, profileData: Partial<any>): Observable<ApiResponse<any>> {
+    return this.apiService.put<ApiResponse<any>>(`/admin/users/${userId}/profile`, profileData);
+  }
+
+  updateUserAddress(userId: string, addressId: string, address: Partial<any>): Observable<ApiResponse<any>> {
+    return this.apiService.put<ApiResponse<any>>(`/admin/users/${userId}/addresses/${addressId}`, address);
+  }
+
+  addUserAddress(userId: string, address: any): Observable<ApiResponse<any>> {
+    return this.apiService.post<ApiResponse<any>>(`/admin/users/${userId}/addresses`, address);
+  }
+
+  deleteUserAddress(userId: string, addressId: string): Observable<ApiResponse<any>> {
+    return this.apiService.delete<ApiResponse<any>>(`/admin/users/${userId}/addresses/${addressId}`);
+  }
+
+  updateUserBankDetails(userId: string, bankDetailsId: string, bankDetails: Partial<any>): Observable<ApiResponse<any>> {
+    return this.apiService.put<ApiResponse<any>>(`/admin/users/${userId}/bank-details/${bankDetailsId}`, bankDetails);
+  }
+
+  addUserBankDetails(userId: string, bankDetails: any): Observable<ApiResponse<any>> {
+    return this.apiService.post<ApiResponse<any>>(`/admin/users/${userId}/bank-details`, bankDetails);
+  }
+
+  deleteUserBankDetails(userId: string, bankDetailsId: string): Observable<ApiResponse<any>> {
+    return this.apiService.delete<ApiResponse<any>>(`/admin/users/${userId}/bank-details/${bankDetailsId}`);
+  }
+
+  updateUserCompliance(userId: string, compliance: Partial<any>): Observable<ApiResponse<any>> {
+    return this.apiService.put<ApiResponse<any>>(`/admin/users/${userId}/compliance`, compliance);
+  }
 }

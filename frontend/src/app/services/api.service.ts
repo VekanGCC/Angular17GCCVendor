@@ -509,7 +509,7 @@ export class ApiService {
   // Vendor User APIs
   getVendorUsers(): Observable<any> {
     console.log('👥 API: Fetching vendor users...');
-    return this.get('/vendor/organization/employees');
+    return this.get('/admin/vendor-employees');
   }
 
   createVendorUser(user: any): Observable<any> {
@@ -894,5 +894,57 @@ export class ApiService {
         return throwError(() => error);
       })
     );
+  }
+
+  // Admin Reporting APIs
+  getUserRegistrationReport(params?: any): Observable<any> {
+    console.log('📊 API: Fetching user registration report...');
+    return this.get<any>('/admin/reports/user-registration-reporting', params);
+  }
+
+  getResourcesReport(params?: any): Observable<any> {
+    console.log('📊 API: Fetching resources report...');
+    return this.get<any>('/admin/reports/resources-reporting', params);
+  }
+
+  getRequirementsReport(params?: any): Observable<any> {
+    console.log('📊 API: Fetching requirements report...');
+    return this.get<any>('/admin/reports/requirements-reporting', params);
+  }
+
+  getApplicationsReport(params?: any): Observable<any> {
+    console.log('📊 API: Fetching applications report...');
+    return this.get<any>('/admin/reports/applications-reporting', params);
+  }
+
+  getSkillsReport(params?: any): Observable<any> {
+    console.log('📊 API: Fetching skills report...');
+    return this.get<any>('/admin/reports/skills-reporting', params);
+  }
+
+  getFinancialReport(params?: any): Observable<any> {
+    console.log('📊 API: Fetching financial report...');
+    return this.get<any>('/admin/reports/financial-reporting', params);
+  }
+
+  getMonthlyGrowthReport(params?: any): Observable<any> {
+    console.log('📊 API: Fetching monthly growth report...');
+    return this.get<any>('/admin/reports/monthly-growth-reporting', params);
+  }
+
+  // Custom reporting APIs
+  createCustomReport(config: any): Observable<any> {
+    console.log('📊 API: Creating custom report...');
+    return this.post<any>('/admin/reports/custom-reporting', config);
+  }
+
+  getReportTemplates(): Observable<any> {
+    console.log('📊 API: Fetching report templates...');
+    return this.get<any>('/admin/reports/templates-reporting');
+  }
+
+  saveReportTemplate(template: any): Observable<any> {
+    console.log('📊 API: Saving report template...');
+    return this.post<any>('/admin/reports/save-template-reporting', template);
   }
 }

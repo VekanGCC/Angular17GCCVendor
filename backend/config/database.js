@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const connectDB = async () => {
   try {
     // Force IPv4 by using 127.0.0.1 instead of localhost
-    const mongoURI = 'mongodb://127.0.0.1:27017/venkan212';
+    const mongoURI = 'mongodb://127.0.0.1:27017/venkan213';
     console.log('Attempting to connect to MongoDB:', mongoURI);
     
     const conn = await mongoose.connect(mongoURI, {

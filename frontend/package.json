@@ -21,6 +21,7 @@
     "@angular/router": "^17.3.0",
     "ag-grid-angular": "^33.3.2",
     "ag-grid-community": "^33.3.2",
+    "chart.js": "^4.5.0",
     "lucide-angular": "^0.344.0",
     "ngx-toastr": "^19.0.0",
     "rxjs": "~7.8.0",

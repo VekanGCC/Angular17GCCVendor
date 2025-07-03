@@ -80,6 +80,16 @@
         <img src="assets/icons/lucide/lucide/users.svg" alt="users" class="w-5 h-5 mr-3" />
         <span class="font-medium">Users</span>
       </button>
+
+      <button
+        (click)="setActiveTab('reports')"
+        [class]="'w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ' + 
+          (activeTab === 'reports'
+            ? 'bg-red-50 text-red-700 border border-red-200'
+            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900')">
+        <img src="assets/icons/lucide/lucide/bar-chart-3.svg" alt="reports" class="w-5 h-5 mr-3" />
+        <span class="font-medium">Reports & Analytics</span>
+      </button>
     </nav>
 
     <!-- Stats Summary -->
@@ -110,7 +120,8 @@
               activeTab === 'skills' ? 'Skill Management' :
               activeTab === 'categories' ? 'Category Management' :
               activeTab === 'applications' ? 'All Applications' :
-              'User Management'}}
+              activeTab === 'users' ? 'User Management' :
+              'Reports & Analytics'}}
           </h2>
           <p class="text-gray-600 mt-1">
             {{activeTab === 'overview' ? 'Monitor platform performance and key metrics' :
@@ -118,7 +129,8 @@
               activeTab === 'skills' ? 'Manage platform skills and categories' :
               activeTab === 'categories' ? 'Manage platform categories' :
               activeTab === 'applications' ? 'View all applications from vendors and clients' :
-              'Manage all platform users and permissions'}}
+              activeTab === 'users' ? 'Manage all platform users and permissions' :
+              'Comprehensive analytics and reporting dashboard'}}
           </p>
         </div>
         <div class="flex items-center space-x-3">
@@ -195,6 +207,11 @@
         (pageChange)="onUsersPageChange($event)"
         (editUser)="editUser($event)">
       </app-users-management>
+
+      <!-- Reports Tab -->
+      <app-admin-reports 
+        *ngIf="activeTab === 'reports'">
+      </app-admin-reports>
 
       <!-- User Profile Tab -->
       <app-profile-dashboard 

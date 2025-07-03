@@ -30,6 +30,7 @@ import { CategoriesManagementComponent } from './categories-management/categorie
 import { ApplicationsViewComponent } from './applications-view/applications-view.component';
 import { UsersManagementComponent } from './users-management/users-management.component';
 import { ProfileDashboardComponent } from '../profile/profile-dashboard.component';
+import { AdminReportsComponent } from './admin-reports/admin-reports.component';
 
 interface ApiResponse<T> {
   success: boolean;
@@ -68,7 +69,8 @@ interface NavigationTab {
     CategoriesManagementComponent,
     ApplicationsViewComponent,
     UsersManagementComponent,
-    ProfileDashboardComponent
+    ProfileDashboardComponent,
+    AdminReportsComponent
   ],
   templateUrl: './admin-dashboard.component.html',
   styleUrls: ['./admin-dashboard.component.scss']
@@ -76,7 +78,7 @@ interface NavigationTab {
 export class AdminDashboardComponent implements OnInit, OnDestroy {
   currentUser: User | null = null;
   isLoading = false;
-  activeTab: 'overview' | 'skill-approvals' | 'skills' | 'applications' | 'users' | 'user-profile' | 'categories' = 'overview';
+  activeTab: 'overview' | 'skill-approvals' | 'skills' | 'applications' | 'users' | 'user-profile' | 'categories' | 'reports' = 'overview';
   
   // Data
   skillApprovals: SkillApproval[] = [];
@@ -434,7 +436,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     }
   }
 
-  setActiveTab(tab: 'overview' | 'skill-approvals' | 'skills' | 'applications' | 'users' | 'user-profile' | 'categories'): void {
+  setActiveTab(tab: 'overview' | 'skill-approvals' | 'skills' | 'applications' | 'users' | 'user-profile' | 'categories' | 'reports'): void {
     this.activeTab = tab;
     
     // Reset pagination states when switching tabs

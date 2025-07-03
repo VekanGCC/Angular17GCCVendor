@@ -593,6 +593,36 @@ const createAdminUser = asyncHandler(async (req, res, next) => {
   });
 });
 
+// @desc    Get vendor employees (Admin access)
+// @route   GET /api/admin/vendor-employees
+// @access  Private (Admin only)
+const getVendorEmployees = asyncHandler(async (req, res, next) => {
+  const { organizationId, vendorId } = req.query;
+  
+  let query = { userType: 'vendor' };
+  
+  // If organizationId is provided, filter by organization
+  if (organizationId) {
+    query.organizationId = organizationId;
+  }
+  
+  // If vendorId is provided, filter by specific vendor
+  if (vendorId) {
+    query._id = vendorId;
+  }
+  
+  const employees = await User.find(query)
+    .select('firstName lastName email phone organizationRole isActive isEmailVerified approvalStatus organizationId companyName createdAt')
+    .populate('organizationId', 'name')
+    .sort('-createdAt');
+
+  res.status(200).json({
+    success: true,
+    count: employees.length,
+    data: employees
+  });
+});
+
 module.exports = {
   getPendingApprovals,
   getApproval,
@@ -608,5 +638,6 @@ module.exports = {
   getTransaction,
   updateTransaction,
   getAdminUsers,
-  createAdminUser
+  createAdminUser,
+  getVendorEmployees
 };

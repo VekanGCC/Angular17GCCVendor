@@ -50,8 +50,8 @@
               </div>
             </td>
             <td class="px-6 py-4 whitespace-nowrap">
-              <span [class]="'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ' + getUserTypeColor(user.userType)">
-                {{user.userType | titlecase}}
+              <span [class]="'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ' + getUserRoleColor(user)">
+                {{getUserRoleDisplay(user)}}
               </span>
             </td>
             <td class="px-6 py-4 whitespace-nowrap">

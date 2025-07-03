@@ -33,6 +33,16 @@ export class ProfileDashboardComponent implements OnInit, OnDestroy, OnChanges {
   showRejectModal = false;
   rejectNotes = '';
 
+  // Edit states
+  isEditingPersonal = false;
+  isEditingCompliance = false;
+  showAddAddressModal = false;
+  showAddBankDetailsModal = false;
+
+  // Form data for editing
+  editPersonalForm: any = {};
+  editComplianceForm: any = {};
+
   // Define the tab list as a type-safe array
   tabList: { value: 'personal' | 'addresses' | 'bank' | 'compliance', label: string }[] = [
     { value: 'personal', label: 'Personal' },
@@ -41,7 +51,7 @@ export class ProfileDashboardComponent implements OnInit, OnDestroy, OnChanges {
     { value: 'compliance', label: 'Compliance' }
   ];
 
-  private subscriptions: Subscription[] = [];
+  private subscriptions = new Subscription();
 
   constructor(
     private profileService: ProfileService,
@@ -54,7 +64,7 @@ export class ProfileDashboardComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   ngOnDestroy(): void {
-    this.subscriptions.forEach(sub => sub.unsubscribe());
+    this.subscriptions.unsubscribe();
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -68,7 +78,7 @@ export class ProfileDashboardComponent implements OnInit, OnDestroy, OnChanges {
     
     if (this.isAdminView && this.userId) {
       // Load specific user's profile for admin view
-      this.subscriptions.push(
+      this.subscriptions.add(
         this.adminService.getUserProfile(this.userId).subscribe({
           next: (response) => {
             if (response.success) {
@@ -84,7 +94,7 @@ export class ProfileDashboardComponent implements OnInit, OnDestroy, OnChanges {
       );
     } else {
       // Load current user's profile
-      this.subscriptions.push(
+      this.subscriptions.add(
         this.profileService.getProfile().subscribe({
           next: (data) => {
             this.profileData = data;
@@ -149,5 +159,220 @@ export class ProfileDashboardComponent implements OnInit, OnDestroy, OnChanges {
   isCurrentUserAdmin(): boolean {
     const currentUser = this.authService.getCurrentUser();
     return currentUser?.userType === 'admin';
+  }
+
+  // Check if profile can be edited (only admins can edit)
+  canEditProfile(): boolean {
+    return this.isCurrentUserAdmin();
+  }
+
+  // Admin-only update methods
+  updateProfile(profileData: Partial<any>): void {
+    if (!this.canEditProfile() || !this.userId) return;
+
+    this.subscriptions.add(
+      this.adminService.updateUserProfile(this.userId, profileData).subscribe({
+        next: (response) => {
+          if (response.success) {
+            this.loadProfileData(); // Refresh data
+          }
+        },
+        error: (error) => {
+          console.error('Error updating profile:', error);
+        }
+      })
+    );
+  }
+
+  updateAddress(addressId: string, address: Partial<any>): void {
+    if (!this.canEditProfile() || !this.userId) return;
+
+    this.subscriptions.add(
+      this.adminService.updateUserAddress(this.userId, addressId, address).subscribe({
+        next: (response) => {
+          if (response.success) {
+            this.loadProfileData(); // Refresh data
+          }
+        },
+        error: (error) => {
+          console.error('Error updating address:', error);
+        }
+      })
+    );
+  }
+
+  addAddress(address: any): void {
+    if (!this.canEditProfile() || !this.userId) return;
+
+    this.subscriptions.add(
+      this.adminService.addUserAddress(this.userId, address).subscribe({
+        next: (response) => {
+          if (response.success) {
+            this.loadProfileData(); // Refresh data
+          }
+        },
+        error: (error) => {
+          console.error('Error adding address:', error);
+        }
+      })
+    );
+  }
+
+  deleteAddress(addressId: string): void {
+    if (!this.canEditProfile() || !this.userId) return;
+
+    this.subscriptions.add(
+      this.adminService.deleteUserAddress(this.userId, addressId).subscribe({
+        next: (response) => {
+          if (response.success) {
+            this.loadProfileData(); // Refresh data
+          }
+        },
+        error: (error) => {
+          console.error('Error deleting address:', error);
+        }
+      })
+    );
+  }
+
+  updateBankDetails(bankDetailsId: string, bankDetails: Partial<any>): void {
+    if (!this.canEditProfile() || !this.userId) return;
+
+    this.subscriptions.add(
+      this.adminService.updateUserBankDetails(this.userId, bankDetailsId, bankDetails).subscribe({
+        next: (response) => {
+          if (response.success) {
+            this.loadProfileData(); // Refresh data
+          }
+        },
+        error: (error) => {
+          console.error('Error updating bank details:', error);
+        }
+      })
+    );
+  }
+
+  addBankDetails(bankDetails: any): void {
+    if (!this.canEditProfile() || !this.userId) return;
+
+    this.subscriptions.add(
+      this.adminService.addUserBankDetails(this.userId, bankDetails).subscribe({
+        next: (response) => {
+          if (response.success) {
+            this.loadProfileData(); // Refresh data
+          }
+        },
+        error: (error) => {
+          console.error('Error adding bank details:', error);
+        }
+      })
+    );
+  }
+
+  deleteBankDetails(bankDetailsId: string): void {
+    if (!this.canEditProfile() || !this.userId) return;
+
+    this.subscriptions.add(
+      this.adminService.deleteUserBankDetails(this.userId, bankDetailsId).subscribe({
+        next: (response) => {
+          if (response.success) {
+            this.loadProfileData(); // Refresh data
+          }
+        },
+        error: (error) => {
+          console.error('Error deleting bank details:', error);
+        }
+      })
+    );
+  }
+
+  updateCompliance(compliance: Partial<any>): void {
+    if (!this.canEditProfile() || !this.userId) return;
+
+    this.subscriptions.add(
+      this.adminService.updateUserCompliance(this.userId, compliance).subscribe({
+        next: (response) => {
+          if (response.success) {
+            this.loadProfileData(); // Refresh data
+          }
+        },
+        error: (error) => {
+          console.error('Error updating compliance:', error);
+        }
+      })
+    );
+  }
+
+  // Edit methods for UI
+  startEditingPersonal(): void {
+    if (!this.canEditProfile() || !this.profileData?.user) return;
+    
+    this.editPersonalForm = {
+      firstName: this.profileData.user.firstName,
+      lastName: this.profileData.user.lastName,
+      phone: this.profileData.user.phone,
+      companyName: this.profileData.user.companyName,
+      contactPerson: this.profileData.user.contactPerson,
+      gstNumber: this.profileData.user.gstNumber,
+      serviceType: this.profileData.user.serviceType,
+      paymentTerms: this.profileData.user.paymentTerms
+    };
+    this.isEditingPersonal = true;
+  }
+
+  savePersonalInfo(): void {
+    if (!this.canEditProfile() || !this.userId) return;
+
+    this.updateProfile(this.editPersonalForm);
+    this.isEditingPersonal = false;
+  }
+
+  cancelEditingPersonal(): void {
+    this.isEditingPersonal = false;
+    this.editPersonalForm = {};
+  }
+
+  startEditingCompliance(): void {
+    if (!this.canEditProfile() || !this.profileData?.compliance) return;
+    
+    this.editComplianceForm = {
+      panNumber: this.profileData.compliance.panNumber,
+      registeredUnderESI: this.profileData.compliance.registeredUnderESI,
+      esiRegistrationNumber: this.profileData.compliance.esiRegistrationNumber,
+      registeredUnderPF: this.profileData.compliance.registeredUnderPF,
+      pfRegistrationNumber: this.profileData.compliance.pfRegistrationNumber,
+      registeredUnderMSMED: this.profileData.compliance.registeredUnderMSMED,
+      msmedRegistrationNumber: this.profileData.compliance.msmedRegistrationNumber,
+      compliesWithStatutoryRequirements: this.profileData.compliance.compliesWithStatutoryRequirements,
+      hasCloseRelativesInCompany: this.profileData.compliance.hasCloseRelativesInCompany,
+      hasAdequateSafetyStandards: this.profileData.compliance.hasAdequateSafetyStandards,
+      hasOngoingLitigation: this.profileData.compliance.hasOngoingLitigation
+    };
+    this.isEditingCompliance = true;
+  }
+
+  saveCompliance(): void {
+    if (!this.canEditProfile() || !this.userId) return;
+
+    this.updateCompliance(this.editComplianceForm);
+    this.isEditingCompliance = false;
+  }
+
+  cancelEditingCompliance(): void {
+    this.isEditingCompliance = false;
+    this.editComplianceForm = {};
+  }
+
+  // Edit methods for addresses and bank details
+  editAddress(address: any): void {
+    if (!this.canEditProfile()) return;
+    // TODO: Implement address editing modal
+    console.log('Edit address:', address);
+  }
+
+  editBankDetails(bankDetails: any): void {
+    if (!this.canEditProfile()) return;
+    // TODO: Implement bank details editing modal
+    console.log('Edit bank details:', bankDetails);
   }
 } 

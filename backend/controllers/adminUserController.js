@@ -261,6 +261,181 @@ const getUserProfile = asyncHandler(async (req, res, next) => {
   });
 });
 
+// @desc    Update user profile (Admin only)
+// @route   PUT /api/admin/users/:id/profile
+// @access  Private (Admin only)
+const updateUserProfile = asyncHandler(async (req, res, next) => {
+  const userId = req.params.id;
+  const updateData = req.body;
+
+  // Prevent updating sensitive fields
+  delete updateData.password;
+  delete updateData.email; // Email changes should go through verification
+  delete updateData.userType; // User type changes should be restricted
+
+  const user = await User.findByIdAndUpdate(
+    userId,
+    updateData,
+    { new: true, runValidators: true }
+  ).select('-password -emailVerificationToken -phoneVerificationCode -passwordResetToken');
+
+  if (!user) {
+    return next(new ErrorResponse('User not found', 404));
+  }
+
+  res.status(200).json({
+    success: true,
+    data: user,
+    message: 'User profile updated successfully'
+  });
+});
+
+// @desc    Update user address (Admin only)
+// @route   PUT /api/admin/users/:id/addresses/:addressId
+// @access  Private (Admin only)
+const updateUserAddress = asyncHandler(async (req, res, next) => {
+  const { addressId } = req.params;
+  const updateData = req.body;
+
+  const address = await UserAddress.findOneAndUpdate(
+    { _id: addressId, userId: req.params.id },
+    updateData,
+    { new: true, runValidators: true }
+  );
+
+  if (!address) {
+    return next(new ErrorResponse('Address not found', 404));
+  }
+
+  res.status(200).json({
+    success: true,
+    data: address,
+    message: 'Address updated successfully'
+  });
+});
+
+// @desc    Add user address (Admin only)
+// @route   POST /api/admin/users/:id/addresses
+// @access  Private (Admin only)
+const addUserAddress = asyncHandler(async (req, res, next) => {
+  const addressData = {
+    ...req.body,
+    userId: req.params.id
+  };
+
+  const address = await UserAddress.create(addressData);
+
+  res.status(201).json({
+    success: true,
+    data: address,
+    message: 'Address added successfully'
+  });
+});
+
+// @desc    Delete user address (Admin only)
+// @route   DELETE /api/admin/users/:id/addresses/:addressId
+// @access  Private (Admin only)
+const deleteUserAddress = asyncHandler(async (req, res, next) => {
+  const { addressId } = req.params;
+
+  const address = await UserAddress.findOneAndDelete({
+    _id: addressId,
+    userId: req.params.id
+  });
+
+  if (!address) {
+    return next(new ErrorResponse('Address not found', 404));
+  }
+
+  res.status(200).json({
+    success: true,
+    message: 'Address deleted successfully'
+  });
+});
+
+// @desc    Update user bank details (Admin only)
+// @route   PUT /api/admin/users/:id/bank-details/:bankDetailsId
+// @access  Private (Admin only)
+const updateUserBankDetails = asyncHandler(async (req, res, next) => {
+  const { bankDetailsId } = req.params;
+  const updateData = req.body;
+
+  const bankDetails = await UserBankDetails.findOneAndUpdate(
+    { _id: bankDetailsId, userId: req.params.id },
+    updateData,
+    { new: true, runValidators: true }
+  );
+
+  if (!bankDetails) {
+    return next(new ErrorResponse('Bank details not found', 404));
+  }
+
+  res.status(200).json({
+    success: true,
+    data: bankDetails,
+    message: 'Bank details updated successfully'
+  });
+});
+
+// @desc    Add user bank details (Admin only)
+// @route   POST /api/admin/users/:id/bank-details
+// @access  Private (Admin only)
+const addUserBankDetails = asyncHandler(async (req, res, next) => {
+  const bankDetailsData = {
+    ...req.body,
+    userId: req.params.id
+  };
+
+  const bankDetails = await UserBankDetails.create(bankDetailsData);
+
+  res.status(201).json({
+    success: true,
+    data: bankDetails,
+    message: 'Bank details added successfully'
+  });
+});
+
+// @desc    Delete user bank details (Admin only)
+// @route   DELETE /api/admin/users/:id/bank-details/:bankDetailsId
+// @access  Private (Admin only)
+const deleteUserBankDetails = asyncHandler(async (req, res, next) => {
+  const { bankDetailsId } = req.params;
+
+  const bankDetails = await UserBankDetails.findOneAndDelete({
+    _id: bankDetailsId,
+    userId: req.params.id
+  });
+
+  if (!bankDetails) {
+    return next(new ErrorResponse('Bank details not found', 404));
+  }
+
+  res.status(200).json({
+    success: true,
+    message: 'Bank details deleted successfully'
+  });
+});
+
+// @desc    Update user compliance (Admin only)
+// @route   PUT /api/admin/users/:id/compliance
+// @access  Private (Admin only)
+const updateUserCompliance = asyncHandler(async (req, res, next) => {
+  const userId = req.params.id;
+  const updateData = req.body;
+
+  const compliance = await UserStatutoryCompliance.findOneAndUpdate(
+    { userId },
+    updateData,
+    { new: true, runValidators: true, upsert: true }
+  );
+
+  res.status(200).json({
+    success: true,
+    data: compliance,
+    message: 'Compliance information updated successfully'
+  });
+});
+
 module.exports = {
   getAllUsers,
   getUserById,
@@ -268,5 +443,13 @@ module.exports = {
   toggleUserStatus,
   approveUser,
   resetUserPassword,
-  getUserProfile
+  getUserProfile,
+  updateUserProfile,
+  updateUserAddress,
+  addUserAddress,
+  deleteUserAddress,
+  updateUserBankDetails,
+  addUserBankDetails,
+  deleteUserBankDetails,
+  updateUserCompliance
 };
