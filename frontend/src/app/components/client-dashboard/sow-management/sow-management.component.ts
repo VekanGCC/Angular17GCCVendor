@@ -62,7 +62,7 @@ export class SOWManagementComponent implements OnInit, OnDestroy {
   showActionModal = false;
   showPMApprovalModal = false;
   selectedSOW: SOW | null = null;
-  actionType: 'approve' | 'reject' | 'pm-approval' = 'approve';
+  actionType: 'approve' | 'reject' | 'pm-approval' | 'send-to-vendor' = 'approve';
 
   // Forms
   sowForm!: FormGroup;
@@ -467,7 +467,7 @@ export class SOWManagementComponent implements OnInit, OnDestroy {
   onActionClick(sow: SOW, actionType: string): void {
     console.log('🔧 SOW Management: Action clicked for SOW:', sow._id, 'Action:', actionType);
     this.selectedSOW = sow;
-    this.actionType = actionType as 'approve' | 'reject' | 'pm-approval';
+    this.actionType = actionType as 'approve' | 'reject' | 'pm-approval' | 'send-to-vendor';
     
     if (actionType === 'pm-approval') {
       console.log('🔧 SOW Management: Opening PM approval modal');
@@ -485,6 +485,10 @@ export class SOWManagementComponent implements OnInit, OnDestroy {
       
       // Force change detection
       this.changeDetectorRef.detectChanges();
+    } else if (actionType === 'send-to-vendor') {
+      console.log('🔧 SOW Management: Processing send to vendor action');
+      // For send-to-vendor, we don't need a modal - just process the action directly
+      this.onSendToVendor(sow);
     } else {
       console.log('🔧 SOW Management: Opening action modal');
       this.showActionModal = true;
@@ -507,7 +511,7 @@ export class SOWManagementComponent implements OnInit, OnDestroy {
       this.isLoading = true;
       const comments = this.actionForm.get('comments')?.value;
 
-      const action = this.actionType === 'approve' ? 'approve' : this.actionType === 'reject' ? 'reject' : 'pm-approval';
+      const action = this.actionType;
       
       if (action === 'approve') {
         this.sowService.approveSOW(this.selectedSOW._id, comments)
@@ -533,6 +537,8 @@ export class SOWManagementComponent implements OnInit, OnDestroy {
       } else if (action === 'pm-approval') {
         this.showPMApprovalModal = true;
         this.showActionModal = false;
+      } else if (action === 'send-to-vendor') {
+        this.onSendToVendor(this.selectedSOW);
       }
     }
   }
@@ -542,25 +548,69 @@ export class SOWManagementComponent implements OnInit, OnDestroy {
       this.isLoading = true;
       const comments = this.pmApprovalForm.get('comments')?.value;
 
+      console.log('🔧 SOW Management: Submitting for PM approval - SOW ID:', this.selectedSOW._id, 'Comments:', comments);
+
       this.sowService.submitForPMApproval(this.selectedSOW._id, comments)
         .pipe(takeUntil(this.destroy$))
         .subscribe({
           next: (response: any) => {
+            console.log('🔧 SOW Management: PM approval response:', response);
             if (response.success) {
               this.showSuccessMessage('SOW submitted for PM approval successfully');
               this.loadSOWs();
               this.onCloseModal();
+              // Force change detection to ensure modal closes
+              this.changeDetectorRef.detectChanges();
+            } else {
+              console.error('🔧 SOW Management: PM approval failed:', response.message);
+              this.showErrorMessage(response.message || 'Failed to submit SOW for PM approval');
+              this.isLoading = false;
             }
           },
           error: (error: any) => {
-            console.error('Error submitting SOW for PM approval:', error);
+            console.error('🔧 SOW Management: Error submitting SOW for PM approval:', error);
             this.showErrorMessage('Failed to submit SOW for PM approval');
+            this.isLoading = false;
           },
           complete: () => {
+            console.log('🔧 SOW Management: PM approval request completed');
             this.isLoading = false;
           }
         });
     }
+  }
+
+  onSendToVendor(sow: SOW): void {
+    console.log('🔧 SOW Management: Sending SOW to vendor - SOW ID:', sow._id);
+    this.isLoading = true;
+
+    this.sowService.sendToVendor(sow._id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response: any) => {
+          console.log('🔧 SOW Management: Send to vendor response:', response);
+          if (response.success) {
+            this.showSuccessMessage('SOW sent to vendor successfully');
+            this.loadSOWs();
+            this.onCloseModal();
+            // Force change detection to ensure modal closes
+            this.changeDetectorRef.detectChanges();
+          } else {
+            console.error('🔧 SOW Management: Send to vendor failed:', response.message);
+            this.showErrorMessage(response.message || 'Failed to send SOW to vendor');
+            this.isLoading = false;
+          }
+        },
+        error: (error: any) => {
+          console.error('🔧 SOW Management: Error sending SOW to vendor:', error);
+          this.showErrorMessage('Failed to send SOW to vendor');
+          this.isLoading = false;
+        },
+        complete: () => {
+          console.log('🔧 SOW Management: Send to vendor request completed');
+          this.isLoading = false;
+        }
+      });
   }
 
   onCommentsInput(): void {
@@ -579,12 +629,34 @@ export class SOWManagementComponent implements OnInit, OnDestroy {
   }
 
   onCloseModal(): void {
+    console.log('🔧 SOW Management: Closing modal - Current states before:', {
+      showCreateModal: this.showCreateModal,
+      showViewModal: this.showViewModal,
+      showActionModal: this.showActionModal,
+      showPMApprovalModal: this.showPMApprovalModal
+    });
+    
     this.showCreateModal = false;
     this.showViewModal = false;
     this.showActionModal = false;
     this.showPMApprovalModal = false;
     this.selectedSOW = null;
     this.resetSelectedSOWDisplay();
+    
+    // Reset forms
+    this.sowForm?.reset();
+    this.actionForm?.reset();
+    this.pmApprovalForm?.reset();
+    
+    console.log('🔧 SOW Management: Modal states after reset:', {
+      showCreateModal: this.showCreateModal,
+      showViewModal: this.showViewModal,
+      showActionModal: this.showActionModal,
+      showPMApprovalModal: this.showPMApprovalModal
+    });
+    
+    // Force change detection
+    this.changeDetectorRef.detectChanges();
   }
 
   getStatusClass(status: string): string {

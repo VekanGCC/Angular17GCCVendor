@@ -5,8 +5,6 @@ import { AuthService } from '../../services/auth.service';
 import { User } from '../../models/user.model';
 import { Subscription } from 'rxjs';
 import { LayoutComponent } from '../layout/layout.component';
-import { VendorApplicationsService } from '../../services/vendor-applications.service';
-import { ApplicationHistoryModalComponent } from '../modals/application-history-modal/application-history-modal.component';
 
 
 @Component({
@@ -15,8 +13,7 @@ import { ApplicationHistoryModalComponent } from '../modals/application-history-
   imports: [
     CommonModule,
     RouterModule,
-    LayoutComponent,
-    ApplicationHistoryModalComponent
+    LayoutComponent
   ],
   templateUrl: './vendor-dashboard.component.html',
   styleUrls: ['./vendor-dashboard.component.css']
@@ -26,20 +23,12 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
   showMobileMenu = false;
   showFinanceManagementSubmenu = false;
 
-  // Application History Modal State
-  showHistoryModal = false;
-  selectedApplicationId: string = '';
-  isLoadingHistory = false;
-  applicationHistory: any[] = [];
-  applicationDetails: any = null;
-
   private subscriptions: Subscription[] = [];
 
   constructor(
     private authService: AuthService,
     private router: Router,
-    private changeDetectorRef: ChangeDetectorRef,
-    private vendorApplicationsService: VendorApplicationsService
+    private changeDetectorRef: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
@@ -85,28 +74,6 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
       })
     );
 
-    // Subscribe to application modal actions
-    this.subscriptions.push(
-      this.vendorApplicationsService.modalAction$.subscribe(action => {
-        console.log('🔧 VendorDashboard: Received modal action:', action);
-        if (action.type === 'viewHistory' && action.applicationId) {
-          if (action.history && action.applicationDetails) {
-            // Use the data provided by the service
-            this.handleViewHistory({
-              applicationId: action.applicationId,
-              history: action.history,
-              applicationDetails: action.applicationDetails
-            });
-          } else {
-            // Fallback to loading data manually
-            this.handleViewApplicationHistory(action.applicationId);
-          }
-        } else if (action.type === 'viewDetails' && action.application) {
-          this.handleViewApplicationDetails(action.application);
-        }
-      })
-    );
-
   }
 
   // Navigation methods
@@ -145,7 +112,9 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
         hasSubmenu: true,
         submenu: [
           { id: 'sow-approvals', label: 'SOW Approval', route: '/vendor/sow-approvals' },
+          { id: 'sow-management', label: 'SOW Management', route: '/vendor/sow-management' },
           { id: 'po-approvals', label: 'PO Approval', route: '/vendor/po-approvals' },
+          { id: 'po-management', label: 'PO Management', route: '/vendor/po-management' },
           { id: 'invoice-management', label: 'Invoice Management', route: '/vendor/invoice-management' }
         ],
         roles: ['vendor_account', 'vendor_owner']
@@ -197,49 +166,5 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
     }).catch(error => {
       console.error('🔄 VendorDashboard: Navigation error:', error);
     });
-  }
-
-  // Application History Methods
-  handleViewHistory(data: {
-    applicationId: string;
-    history: any[];
-    applicationDetails: any;
-  }): void {
-    console.log('🔧 VendorDashboard: handleViewHistory called with data:', data);
-    this.selectedApplicationId = data.applicationId;
-    this.applicationHistory = data.history;
-    this.applicationDetails = data.applicationDetails;
-    this.showHistoryModal = true;
-    this.isLoadingHistory = false;
-    // Force change detection to ensure the modal opens immediately
-    this.changeDetectorRef.detectChanges();
-  }
-
-  handleViewApplicationHistory(applicationId: string): void {
-    console.log('🔧 VendorDashboard: handleViewApplicationHistory called for:', applicationId);
-    this.selectedApplicationId = applicationId;
-    this.showHistoryModal = true;
-    this.isLoadingHistory = true;
-    this.applicationHistory = [];
-    this.applicationDetails = null;
-    // Force change detection to ensure the modal opens immediately
-    this.changeDetectorRef.detectChanges();
-  }
-
-  handleViewApplicationDetails(application: any): void {
-    console.log('🔧 VendorDashboard: handleViewApplicationDetails called for:', application._id);
-    // TODO: Implement application details modal
-  }
-
-  closeHistoryModal(): void {
-    console.log('🔧 VendorDashboard: closeHistoryModal called');
-    this.showHistoryModal = false;
-    this.selectedApplicationId = '';
-    this.applicationHistory = [];
-    this.applicationDetails = null;
-    this.isLoadingHistory = false;
-    console.log('🔧 VendorDashboard: Modal closed, showHistoryModal = false');
-    // Force change detection to ensure UI updates immediately
-    this.changeDetectorRef.detectChanges();
   }
 }

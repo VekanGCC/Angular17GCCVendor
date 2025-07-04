@@ -107,6 +107,16 @@ export const routes: Routes = [
           .then(m => m.POApprovalsComponent)
       },
       { 
+        path: 'sow-management', 
+        loadComponent: () => import('./components/vendor-dashboard/sow-management/sow-management.component')
+          .then(m => m.SOWManagementComponent)
+      },
+      { 
+        path: 'po-management', 
+        loadComponent: () => import('./components/vendor-dashboard/po-management/po-management.component')
+          .then(m => m.POManagementComponent)
+      },
+      { 
         path: 'matching-requirements', 
         loadComponent: () => import('./components/vendor-dashboard/matching-requirements/matching-requirements.component')
           .then(m => m.MatchingRequirementsComponent)

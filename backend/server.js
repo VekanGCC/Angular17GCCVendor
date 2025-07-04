@@ -96,6 +96,19 @@ app.use('/api/vendor/settings', require('./routes/vendorSettings'));
 app.use('/api/vendor/organization', require('./routes/vendorOrganization'));
 app.use('/api/vendor/sow', require('./routes/sow'));
 
+// PO routes
+app.use('/api/po', require('./routes/po'));
+app.use('/api/client/po', require('./routes/po'));
+app.use('/api/vendor/po', require('./routes/po'));
+
+// Invoice routes
+app.use('/api/invoice', require('./routes/invoice'));
+app.use('/api/client/invoice', require('./routes/invoice'));
+app.use('/api/vendor/invoice', require('./routes/invoice'));
+
+// Audit log routes
+app.use('/api/audit-logs', require('./routes/auditLogs'));
+
 // Resource management routes
 app.use('/api/resources', require('./routes/resources'));
 app.use('/api/requirements', require('./routes/requirements'));

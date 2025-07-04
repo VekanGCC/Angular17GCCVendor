@@ -141,7 +141,7 @@ export class SOWApprovalsComponent implements OnInit, OnDestroy {
         html += `
           <button 
             class="view-btn text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
-            id="view-${sow._id}">
+            onclick="window.sowViewAction('${sow._id}')">
             <span>👁️</span>
           </button>
         `;
@@ -150,7 +150,7 @@ export class SOWApprovalsComponent implements OnInit, OnDestroy {
         html += `
           <button 
             class="audit-btn text-purple-600 hover:text-purple-900 p-1 rounded hover:bg-purple-50"
-            id="audit-${sow._id}">
+            onclick="window.sowAuditAction('${sow._id}')">
             <span>📋</span>
           </button>
         `;
@@ -159,43 +159,27 @@ export class SOWApprovalsComponent implements OnInit, OnDestroy {
         if (canApprove) {
           html += `
             <button 
-              class="approve-btn text-green-600 hover:text-green-900 p-1 rounded hover:bg-green-50"
-              id="approve-${sow._id}">
-              <span>✅</span>
+              class="approve-btn text-green-600 hover:text-green-900 p-2 rounded hover:bg-green-50 border border-green-200"
+              onclick="window.sowApproveAction('${sow._id}')"
+              title="Approve SOW">
+              <span>✅ Approve</span>
             </button>
             <button 
-              class="reject-btn text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
-              id="reject-${sow._id}">
-              <span>❌</span>
+              class="reject-btn text-red-600 hover:text-red-900 p-2 rounded hover:bg-red-50 border border-red-200"
+              onclick="window.sowRejectAction('${sow._id}')"
+              title="Reject SOW">
+              <span>❌ Reject</span>
             </button>
+          `;
+        } else {
+          html += `
+            <span class="text-xs text-gray-500 px-2 py-1 bg-gray-100 rounded">
+              ${sow.status !== 'sent_to_vendor' ? 'Not pending approval' : 'No permission'}
+            </span>
           `;
         }
         
         html += '</div>';
-        
-        // Add event listeners
-        setTimeout(() => {
-          const viewBtn = document.getElementById(`view-${sow._id}`);
-          const auditBtn = document.getElementById(`audit-${sow._id}`);
-          const approveBtn = document.getElementById(`approve-${sow._id}`);
-          const rejectBtn = document.getElementById(`reject-${sow._id}`);
-          
-          if (viewBtn) {
-            viewBtn.addEventListener('click', () => this.onViewSOW(sow));
-          }
-          
-          if (auditBtn) {
-            auditBtn.addEventListener('click', () => this.showAuditTrail(sow));
-          }
-          
-          if (approveBtn) {
-            approveBtn.addEventListener('click', () => this.onApproveSOW(sow));
-          }
-          
-          if (rejectBtn) {
-            rejectBtn.addEventListener('click', () => this.onRejectSOW(sow));
-          }
-        });
         
         return html;
       }
@@ -216,7 +200,10 @@ export class SOWApprovalsComponent implements OnInit, OnDestroy {
       minWidth: 100,
     },
     rowHeight: 60,
-    tooltipShowDelay: 500
+    tooltipShowDelay: 500,
+    onGridReady: (params: any) => {
+      this.onGridReady(params);
+    }
   };
 
   constructor(
@@ -245,6 +232,8 @@ export class SOWApprovalsComponent implements OnInit, OnDestroy {
   loadSOWs(): void {
     this.isLoading = true;
     
+    console.log('🔧 SOW Approvals: Loading SOWs for vendor approval...');
+    
     this.sowService.getSOWs({
       page: this.currentPage,
       limit: this.pageSize,
@@ -253,11 +242,23 @@ export class SOWApprovalsComponent implements OnInit, OnDestroy {
       next: (response) => {
         this.sows = response.data.docs || [];
         this.totalSOWs = response.data.totalDocs || 0;
+        
+        console.log('🔧 SOW Approvals: Loaded SOWs:', {
+          count: this.sows.length,
+          total: this.totalSOWs,
+          sows: this.sows.map(sow => ({
+            id: sow._id,
+            title: sow.title,
+            status: sow.status,
+            canApprove: this.canApproveSOW(sow)
+          }))
+        });
+        
         this.isLoading = false;
         this.changeDetectorRef.detectChanges();
       },
       error: (error) => {
-        console.error('Error loading SOWs:', error);
+        console.error('🔧 SOW Approvals: Error loading SOWs:', error);
         this.isLoading = false;
         this.changeDetectorRef.detectChanges();
       }
@@ -270,15 +271,19 @@ export class SOWApprovalsComponent implements OnInit, OnDestroy {
   }
 
   onApproveSOW(sow: SOW): void {
+    console.log('🔧 SOW Approvals: Opening approve modal for SOW:', sow._id);
     this.selectedSOW = sow;
     this.approvalForm.patchValue({ status: 'accepted' });
     this.showApprovalModal = true;
+    this.changeDetectorRef.detectChanges();
   }
 
   onRejectSOW(sow: SOW): void {
+    console.log('🔧 SOW Approvals: Opening reject modal for SOW:', sow._id);
     this.selectedSOW = sow;
     this.approvalForm.patchValue({ status: 'rejected' });
     this.showApprovalModal = true;
+    this.changeDetectorRef.detectChanges();
   }
 
   onSubmitApproval(): void {
@@ -292,6 +297,8 @@ export class SOWApprovalsComponent implements OnInit, OnDestroy {
         proposedChanges: this.approvalForm.get('proposedChanges')?.value
       };
 
+      console.log('🔧 SOW Approvals: Submitting approval:', approvalData);
+
       const currentSOW = this.selectedSOW;
       const previousStatus = currentSOW.status;
 
@@ -299,6 +306,7 @@ export class SOWApprovalsComponent implements OnInit, OnDestroy {
         takeUntil(this.destroy$)
       ).subscribe({
         next: (response) => {
+          console.log('🔧 SOW Approvals: Approval response:', response);
           if (response.success) {
             const updatedSOW = response.data;
             
@@ -327,15 +335,22 @@ export class SOWApprovalsComponent implements OnInit, OnDestroy {
             this.showApprovalModal = false;
             this.approvalForm.reset();
             this.showSuccessMessage(`SOW ${approvalData.status} successfully`);
+            
+            // Force change detection to ensure modal closes
+            this.changeDetectorRef.detectChanges();
           } else {
+            console.error('🔧 SOW Approvals: Approval failed:', response.message);
             this.showErrorMessage(response.message || 'Failed to process SOW approval');
+            this.isLoading = false;
           }
-          this.isLoading = false;
-          this.changeDetectorRef.detectChanges();
         },
         error: (error) => {
-          console.error('Error processing SOW approval:', error);
+          console.error('🔧 SOW Approvals: Error processing SOW approval:', error);
           this.showErrorMessage('Failed to process SOW approval');
+          this.isLoading = false;
+        },
+        complete: () => {
+          console.log('🔧 SOW Approvals: Approval request completed');
           this.isLoading = false;
           this.changeDetectorRef.detectChanges();
         }
@@ -395,9 +410,17 @@ export class SOWApprovalsComponent implements OnInit, OnDestroy {
   }
 
   canApproveSOW(sow: SOW): boolean {
-    // Only vendor_account users can approve SOWs
-    return this.currentUser?.organizationRole === 'vendor_account' && 
-           sow.status === 'sent_to_vendor';
+    // Allow both vendor_owner and vendor_account users to approve SOWs
+    const canApprove = ['vendor_owner', 'vendor_account'].includes(this.currentUser?.organizationRole || '') && 
+                      sow.status === 'sent_to_vendor';
+    
+    console.log('🔧 SOW Approvals: Can approve check:', {
+      userRole: this.currentUser?.organizationRole,
+      sowStatus: sow.status,
+      canApprove: canApprove
+    });
+    
+    return canApprove;
   }
 
   get currentUser() {
@@ -435,5 +458,42 @@ export class SOWApprovalsComponent implements OnInit, OnDestroy {
 
   getNoRowsMessage(): string {
     return 'No SOWs pending approval';
+  }
+
+  onGridReady(params: any): void {
+    console.log('🔧 SOW Approvals: Grid ready, setting up button handlers');
+    
+    // Set up global functions for button clicks
+    (window as any).sowViewAction = (sowId: string) => {
+      console.log('🔧 SOW Approvals: View button clicked for SOW:', sowId);
+      const sow = this.sows.find(s => s._id === sowId);
+      if (sow) {
+        this.onViewSOW(sow);
+      }
+    };
+
+    (window as any).sowAuditAction = (sowId: string) => {
+      console.log('🔧 SOW Approvals: Audit button clicked for SOW:', sowId);
+      const sow = this.sows.find(s => s._id === sowId);
+      if (sow) {
+        this.showAuditTrail(sow);
+      }
+    };
+
+    (window as any).sowApproveAction = (sowId: string) => {
+      console.log('🔧 SOW Approvals: Approve button clicked for SOW:', sowId);
+      const sow = this.sows.find(s => s._id === sowId);
+      if (sow) {
+        this.onApproveSOW(sow);
+      }
+    };
+
+    (window as any).sowRejectAction = (sowId: string) => {
+      console.log('🔧 SOW Approvals: Reject button clicked for SOW:', sowId);
+      const sow = this.sows.find(s => s._id === sowId);
+      if (sow) {
+        this.onRejectSOW(sow);
+      }
+    };
   }
 } 

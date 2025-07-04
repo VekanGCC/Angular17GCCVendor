@@ -17,17 +17,10 @@ export class POService {
   ) {}
 
   private getApiUrl(): string {
-    const currentUser = this.authService.getCurrentUser();
-    const userType = currentUser?.userType;
+    // Always use the main PO endpoint since the backend controller handles vendor vs client filtering
+    const apiUrl = `${this.baseApiUrl}/po`;
     
-    let apiUrl: string;
-    if (userType === 'vendor') {
-      apiUrl = `${this.baseApiUrl}/vendor/po`;
-    } else {
-      apiUrl = `${this.baseApiUrl}/client/po`;
-    }
-    
-    console.log('🔧 PO Service: Using API URL:', apiUrl, 'for user type:', userType);
+    console.log('🔧 PO Service: Using API URL:', apiUrl);
     return apiUrl;
   }
 

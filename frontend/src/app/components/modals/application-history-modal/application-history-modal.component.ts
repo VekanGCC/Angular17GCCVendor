@@ -65,29 +65,46 @@ export interface ApplicationDetails {
       left: 0;
       width: 100%;
       height: 100%;
-      background-color: rgba(0, 0, 0, 0.5);
+      background-color: rgba(0, 0, 0, 0.6);
       display: flex;
       justify-content: center;
       align-items: center;
       z-index: 1000;
+      backdrop-filter: blur(4px);
     }
 
     .modal-content {
       background: white;
-      border-radius: 8px;
-      max-width: 600px;
-      width: 90%;
-      max-height: 80vh;
+      border-radius: 16px;
+      max-width: 800px;
+      width: 95%;
+      max-height: 85vh;
       overflow-y: auto;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      animation: modalSlideIn 0.3s ease-out;
+    }
+
+    @keyframes modalSlideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-20px) scale(0.95);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
     }
 
     .modal-header {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      padding: 20px;
+      padding: 24px 24px 20px 24px;
       border-bottom: 1px solid #e5e7eb;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border-radius: 16px 16px 0 0;
     }
 
     .header-content {
@@ -96,23 +113,33 @@ export interface ApplicationDetails {
     }
 
     .modal-title {
-      margin: 0 0 12px 0;
+      margin: 0 0 16px 0;
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: white;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .modal-title::before {
+      content: "📋";
       font-size: 1.25rem;
-      font-weight: 600;
-      color: #111827;
     }
 
     .application-details {
-      background-color: #f9fafb;
-      border-radius: 6px;
-      padding: 12px;
-      border: 1px solid #e5e7eb;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 12px;
+      padding: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      backdrop-filter: blur(10px);
     }
 
     .detail-row {
       display: flex;
-      gap: 24px;
-      margin-bottom: 8px;
+      gap: 32px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
     }
 
     .detail-row:last-child {
@@ -122,47 +149,55 @@ export interface ApplicationDetails {
     .detail-item {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 8px;
+      min-width: 200px;
     }
 
     .detail-label {
       font-size: 0.75rem;
-      font-weight: 500;
-      color: #6b7280;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.8);
       text-transform: uppercase;
       letter-spacing: 0.05em;
     }
 
     .detail-value {
       font-size: 0.875rem;
-      color: #111827;
-      font-weight: 500;
+      color: white;
+      font-weight: 600;
     }
 
     .close-button {
-      background: none;
+      background: rgba(255, 255, 255, 0.2);
       border: none;
       cursor: pointer;
-      padding: 4px;
-      border-radius: 4px;
-      color: #6b7280;
-      transition: color 0.2s;
+      padding: 8px;
+      border-radius: 8px;
+      color: white;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     .close-button:hover {
-      color: #374151;
+      background: rgba(255, 255, 255, 0.3);
+      transform: scale(1.05);
     }
 
     .modal-body {
-      padding: 20px;
+      padding: 24px;
+      background: #fafbfc;
     }
 
     .modal-footer {
-      padding: 20px;
+      padding: 20px 24px;
       border-top: 1px solid #e5e7eb;
       display: flex;
       justify-content: flex-end;
       gap: 12px;
+      background: white;
+      border-radius: 0 0 16px 16px;
     }
 
     .loading-container {
@@ -170,17 +205,17 @@ export interface ApplicationDetails {
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 40px 20px;
+      padding: 60px 20px;
     }
 
     .loading-spinner {
-      width: 40px;
-      height: 40px;
-      border: 4px solid #f3f4f6;
-      border-top: 4px solid #3b82f6;
+      width: 48px;
+      height: 48px;
+      border: 4px solid #e5e7eb;
+      border-top: 4px solid #667eea;
       border-radius: 50%;
       animation: spin 1s linear infinite;
-      margin-bottom: 16px;
+      margin-bottom: 20px;
     }
 
     @keyframes spin {
@@ -190,7 +225,8 @@ export interface ApplicationDetails {
 
     .loading-text {
       color: #6b7280;
-      font-size: 0.875rem;
+      font-size: 1rem;
+      font-weight: 500;
     }
 
     .no-data-container {
@@ -198,18 +234,19 @@ export interface ApplicationDetails {
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 40px 20px;
+      padding: 60px 20px;
       text-align: center;
     }
 
     .no-data-icon {
       color: #9ca3af;
-      margin-bottom: 16px;
+      margin-bottom: 20px;
+      font-size: 3rem;
     }
 
     .no-data-title {
-      margin: 0 0 8px 0;
-      font-size: 1.125rem;
+      margin: 0 0 12px 0;
+      font-size: 1.25rem;
       font-weight: 600;
       color: #374151;
     }
@@ -217,35 +254,64 @@ export interface ApplicationDetails {
     .no-data-message {
       margin: 0;
       color: #6b7280;
-      font-size: 0.875rem;
+      font-size: 1rem;
     }
 
     .history-list {
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 20px;
     }
 
     .history-item {
       border: 1px solid #e5e7eb;
-      border-radius: 8px;
-      padding: 16px;
-      background-color: #fafafa;
+      border-radius: 12px;
+      padding: 20px;
+      background: white;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+      transition: all 0.2s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .history-item::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 4px;
+      height: 100%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .history-item:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
     }
 
     .history-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 12px;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #f3f4f6;
+    }
+
+    .history-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
 
     .status-badge {
-      padding: 4px 8px;
-      border-radius: 4px;
+      padding: 6px 12px;
+      border-radius: 20px;
       font-size: 0.75rem;
-      font-weight: 500;
+      font-weight: 600;
       text-transform: uppercase;
+      letter-spacing: 0.05em;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
 
     .status-change-indicator {
@@ -253,37 +319,13 @@ export interface ApplicationDetails {
       align-items: center;
       color: #6b7280;
       font-size: 0.75rem;
-      margin-left: 8px;
-    }
-
-    .status-pending {
-      background-color: #fef3c7;
-      color: #92400e;
-    }
-
-    .status-approved {
-      background-color: #d1fae5;
-      color: #065f46;
-    }
-
-    .status-rejected {
-      background-color: #fee2e2;
-      color: #991b1b;
-    }
-
-    .status-applied {
-      background-color: #dbeafe;
-      color: #1e40af;
-    }
-
-    .status-unknown {
-      background-color: #f3f4f6;
-      color: #374151;
+      font-weight: 500;
     }
 
     .history-date {
-      font-size: 0.875rem;
       color: #6b7280;
+      font-size: 0.875rem;
+      font-weight: 500;
     }
 
     .history-content {
@@ -293,36 +335,51 @@ export interface ApplicationDetails {
     }
 
     .history-section {
-      border-top: 1px solid #e5e7eb;
-      padding-top: 12px;
+      background: #f9fafb;
+      border-radius: 8px;
+      padding: 16px;
+      border: 1px solid #e5e7eb;
     }
 
     .section-title {
-      font-size: 0.875rem;
+      margin: 0 0 12px 0;
+      font-size: 1rem;
       font-weight: 600;
       color: #374151;
-      margin: 0 0 8px 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-title::before {
+      content: "📝";
+      font-size: 0.875rem;
     }
 
     .history-field {
-      margin-bottom: 8px;
+      margin-bottom: 12px;
+    }
+
+    .history-field:last-child {
+      margin-bottom: 0;
     }
 
     .field-label {
+      display: block;
       font-size: 0.75rem;
-      font-weight: 500;
+      font-weight: 600;
       color: #6b7280;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      margin-bottom: 2px;
-      display: block;
+      margin-bottom: 4px;
     }
 
     .field-value {
       font-size: 0.875rem;
       color: #111827;
+      font-weight: 500;
+      line-height: 1.5;
       margin: 0;
-      line-height: 1.4;
     }
 
     .rating-display {
@@ -348,91 +405,150 @@ export interface ApplicationDetails {
 
     .rating-text {
       font-size: 0.875rem;
-      color: #6b7280;
-      font-weight: 500;
+      font-weight: 600;
+      color: #374151;
     }
 
     .criteria-tags {
       display: flex;
       flex-wrap: wrap;
-      gap: 4px;
+      gap: 6px;
     }
 
     .criteria-tag {
-      background-color: #e5e7eb;
-      color: #374151;
-      padding: 2px 6px;
-      border-radius: 4px;
+      background: #e0e7ff;
+      color: #3730a3;
+      padding: 4px 8px;
+      border-radius: 12px;
       font-size: 0.75rem;
       font-weight: 500;
     }
 
     .notification-status {
       display: flex;
-      flex-direction: column;
-      gap: 4px;
+      gap: 16px;
     }
 
     .notification-item {
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      padding: 4px 0;
+      gap: 6px;
     }
 
     .notification-label {
-      font-size: 0.875rem;
-      color: #374151;
-      font-weight: 500;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #6b7280;
     }
 
     .notification-sent {
       color: #059669;
-      font-weight: 500;
-      font-size: 0.875rem;
+      font-weight: 600;
+      font-size: 0.75rem;
     }
 
     .notification-not-sent {
-      color: #6b7280;
-      font-weight: 500;
-      font-size: 0.875rem;
+      color: #dc2626;
+      font-weight: 600;
+      font-size: 0.75rem;
     }
 
     .follow-up-required {
       color: #dc2626;
-      font-weight: 500;
+      font-weight: 600;
       font-size: 0.875rem;
     }
 
     .follow-up-not-required {
       color: #059669;
-      font-weight: 500;
+      font-weight: 600;
       font-size: 0.875rem;
     }
 
     .btn {
-      padding: 8px 16px;
-      border-radius: 6px;
+      padding: 10px 20px;
+      border-radius: 8px;
       font-size: 0.875rem;
-      font-weight: 500;
+      font-weight: 600;
       cursor: pointer;
       border: none;
-      transition: all 0.2s;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
 
     .btn-secondary {
-      background-color: #f3f4f6;
-      color: #374151;
+      background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+      color: white;
     }
 
     .btn-secondary:hover {
-      background-color: #e5e7eb;
+      background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     }
 
     .debug-info {
       font-size: 0.75rem;
-      color: #6b7280;
+      color: rgba(255, 255, 255, 0.7);
       font-weight: normal;
+    }
+
+    /* Status-specific colors */
+    .status-applied { background: #dbeafe; color: #1e40af; }
+    .status-pending { background: #fef3c7; color: #d97706; }
+    .status-shortlisted { background: #dbeafe; color: #1e40af; }
+    .status-interview { background: #e9d5ff; color: #7c3aed; }
+    .status-accepted { background: #d1fae5; color: #065f46; }
+    .status-rejected { background: #fee2e2; color: #dc2626; }
+    .status-offer_created { background: #e0e7ff; color: #3730a3; }
+    .status-onboarded { background: #ccfbf1; color: #0f766e; }
+    .status-did_not_join { background: #fed7aa; color: #ea580c; }
+    .status-withdrawn { background: #f3f4f6; color: #374151; }
+    .status-unknown { background: #f3f4f6; color: #6b7280; }
+
+    /* Responsive design */
+    @media (max-width: 768px) {
+      .modal-content {
+        width: 98%;
+        max-height: 90vh;
+        border-radius: 12px;
+      }
+      
+      .modal-header {
+        padding: 20px 20px 16px 20px;
+        border-radius: 12px 12px 0 0;
+      }
+      
+      .modal-body {
+        padding: 20px;
+      }
+      
+      .modal-footer {
+        padding: 16px 20px;
+        border-radius: 0 0 12px 12px;
+      }
+      
+      .detail-row {
+        flex-direction: column;
+        gap: 12px;
+      }
+      
+      .detail-item {
+        min-width: auto;
+      }
+      
+      .history-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+      }
+      
+      .notification-status {
+        flex-direction: column;
+        gap: 8px;
+      }
     }
   `]
 })
@@ -480,8 +596,7 @@ export class ApplicationHistoryModalComponent implements OnInit, OnChanges, OnDe
     console.log('🔧 ApplicationHistoryModal: Backdrop clicked');
     if (event.target === event.currentTarget) {
       console.log('🔧 ApplicationHistoryModal: Emitting close event from backdrop click');
-      this.close.emit();
-      this.cdr.detectChanges();
+      this.closeModal();
     }
   }
 
@@ -489,8 +604,7 @@ export class ApplicationHistoryModalComponent implements OnInit, OnChanges, OnDe
     console.log('🔧 ApplicationHistoryModal: onClose called, isLoading =', this.isLoading);
     if (!this.isLoading) {
       console.log('🔧 ApplicationHistoryModal: Emitting close event from onClose');
-      this.close.emit();
-      this.cdr.detectChanges();
+      this.closeModal();
     }
   }
 
@@ -562,8 +676,12 @@ export class ApplicationHistoryModalComponent implements OnInit, OnChanges, OnDe
 
   closeModal(): void {
     console.log('🔧 ApplicationHistoryModal: closeModal called');
-    this.close.emit();
-    this.cdr.detectChanges();
+    // Only emit close if modal is currently visible
+    if (this.isVisible) {
+      console.log('🔧 ApplicationHistoryModal: Emitting close event');
+      this.close.emit();
+      this.cdr.detectChanges();
+    }
   }
 
   // Helper method to check if modal should show content

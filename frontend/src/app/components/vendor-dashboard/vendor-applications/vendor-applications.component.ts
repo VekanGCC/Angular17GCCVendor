@@ -13,6 +13,7 @@ import { Application } from '../../../models/application.model';
 import { PaginationState, PaginationParams, PaginatedResponse } from '../../../models/pagination.model';
 import { PaginationComponent } from '../../pagination/pagination.component';
 import { ApplicationActionModalComponent } from '../../modals/application-action-modal/application-action-modal.component';
+import { ApplicationHistoryModalComponent } from '../../modals/application-history-modal/application-history-modal.component';
 import { VendorService } from '../../../services/vendor.service';
 import { VendorApplicationsService } from '../../../services/vendor-applications.service';
 import { Router, ActivatedRoute } from '@angular/router';
@@ -38,7 +39,7 @@ export interface ApplicationActionData {
 @Component({
   selector: 'app-vendor-applications',
   standalone: true,
-  imports: [CommonModule, AgGridModule, PaginationComponent, ApplicationActionModalComponent],
+  imports: [CommonModule, AgGridModule, PaginationComponent, ApplicationActionModalComponent, ApplicationHistoryModalComponent],
   templateUrl: './vendor-applications.component.html',
   styleUrls: ['./vendor-applications.component.scss']
 })
@@ -65,7 +66,12 @@ export class VendorApplicationsComponent implements OnInit, OnChanges {
   selectedApplication: Application | null = null;
   selectedActionType: 'revoke' | 'accept_offer' | 'reject_offer' = 'revoke';
 
-
+  // Application History Modal State
+  showHistoryModal = false;
+  selectedApplicationId: string = '';
+  isLoadingHistory = false;
+  applicationHistory: any[] = [];
+  applicationDetails: any = null;
 
   // AG Grid properties
   columnDefs: ColDef[] = [
@@ -505,11 +511,6 @@ export class VendorApplicationsComponent implements OnInit, OnChanges {
     this.changeDetectorRef.detectChanges();
   }
 
-  onViewHistory(applicationId: string): void {
-    console.log('🔄 VendorApplications: Viewing history for application:', applicationId);
-    this.vendorApplicationsService.viewApplicationHistory(applicationId);
-  }
-
   onPageChange(page: number): void {
     this.paginationState.currentPage = page;
     this.loadApplications();
@@ -526,5 +527,48 @@ export class VendorApplicationsComponent implements OnInit, OnChanges {
     return item._id || `application-${index}`;
   }
 
+  // Application History Modal Methods
+  onViewHistory(applicationId: string): void {
+    console.log('🔧 VendorApplications: Opening history modal for application:', applicationId);
+    this.selectedApplicationId = applicationId;
+    this.showHistoryModal = true;
+    this.isLoadingHistory = true;
+    this.applicationHistory = [];
+    this.applicationDetails = null;
 
+    // Force change detection to ensure modal is shown immediately
+    this.changeDetectorRef.detectChanges();
+
+    // Load application history
+    this.vendorService.getApplicationHistory(applicationId).subscribe({
+      next: (response) => {
+        console.log('🔧 VendorApplications: History response:', response);
+        this.applicationHistory = response.data?.history || [];
+        this.applicationDetails = response.data?.application || null;
+        this.isLoadingHistory = false;
+        
+        // Force change detection after data is loaded
+        this.changeDetectorRef.detectChanges();
+      },
+      error: (error) => {
+        console.error('🔧 VendorApplications: Error fetching application history:', error);
+        this.isLoadingHistory = false;
+        
+        // Force change detection even on error
+        this.changeDetectorRef.detectChanges();
+      }
+    });
+  }
+
+  closeHistoryModal(): void {
+    console.log('🔧 VendorApplications: Closing history modal');
+    this.showHistoryModal = false;
+    this.selectedApplicationId = '';
+    this.applicationHistory = [];
+    this.applicationDetails = null;
+    this.isLoadingHistory = false;
+    
+    // Force change detection to ensure modal closes immediately
+    this.changeDetectorRef.detectChanges();
+  }
 } 

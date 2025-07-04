@@ -185,6 +185,13 @@ export class ApiService {
     );
   }
 
+  // Get single resource by ID
+  getResource(id: string): Observable<any> {
+    console.log('🧑‍💼 API: Fetching resource by ID:', id);
+    console.log('🧑‍💼 API: Full URL will be:', `${this.apiUrl}/resources/${id}`);
+    return this.get<any>(`/resources/${id}`);
+  }
+
   // Requirement APIs with pagination
   getRequirements(params?: PaginationParams): Observable<PaginatedResponse<any>> {
     console.log('📋 API: Fetching requirements...');

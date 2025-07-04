@@ -102,18 +102,24 @@ const getPOs = asyncHandler(async (req, res, next) => {
   const user = await User.findById(req.user.id);
   const { page = 1, limit = 10, status, vendorId, clientId, sowId } = req.query;
 
+  console.log('🔧 PO Controller: getPOs called');
+  console.log('🔧 PO Controller: User:', { id: user._id, userType: user.userType, organizationRole: user.organizationRole, organizationId: user.organizationId });
+  console.log('🔧 PO Controller: Query params:', req.query);
+
   let query = {};
 
   // Filter based on user type and role
   if (user.userType === 'client') {
     if (['client_owner', 'client_account'].includes(user.organizationRole)) {
       query.clientOrganizationId = user.organizationId;
+      console.log('🔧 PO Controller: Client query - clientOrganizationId:', user.organizationId);
     } else {
       return next(new ErrorResponse('Insufficient permissions to view POs', 403));
     }
   } else if (user.userType === 'vendor') {
     if (['vendor_owner', 'vendor_account'].includes(user.organizationRole)) {
       query.vendorOrganizationId = user.organizationId;
+      console.log('🔧 PO Controller: Vendor query - vendorOrganizationId:', user.organizationId);
     } else {
       return next(new ErrorResponse('Insufficient permissions to view POs', 403));
     }
@@ -124,6 +130,8 @@ const getPOs = asyncHandler(async (req, res, next) => {
   if (vendorId) query.vendorId = vendorId;
   if (clientId) query.clientId = clientId;
   if (sowId) query.sowId = sowId;
+
+  console.log('🔧 PO Controller: Final query:', JSON.stringify(query, null, 2));
 
   const skip = (page - 1) * limit;
   const [pos, total] = await Promise.all([
@@ -141,6 +149,9 @@ const getPOs = asyncHandler(async (req, res, next) => {
       .limit(limit),
     PO.countDocuments(query)
   ]);
+
+  console.log('🔧 PO Controller: Found POs:', pos.length, 'Total:', total);
+
   res.status(200).json(
     ApiResponse.success({
       docs: pos,

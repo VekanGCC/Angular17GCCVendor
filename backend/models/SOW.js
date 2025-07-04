@@ -58,7 +58,7 @@ const sowSchema = new mongoose.Schema({
   
   status: {
     type: String,
-    enum: ['draft', 'submitted', 'internal_approved', 'sent_to_vendor', 'vendor_accepted', 'vendor_rejected', 'cancelled'],
+    enum: ['draft', 'submitted', 'pm_approval_pending', 'internal_approved', 'sent_to_vendor', 'vendor_accepted', 'vendor_rejected', 'cancelled'],
     default: 'draft'
   },
   

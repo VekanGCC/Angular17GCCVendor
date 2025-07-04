@@ -222,17 +222,35 @@ export class POManagementComponent implements OnInit, OnDestroy {
       cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start' },
       cellRenderer: (params: any) => {
         const po = params.data;
+        const actions = this.getAvailableActions(po);
         
         let html = '<div class="flex items-center justify-start space-x-2">';
         
         // View button
         html += `
           <button 
+            onclick="window.poViewAction('${po._id}')"
             class="view-btn text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
-            id="view-${po._id}">
+            title="View PO Details">
             <span>👁️</span>
           </button>
         `;
+        
+        // Action buttons
+        actions.forEach((action: any) => {
+          const buttonClass = action.type === 'submit' ? 'text-orange-600 hover:text-orange-900 hover:bg-orange-50' : 
+                             action.type === 'approve' ? 'text-green-600 hover:text-green-900 hover:bg-green-50' :
+                             'text-blue-600 hover:text-blue-900 hover:bg-blue-50';
+          
+          html += `
+            <button 
+              onclick="window.poActionAction('${po._id}', '${action.type}')"
+              class="action-btn ${buttonClass} p-1 rounded"
+              title="${action.label}">
+              <span>${action.icon}</span>
+            </button>
+          `;
+        });
         
         html += '</div>';
         return html;
@@ -254,7 +272,10 @@ export class POManagementComponent implements OnInit, OnDestroy {
       minWidth: 100,
     },
     rowHeight: 60,
-    tooltipShowDelay: 500
+    tooltipShowDelay: 500,
+    onGridReady: (params: any) => {
+      this.onGridReady(params);
+    }
   };
 
   constructor(
@@ -316,6 +337,8 @@ export class POManagementComponent implements OnInit, OnDestroy {
             this.pos = response.data.docs || [];
             this.totalPOs = response.data.totalDocs || 0;
             
+            console.log('🔧 PO Management: Loaded POs:', this.pos.map(p => ({ id: p._id, status: p.status })));
+            
             // Update pagination state
             this.paginationState = {
               currentPage: this.currentPage,
@@ -329,6 +352,9 @@ export class POManagementComponent implements OnInit, OnDestroy {
             
             this.updatePOCounts();
             this.updatePOGridData();
+            
+            // Re-setup button handlers after data is loaded
+            this.setupButtonHandlers();
           }
         },
         error: (error: any) => {
@@ -658,16 +684,24 @@ export class POManagementComponent implements OnInit, OnDestroy {
   }
 
   onActionClick(po: PO, actionType: string): void {
+    console.log('🔧 PO Management: onActionClick called:', { poId: po._id, actionType, po });
     this.selectedPO = po;
     this.actionType = actionType as 'submit' | 'approve' | 'send-to-vendor';
     this.actionForm.reset();
     this.showActionModal = true;
+    this.changeDetectorRef.detectChanges();
   }
 
   onActionSubmit(): void {
     if (this.selectedPO && this.actionForm.valid) {
       this.isLoading = true;
       const comments = this.actionForm.get('comments')?.value;
+
+      console.log('🔧 PO Management: Submitting action:', {
+        poId: this.selectedPO._id,
+        actionType: this.actionType,
+        comments: comments
+      });
 
       let actionObservable;
       switch (this.actionType) {
@@ -684,19 +718,30 @@ export class POManagementComponent implements OnInit, OnDestroy {
           actionObservable = this.poService.sendToVendor(this.selectedPO._id);
           break;
         default:
+          console.error('🔧 PO Management: Unknown action type:', this.actionType);
           this.isLoading = false;
           return;
       }
 
       actionObservable.pipe(takeUntil(this.destroy$)).subscribe({
         next: (response: any) => {
-          this.showActionModal = false;
-          this.loadPOs();
+          console.log('🔧 PO Management: Action response:', response);
+          if (response.success) {
+            this.showActionModal = false;
+            this.loadPOs();
+            this.showSuccessMessage(`PO ${this.actionType} successfully`);
+          } else {
+            console.error('🔧 PO Management: Action failed:', response.message);
+            this.showErrorMessage(response.message || `Failed to ${this.actionType} PO`);
+          }
           this.isLoading = false;
+          this.changeDetectorRef.detectChanges();
         },
         error: (error: any) => {
-          console.error(`Error performing ${this.actionType} action:`, error);
+          console.error(`🔧 PO Management: Error performing ${this.actionType} action:`, error);
+          this.showErrorMessage(`Failed to ${this.actionType} PO`);
           this.isLoading = false;
+          this.changeDetectorRef.detectChanges();
         }
       });
     }
@@ -752,12 +797,23 @@ export class POManagementComponent implements OnInit, OnDestroy {
 
   getAvailableActions(po: PO): Array<{type: string, icon: string, label: string}> {
     const actions = [];
+    const currentUser = this.authService.getCurrentUser();
+    
+    console.log('🔧 PO Management: Getting available actions for PO:', {
+      poId: po._id,
+      poStatus: po.status,
+      userRole: currentUser?.organizationRole
+    });
+    
+    // client_owner has full access to all actions
+    const isClientOwner = currentUser?.organizationRole === 'client_owner';
     
     if (po.status === 'draft') {
       actions.push({ type: 'submit', icon: '📤', label: 'Submit' });
     }
     
-    if (po.status === 'submitted') {
+    // Finance approval - available to client_owner for all submitted POs
+    if (po.status === 'submitted' && isClientOwner) {
       actions.push({ type: 'approve', icon: '✅', label: 'Approve' });
     }
     
@@ -765,6 +821,7 @@ export class POManagementComponent implements OnInit, OnDestroy {
       actions.push({ type: 'send-to-vendor', icon: '📧', label: 'Send to Vendor' });
     }
     
+    console.log('🔧 PO Management: Available actions for client_owner:', actions);
     return actions;
   }
 
@@ -819,5 +876,48 @@ export class POManagementComponent implements OnInit, OnDestroy {
           this.updateSOWDisplayOptions();
         }
       });
+  }
+
+  onGridReady(params: any): void {
+    console.log('🔧 PO Management: Grid ready, setting up button handlers');
+    this.setupButtonHandlers();
+  }
+
+  setupButtonHandlers(): void {
+    console.log('🔧 PO Management: Setting up button handlers');
+    console.log('🔧 PO Management: Available POs:', this.pos.map(p => ({ id: p._id, status: p.status })));
+    
+    // Set up global functions for button clicks
+    (window as any).poViewAction = (poId: string) => {
+      console.log('🔧 PO Management: View button clicked for PO:', poId);
+      const po = this.pos.find(p => p._id === poId);
+      console.log('🔧 PO Management: Found PO for view:', po);
+      if (po) {
+        this.onViewPO(po);
+      } else {
+        console.error('🔧 PO Management: PO not found for view:', poId);
+      }
+    };
+
+    (window as any).poActionAction = (poId: string, actionType: string) => {
+      console.log('🔧 PO Management: Action button clicked for PO:', poId, 'Action:', actionType);
+      const po = this.pos.find(p => p._id === poId);
+      console.log('🔧 PO Management: Found PO for action:', po);
+      if (po) {
+        this.onActionClick(po, actionType);
+      } else {
+        console.error('🔧 PO Management: PO not found for action:', poId);
+      }
+    };
+  }
+
+  showSuccessMessage(message: string): void {
+    // Implement success message display
+    console.log('Success:', message);
+  }
+
+  showErrorMessage(message: string): void {
+    // Implement error message display
+    console.error('Error:', message);
   }
 } 

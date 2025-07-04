@@ -1,11 +1,11 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { ReactiveFormsModule, FormBuilder, FormGroup } from '@angular/forms';
 import { AgGridModule, AgGridAngular } from 'ag-grid-angular';
-import { ColDef, ValueGetterParams } from 'ag-grid-community';
+import { ColDef, ValueGetterParams, GridOptions } from 'ag-grid-community';
 import { LucideAngularModule } from 'lucide-angular';
 import { Subject, takeUntil } from 'rxjs';
-import { PO, VendorPOApprovalRequest } from '../../../models/po.model';
+import { PO } from '../../../models/po.model';
 import { POService } from '../../../services/po.service';
 import { AuthService } from '../../../services/auth.service';
 import { AuditLogService } from '../../../services/audit-log.service';
@@ -14,7 +14,7 @@ import { AuditTrailComponent } from '../../shared/audit-trail/audit-trail.compon
 import { PaginationState } from '../../../models/pagination.model';
 
 @Component({
-  selector: 'app-po-approvals',
+  selector: 'app-po-management',
   standalone: true,
   imports: [
     CommonModule,
@@ -24,10 +24,10 @@ import { PaginationState } from '../../../models/pagination.model';
     PaginationComponent,
     AuditTrailComponent
   ],
-  templateUrl: './po-approvals.component.html',
-  styleUrls: ['./po-approvals.component.scss']
+  templateUrl: './po-management.component.html',
+  styleUrls: ['./po-management.component.scss']
 })
-export class POApprovalsComponent implements OnInit, OnDestroy {
+export class POManagementComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
   // Data
@@ -49,14 +49,13 @@ export class POApprovalsComponent implements OnInit, OnDestroy {
   };
 
   // Modal states
-  showApprovalModal = false;
   showViewModal = false;
   showAuditTrailModal = false;
   selectedPO: PO | null = null;
   selectedPOForAudit: PO | null = null;
 
-  // Forms
-  approvalForm: FormGroup;
+  // Filter form
+  filterForm: FormGroup;
 
   // AG Grid properties
   columnDefs: ColDef[] = [
@@ -129,11 +128,21 @@ export class POApprovalsComponent implements OnInit, OnDestroy {
       }
     },
     {
-      headerName: 'Received Date',
-      field: 'createdAt',
+      headerName: 'Start Date',
+      field: 'startDate',
       flex: 1,
       cellRenderer: (params: any) => {
-        const date = params.data.createdAt;
+        const date = params.data.startDate;
+        const formattedDate = date ? new Date(date).toLocaleDateString() : 'N/A';
+        return `<div class="text-sm text-gray-500">${formattedDate}</div>`;
+      }
+    },
+    {
+      headerName: 'End Date',
+      field: 'endDate',
+      flex: 1,
+      cellRenderer: (params: any) => {
+        const date = params.data.endDate;
         const formattedDate = date ? new Date(date).toLocaleDateString() : 'N/A';
         return `<div class="text-sm text-gray-500">${formattedDate}</div>`;
       }
@@ -144,7 +153,6 @@ export class POApprovalsComponent implements OnInit, OnDestroy {
       flex: 2,
       cellRenderer: (params: any) => {
         const po = params.data;
-        const canApprove = this.canApprovePO(po);
         
         let html = '<div class="flex items-center justify-start space-x-2">';
         
@@ -166,30 +174,12 @@ export class POApprovalsComponent implements OnInit, OnDestroy {
           </button>
         `;
         
-        // Approval buttons
-        if (canApprove) {
-          html += `
-            <button 
-              class="approve-btn text-green-600 hover:text-green-900 p-1 rounded hover:bg-green-50"
-              id="approve-${po._id}">
-              <span>✅</span>
-            </button>
-            <button 
-              class="reject-btn text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
-              id="reject-${po._id}">
-              <span>❌</span>
-            </button>
-          `;
-        }
-        
         html += '</div>';
         
         // Add event listeners
         setTimeout(() => {
           const viewBtn = document.getElementById(`view-${po._id}`);
           const auditBtn = document.getElementById(`audit-${po._id}`);
-          const approveBtn = document.getElementById(`approve-${po._id}`);
-          const rejectBtn = document.getElementById(`reject-${po._id}`);
           
           if (viewBtn) {
             viewBtn.addEventListener('click', () => this.onViewPO(po));
@@ -198,15 +188,7 @@ export class POApprovalsComponent implements OnInit, OnDestroy {
           if (auditBtn) {
             auditBtn.addEventListener('click', () => this.showAuditTrail(po));
           }
-          
-          if (approveBtn) {
-            approveBtn.addEventListener('click', () => this.onApprovePO(po));
-          }
-          
-          if (rejectBtn) {
-            rejectBtn.addEventListener('click', () => this.onRejectPO(po));
-          }
-        });
+        }, 0);
         
         return html;
       }
@@ -214,20 +196,15 @@ export class POApprovalsComponent implements OnInit, OnDestroy {
   ];
 
   defaultColDef = {
-    resizable: true,
-    sortable: false,
-    filter: false,
-    flex: 1,
-    minWidth: 100
+    sortable: true,
+    filter: true,
+    resizable: true
   };
 
-  gridOptions = {
-    defaultColDef: {
-      flex: 1,
-      minWidth: 100,
-    },
-    rowHeight: 60,
-    tooltipShowDelay: 500
+  gridOptions: GridOptions<PO> = {
+    domLayout: 'autoHeight',
+    suppressCellFocus: true,
+    suppressRowClickSelection: true
   };
 
   constructor(
@@ -237,9 +214,9 @@ export class POApprovalsComponent implements OnInit, OnDestroy {
     private fb: FormBuilder,
     private changeDetectorRef: ChangeDetectorRef
   ) {
-    this.approvalForm = this.fb.group({
-      status: ['', [Validators.required]],
-      comments: ['', [Validators.maxLength(500)]]
+    this.filterForm = this.fb.group({
+      status: [''],
+      dateRange: ['']
     });
   }
 
@@ -255,25 +232,31 @@ export class POApprovalsComponent implements OnInit, OnDestroy {
   loadPOs(): void {
     this.isLoading = true;
     
-    console.log('🔧 PO Approvals: Loading POs for vendor');
-    console.log('🔧 PO Approvals: Current user:', this.currentUser);
-    console.log('🔧 PO Approvals: Requesting POs with status: sent_to_vendor');
+    console.log('🔧 PO Management: Loading POs for vendor');
+    console.log('🔧 PO Management: Current user:', this.currentUser);
     
-    this.poService.getPOs({
+    const filterParams = this.filterForm.value;
+    const params: any = {
       page: this.currentPage,
-      limit: this.pageSize,
-      status: 'sent_to_vendor' // Only show POs sent to vendor for approval
-    }).pipe(takeUntil(this.destroy$)).subscribe({
+      limit: this.pageSize
+    };
+
+    // Add status filter if selected
+    if (filterParams.status) {
+      params.status = filterParams.status;
+    }
+
+    this.poService.getPOs(params).pipe(takeUntil(this.destroy$)).subscribe({
       next: (response) => {
-        console.log('✅ PO Approvals: POs loaded successfully:', response);
+        console.log('✅ PO Management: POs loaded successfully:', response);
         this.pos = response.data.docs || [];
         this.totalPOs = response.data.totalDocs || 0;
-        console.log('🔧 PO Approvals: Found POs:', this.pos.length, 'Total:', this.totalPOs);
+        console.log('🔧 PO Management: Found POs:', this.pos.length, 'Total:', this.totalPOs);
         this.isLoading = false;
         this.changeDetectorRef.detectChanges();
       },
       error: (error) => {
-        console.error('❌ PO Approvals: Error loading POs:', error);
+        console.error('❌ PO Management: Error loading POs:', error);
         this.isLoading = false;
         this.changeDetectorRef.detectChanges();
       }
@@ -285,89 +268,20 @@ export class POApprovalsComponent implements OnInit, OnDestroy {
     this.showViewModal = true;
   }
 
-  onApprovePO(po: PO): void {
-    this.selectedPO = po;
-    this.approvalForm.patchValue({ status: 'accepted' });
-    this.showApprovalModal = true;
-  }
-
-  onRejectPO(po: PO): void {
-    this.selectedPO = po;
-    this.approvalForm.patchValue({ status: 'rejected' });
-    this.showApprovalModal = true;
-  }
-
-  onSubmitApproval(): void {
-    if (this.approvalForm.valid && this.selectedPO) {
-      this.isLoading = true;
-      
-      const approvalData: VendorPOApprovalRequest = {
-        poId: this.selectedPO._id,
-        status: this.approvalForm.get('status')?.value,
-        comments: this.approvalForm.get('comments')?.value
-      };
-
-      const currentPO = this.selectedPO;
-      const previousStatus = currentPO.status;
-
-      this.poService.vendorResponse(this.selectedPO._id, approvalData).pipe(
-        takeUntil(this.destroy$)
-      ).subscribe({
-        next: (response) => {
-          if (response.success) {
-            const updatedPO = response.data;
-            
-            // Log the vendor approval/rejection
-            this.auditLogService.logApproval(
-              'po',
-              this.selectedPO!._id,
-              approvalData.status === 'accepted' ? 'approval' : 'rejection',
-              { status: previousStatus },
-              { status: updatedPO.status },
-              approvalData.comments || `PO ${approvalData.status} by vendor account`,
-              {
-                approvalLevel: 'vendor_approval',
-                approvedBy: this.currentUser?._id,
-                approvalDate: new Date().toISOString()
-              }
-            ).subscribe();
-
-            // Update local data
-            const index = this.pos.findIndex(po => po._id === this.selectedPO!._id);
-            if (index !== -1) {
-              this.pos[index] = updatedPO;
-            }
-            
-            this.showApprovalModal = false;
-            this.approvalForm.reset();
-            this.showSuccessMessage(`PO ${approvalData.status} successfully`);
-          } else {
-            this.showErrorMessage(response.message || 'Failed to process PO approval');
-          }
-          this.isLoading = false;
-          this.changeDetectorRef.detectChanges();
-        },
-        error: (error) => {
-          console.error('Error processing PO approval:', error);
-          this.showErrorMessage('Failed to process PO approval');
-          this.isLoading = false;
-          this.changeDetectorRef.detectChanges();
-        }
-      });
-    }
-  }
-
   onCloseModal(): void {
-    this.showApprovalModal = false;
     this.showViewModal = false;
     this.showAuditTrailModal = false;
     this.selectedPO = null;
     this.selectedPOForAudit = null;
-    this.approvalForm.reset();
   }
 
   onPageChange(page: number): void {
     this.currentPage = page;
+    this.loadPOs();
+  }
+
+  onFilterChange(): void {
+    this.currentPage = 1;
     this.loadPOs();
   }
 
@@ -416,12 +330,6 @@ export class POApprovalsComponent implements OnInit, OnDestroy {
     return po.customPaymentTerms || (po.paymentTerms ? po.paymentTerms.replace('_', ' ').toUpperCase() : 'N/A');
   }
 
-  canApprovePO(po: PO): boolean {
-    // Only vendor_account users can approve POs
-    return this.currentUser?.organizationRole === 'vendor_account' && 
-           po.status === 'sent_to_vendor';
-  }
-
   get currentUser() {
     return this.authService.getCurrentUser();
   }
@@ -439,16 +347,20 @@ export class POApprovalsComponent implements OnInit, OnDestroy {
   }
 
   // Helper methods for template
-  getPendingPOsCount(): number {
+  getPendingPOCount(): number {
     return this.pos.filter(po => po.status === 'sent_to_vendor').length;
   }
 
-  getApprovedPOsCount(): number {
+  getApprovedPOCount(): number {
     return this.pos.filter(po => po.status === 'vendor_accepted').length;
   }
 
-  getRejectedPOsCount(): number {
+  getRejectedPOCount(): number {
     return this.pos.filter(po => po.status === 'vendor_rejected').length;
+  }
+
+  getActivePOCount(): number {
+    return this.pos.filter(po => po.status === 'active').length;
   }
 
   getTotalValue(): number {
@@ -456,6 +368,18 @@ export class POApprovalsComponent implements OnInit, OnDestroy {
   }
 
   getNoRowsMessage(): string {
-    return 'No POs pending approval';
+    return 'No POs found';
+  }
+
+  // Helper methods for template
+  isClientObject(clientId: any): boolean {
+    return clientId && typeof clientId === 'object';
+  }
+
+  getClientDisplayName(clientId: any): string {
+    if (this.isClientObject(clientId)) {
+      return `${clientId.firstName} ${clientId.lastName}`;
+    }
+    return clientId || 'Unknown';
   }
 } 
