@@ -7,22 +7,6 @@ export const CLIENT_ROUTES: Routes = [
   {
     path: '',
     component: ClientDashboardComponent
-  },
-  {
-    path: 'finance/sow-management',
-    component: ClientDashboardComponent
-  },
-  {
-    path: 'finance/po-management',
-    component: ClientDashboardComponent
-  },
-  {
-    path: 'finance/invoice-management',
-    component: ClientDashboardComponent
-  },
-  {
-    path: 'finance/payment-management',
-    component: ClientDashboardComponent
   }
 ];
 
