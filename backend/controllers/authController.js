@@ -122,12 +122,12 @@ const login = asyncHandler(async (req, res, next) => {
     console.log('Looking up user:', email);
 
     // Check for user
-    const user = await User.findOne({ email }).select('+password');
+    const user = await User.findOne({ email }).select('+password +organizationRole');
     console.log('User lookup result:', user ? {
       id: user._id,
       email: user.email,
       userType: user.userType,
-      role: user.role,
+      organizationRole: user.organizationRole,
       isActive: user.isActive,
       hasPassword: !!user.password
     } : 'No user found');
@@ -409,7 +409,7 @@ const sendTokenResponse = (user, statusCode, res, message) => {
       id: user._id,
       email: user.email,
       userType: user.userType,
-      role: user.role,
+      organizationRole: user.organizationRole,
       approvalStatus: user.approvalStatus
     });
 
@@ -436,7 +436,7 @@ const sendTokenResponse = (user, statusCode, res, message) => {
         firstName: user.firstName,
         lastName: user.lastName,
         userType: user.userType,
-        role: user.role,
+        organizationRole: user.organizationRole,
         approvalStatus: user.approvalStatus,
         rejectionReason: user.rejectionReason,
         organizationId: user.organizationId,

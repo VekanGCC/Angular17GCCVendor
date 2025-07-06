@@ -109,6 +109,9 @@ app.use('/api/vendor/invoice', require('./routes/invoice'));
 // Audit log routes
 app.use('/api/audit-logs', require('./routes/auditLogs'));
 
+// Workflow routes
+app.use('/api/workflows', require('./routes/workflows'));
+
 // Resource management routes
 app.use('/api/resources', require('./routes/resources'));
 app.use('/api/requirements', require('./routes/requirements'));
@@ -127,18 +130,13 @@ app.use('/api/categories', require('./routes/categories'));
 // File management routes
 app.use('/api/files', require('./routes/files'));
 
-// Mount routers
+// Additional routes
 app.use('/api/users', require('./routes/users'));
 app.use('/api/skills', require('./routes/skills'));
 app.use('/api/vendor/niche-skills', require('./routes/vendorSkills'));
 app.use('/api/vendors', require('./routes/vendor'));
-app.use('/api/requirements', require('./routes/requirements'));
-app.use('/api/resources', require('./routes/resources'));
-app.use('/api/applications', require('./routes/applications'));
 app.use('/api/client-settings', require('./routes/clientSettings'));
 app.use('/api/vendor-settings', require('./routes/vendorSettings'));
-app.use('/api/client-dashboard', require('./routes/clientDashboard'));
-app.use('/api/vendor-dashboard', require('./routes/vendorDashboard'));
 
 // Health check route
 app.get('/api/health', (req, res) => {

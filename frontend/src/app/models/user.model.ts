@@ -3,7 +3,7 @@ export interface User {
   email: string;
   firstName: string;
   lastName: string;
-  role: string;
+  role?: string;
   userType: 'vendor' | 'client' | 'admin';
   isActive: boolean;
   isEmailVerified: boolean;
@@ -22,9 +22,9 @@ export interface User {
     registrationNumber?: string;
     taxId?: string;
   };
-  // Organization fields (for vendor and client users)
+  // Organization fields (for all users)
   organizationId?: string;
-  organizationRole?: 'vendor_owner' | 'vendor_employee' | 'vendor_account' | 'client_owner' | 'client_employee' | 'client_account';
+  organizationRole?: 'admin_owner' | 'admin_employee' | 'admin_account' | 'vendor_owner' | 'vendor_employee' | 'vendor_account' | 'client_owner' | 'client_employee' | 'client_account';
   createdAt: string;
   updatedAt: string;
   rejectionReason?: string;

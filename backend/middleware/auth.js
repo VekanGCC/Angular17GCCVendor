@@ -44,10 +44,14 @@ const protect = asyncHandler(async (req, res, next) => {
 // Grant access to specific roles
 const authorize = (...roles) => {
   return (req, res, next) => {
-    if (!roles.includes(req.user.userType)) {
+    // Check both userType and organizationRole
+    const hasUserType = roles.includes(req.user.userType);
+    const hasOrganizationRole = req.user.organizationRole && roles.includes(req.user.organizationRole);
+    
+    if (!hasUserType && !hasOrganizationRole) {
       return next(
         new ErrorResponse(
-          `User role ${req.user.userType} is not authorized to access this route`,
+          `User role ${req.user.userType}/${req.user.organizationRole} is not authorized to access this route`,
           403
         )
       );

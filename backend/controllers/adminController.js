@@ -8,6 +8,7 @@ const Transaction = require('../models/Transaction');
 const asyncHandler = require('../utils/asyncHandler');
 const ErrorResponse = require('../utils/errorResponse');
 const { createNotification } = require('./notificationController');
+const { canManageUsers } = require('../utils/adminRoleHelper');
 
 // @desc    Get pending approvals
 // @route   GET /api/admin/approvals
@@ -549,10 +550,10 @@ const getAdminUsers = asyncHandler(async (req, res, next) => {
 
 // @desc    Create admin user
 // @route   POST /api/admin/users
-// @access  Private (Super Admin only)
+// @access  Private (Admin Owner only)
 const createAdminUser = asyncHandler(async (req, res, next) => {
-  // Check if current user is super admin
-  if (req.user.role !== 'superadmin') {
+  // Check if current user can manage users
+  if (!canManageUsers(req.user)) {
     return next(new ErrorResponse('Not authorized to create admin users', 403));
   }
 

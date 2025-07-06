@@ -59,6 +59,25 @@ const applicationSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Organization',
     required: true // Required for both vendor and client applications
+  },
+  
+  // Workflow fields
+  workflowInstanceId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'WorkflowInstance'
+  },
+  workflowStatus: {
+    type: String,
+    enum: ['not_started', 'in_progress', 'completed', 'cancelled'],
+    default: 'not_started'
+  },
+  currentWorkflowStep: {
+    type: Number,
+    default: 1
+  },
+  workflowMetadata: {
+    type: Object,
+    default: {}
   }
 }, {
   timestamps: true

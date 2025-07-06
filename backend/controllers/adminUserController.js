@@ -6,6 +6,7 @@ const asyncHandler = require('../utils/asyncHandler');
 const ErrorResponse = require('../utils/errorResponse');
 const { validationResult } = require('express-validator');
 const { createNotification } = require('./notificationController');
+const { canManageUsers } = require('../utils/adminRoleHelper');
 
 // @desc    Get all users (with filtering)
 // @route   GET /api/admin/users/all
@@ -96,11 +97,11 @@ const updateUser = asyncHandler(async (req, res, next) => {
   // Prevent updating sensitive fields
   const fieldsToUpdate = { ...req.body };
   delete fieldsToUpdate.password;
-  delete fieldsToUpdate.role; // Role can only be updated by superadmin
+  delete fieldsToUpdate.role; // Role can only be updated by admin owners
   delete fieldsToUpdate.email; // Email changes should go through a verification process
 
-  // Check if trying to update admin permissions without being superadmin
-  if (fieldsToUpdate.permissions && req.user.role !== 'superadmin') {
+  // Check if trying to update admin permissions without proper authorization
+  if (fieldsToUpdate.permissions && !canManageUsers(req.user)) {
     return next(new ErrorResponse('Not authorized to update admin permissions', 403));
   }
 

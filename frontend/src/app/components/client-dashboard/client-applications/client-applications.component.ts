@@ -369,6 +369,8 @@ export class ClientApplicationsComponent implements OnInit, OnDestroy {
         return { color: 'bg-red-100 text-red-800', icon: 'x-circle' };
       case 'offer_created':
         return { color: 'bg-indigo-100 text-indigo-800', icon: 'file-text' };
+      case 'offer_accepted':
+        return { color: 'bg-emerald-100 text-emerald-800', icon: 'check-circle' };
       case 'onboarded':
         return { color: 'bg-teal-100 text-teal-800', icon: 'plus' };
       case 'did_not_join':
@@ -418,6 +420,8 @@ export class ClientApplicationsComponent implements OnInit, OnDestroy {
         return 'bg-red-100 text-red-800';
       case 'offer_created':
         return 'bg-indigo-100 text-indigo-800';
+      case 'offer_accepted':
+        return 'bg-emerald-100 text-emerald-800';
       case 'onboarded':
         return 'bg-teal-100 text-teal-800';
       case 'did_not_join':
@@ -496,6 +500,11 @@ export class ClientApplicationsComponent implements OnInit, OnDestroy {
           { value: 'offer_created', label: 'Create Offer' }
         ];
       case 'offer_created':
+        return [
+          { value: 'offer_accepted', label: 'Offer Accepted' },
+          { value: 'rejected', label: 'Reject Offer' }
+        ];
+      case 'offer_accepted':
         return [
           { value: 'onboarded', label: 'Onboarded' },
           { value: 'did_not_join', label: 'Did Not Join' }

@@ -63,24 +63,19 @@ const userSchema = new mongoose.Schema({
     taxId: String
   },
   
-  // Admin role field
-  role: {
-    type: String,
-    enum: ['admin', 'superadmin', 'client', 'vendor'],
-    select: false
-  },
-  
-  // Organization fields (for vendor and client users)
+  // Organization fields (for all users)
   organizationId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Organization',
-    required: false // Required for vendor and client users with organizations
+    required: false
   },
   organizationRole: {
     type: String,
-    enum: ['vendor_owner', 'vendor_employee', 'vendor_account', 'client_owner', 'client_employee', 'client_account'],
-    required: false // Required for vendor and client users with organizations
+    enum: ['admin_owner', 'admin_employee', 'admin_account', 'vendor_owner', 'vendor_employee', 'vendor_account', 'client_owner', 'client_employee', 'client_account'],
+    required: false
   },
+  
+  // Legacy role field removed - use organizationRole instead
   
   // Admin permissions
   permissions: {
@@ -229,7 +224,7 @@ const userSchema = new mongoose.Schema({
 userSchema.index({ email: 1 });
 userSchema.index({ userType: 1 });
 userSchema.index({ isActive: 1 });
-userSchema.index({ role: 1 });
+userSchema.index({ organizationRole: 1 });
 
 // Encrypt password before saving
 userSchema.pre('save', async function(next) {
@@ -264,7 +259,7 @@ userSchema.methods.getSignedJwtToken = function() {
     id: this._id,
     email: this.email,
     userType: this.userType,
-    role: this.role
+    organizationRole: this.organizationRole
   });
   
   try {
@@ -273,7 +268,7 @@ userSchema.methods.getSignedJwtToken = function() {
         id: this._id,
         email: this.email,
         userType: this.userType,
-        role: this.role 
+        organizationRole: this.organizationRole 
       },
       process.env.JWT_SECRET || 'your_jwt_secret_key_here',
       {

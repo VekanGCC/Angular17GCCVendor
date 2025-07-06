@@ -199,6 +199,15 @@ export class AdminService {
     return this.apiService.post<ApiResponse<SkillApproval>>(`/admin/skill-approvals/${skillId}/reject`, { notes });
   }
 
+  updateApplicationStatus(applicationId: string, status: string, notes?: string): Observable<ApiResponse<any>> {
+    return this.apiService.put<ApiResponse<any>>(`/applications/${applicationId}/status`, { 
+      status, 
+      notes,
+      notifyCandidate: true,
+      notifyClient: true
+    });
+  }
+
   approveVendorSkill(skillId: string): Observable<ApiResponse<any>> {
     return this.apiService.updateVendorSkillStatus(skillId, 'approved');
   }

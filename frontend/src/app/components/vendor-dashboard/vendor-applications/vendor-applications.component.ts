@@ -135,11 +135,11 @@ export class VendorApplicationsComponent implements OnInit, OnChanges {
       cellRenderer: (params: any) => {
         const status = params.data.status;
         const statusClass = this.getStatusClass(status);
-        const statusText = this.formatStatus(status);
+        const displayStatus = this.getVendorDisplayStatus(status);
         
         return `
           <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusClass}">
-            ${statusText}
+            ${displayStatus}
           </span>
         `;
       }
@@ -364,26 +364,30 @@ export class VendorApplicationsComponent implements OnInit, OnChanges {
 
   getStatusClass(status: string): string {
     switch (status?.toLowerCase()) {
+      case 'applied':
+        return 'bg-blue-100 text-blue-800';
       case 'pending':
         return 'bg-yellow-100 text-yellow-800';
-      case 'approved':
+      case 'shortlisted':
+        return 'bg-blue-100 text-blue-800';
+      case 'interview':
+        return 'bg-purple-100 text-purple-800';
+      case 'accepted':
         return 'bg-green-100 text-green-800';
       case 'rejected':
         return 'bg-red-100 text-red-800';
-      case 'in progress':
-        return 'bg-blue-100 text-blue-800';
-      case 'completed':
-        return 'bg-purple-100 text-purple-800';
-      case 'cancelled':
-        return 'bg-gray-100 text-gray-800';
-      case 'revoked':
-        return 'bg-orange-100 text-orange-800';
-      case 'offer_sent':
+      case 'offer_created':
         return 'bg-indigo-100 text-indigo-800';
       case 'offer_accepted':
         return 'bg-emerald-100 text-emerald-800';
-      case 'offer_rejected':
-        return 'bg-rose-100 text-rose-800';
+      case 'onboarded':
+        return 'bg-teal-100 text-teal-800';
+      case 'did_not_join':
+        return 'bg-orange-100 text-orange-800';
+      case 'withdrawn':
+        return 'bg-gray-100 text-gray-800';
+      case 'in process':
+        return 'bg-blue-100 text-blue-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -397,57 +401,35 @@ export class VendorApplicationsComponent implements OnInit, OnChanges {
     const status = currentStatus?.toLowerCase();
     
     // Vendor perspective - what actions can vendor take at each status
+    // Vendor can only see "In Process" status and can revoke at any point
     
-    // Applied - vendor can only revoke
-    if (status === 'applied') {
+    // All statuses except final ones - vendor can revoke
+    if (['applied', 'shortlisted', 'interview', 'accepted', 'offer_created', 'offer_accepted'].includes(status)) {
       return [
-        { value: 'withdrawn', label: 'Revoke Candidate', color: 'bg-red-100 text-red-800' }
+        { value: 'withdrawn', label: 'Revoke Application', color: 'bg-red-100 text-red-800' }
       ];
     }
     
-    // Shortlisted - vendor can only revoke
-    if (status === 'shortlisted') {
-      return [
-        { value: 'withdrawn', label: 'Revoke Candidate', color: 'bg-red-100 text-red-800' }
-      ];
-    }
-    
-    // Interview - vendor can only revoke
-    if (status === 'interview') {
-      return [
-        { value: 'withdrawn', label: 'Revoke Candidate', color: 'bg-red-100 text-red-800' }
-      ];
-    }
-    
-    // Accepted - vendor can only revoke
-    if (status === 'accepted') {
-      return [
-        { value: 'withdrawn', label: 'Revoke Candidate', color: 'bg-red-100 text-red-800' }
-      ];
-    }
-    
-    // Offer Created - vendor can accept or reject the offer
-    if (status === 'offer_created') {
-      return [
-        { value: 'offer_accepted', label: 'Accept Offer', color: 'bg-green-100 text-green-800' },
-        { value: 'rejected', label: 'Reject Offer', color: 'bg-red-100 text-red-800' }
-      ];
-    }
-    
-    // Offer Accepted - vendor can only revoke
-    if (status === 'offer_accepted') {
-      return [
-        { value: 'withdrawn', label: 'Revoke Candidate', color: 'bg-red-100 text-red-800' }
-      ];
-    }
-    
-    // Onboarded, did_not_join, withdrawn, rejected - no actions available
+    // Final statuses - no actions available
     if (['onboarded', 'did_not_join', 'withdrawn', 'rejected'].includes(status)) {
       return [];
     }
     
     // Default - no options
     return [];
+  }
+
+  // Method to get display status for vendor (show "In Process" for active statuses)
+  getVendorDisplayStatus(status: string): string {
+    const statusLower = status?.toLowerCase();
+    
+    // Show "In Process" for all active statuses that vendor should see
+    if (['applied', 'shortlisted', 'interview', 'accepted', 'offer_created', 'offer_accepted'].includes(statusLower)) {
+      return 'In Process';
+    }
+    
+    // Show actual status for final statuses
+    return status;
   }
 
   hasStatusOptions(status: string): boolean {

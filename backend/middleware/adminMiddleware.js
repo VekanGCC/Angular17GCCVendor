@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const { isAdmin } = require('../utils/adminRoleHelper');
 
 const protect = async (req, res, next) => {
   let token;
@@ -12,8 +13,8 @@ const protect = async (req, res, next) => {
       // Verify token
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-      // Get user from the token, explicitly selecting the role field
-      const user = await User.findById(decoded.id).select('+role');
+      // Get user from the token, explicitly selecting the role and organizationRole fields
+      const user = await User.findById(decoded.id).select('+role +organizationRole');
 
       if (!user) {
         return res.status(401).json({
@@ -22,8 +23,8 @@ const protect = async (req, res, next) => {
         });
       }
 
-      // Check if user is an admin
-      if (user.role !== 'admin') {
+      // Check if user has admin permissions using the new role system
+      if (!isAdmin(user)) {
         return res.status(403).json({
           success: false,
           message: 'Not authorized to access this route'

@@ -9,6 +9,7 @@ import { AuthService } from '../../services/auth.service';
 import { AdminService } from '../../services/admin.service';
 import { AppService } from '../../services/app.service';
 import { VendorManagementService } from '../../services/vendor-management.service';
+import { WorkflowService } from '../../services/workflow.service';
 import { AdminSkill, PlatformStats, TransactionData, SkillApproval } from '../../models/admin.model';
 import { Category } from '../../models/category.model';
 import { VendorSkill } from '../../models/vendor-skill.model';
@@ -31,6 +32,7 @@ import { ApplicationsViewComponent } from './applications-view/applications-view
 import { UsersManagementComponent } from './users-management/users-management.component';
 import { ProfileDashboardComponent } from '../profile/profile-dashboard.component';
 import { AdminReportsComponent } from './admin-reports/admin-reports.component';
+import { WorkflowManagementComponent } from './workflow-management/workflow-management.component';
 
 interface ApiResponse<T> {
   success: boolean;
@@ -70,7 +72,8 @@ interface NavigationTab {
     ApplicationsViewComponent,
     UsersManagementComponent,
     ProfileDashboardComponent,
-    AdminReportsComponent
+    AdminReportsComponent,
+    WorkflowManagementComponent
   ],
   templateUrl: './admin-dashboard.component.html',
   styleUrls: ['./admin-dashboard.component.scss']
@@ -78,7 +81,7 @@ interface NavigationTab {
 export class AdminDashboardComponent implements OnInit, OnDestroy {
   currentUser: User | null = null;
   isLoading = false;
-  activeTab: 'overview' | 'skill-approvals' | 'skills' | 'applications' | 'users' | 'user-profile' | 'categories' | 'reports' = 'overview';
+  activeTab: 'overview' | 'skill-approvals' | 'skills' | 'applications' | 'users' | 'user-profile' | 'categories' | 'reports' | 'workflows' = 'overview';
   
   // Data
   skillApprovals: SkillApproval[] = [];
@@ -147,8 +150,47 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     { id: 'skills', label: 'Skills', icon: 'list' },
     { id: 'categories', label: 'Categories', icon: 'folder' },
     { id: 'applications', label: 'Applications', icon: 'file-text' },
-    { id: 'users', label: 'Users', icon: 'users' }
+    { id: 'users', label: 'Users', icon: 'users' },
+    { id: 'reports', label: 'Reports & Analytics', icon: 'bar-chart-3' },
+    { id: 'workflows', label: 'Workflow Management', icon: 'git-branch' }
   ];
+
+  // Get navigation tabs based on user organization role
+  get availableNavigationTabs(): NavigationTab[] {
+    if (!this.currentUser) {
+      console.log('Admin Dashboard: No current user found');
+      return [];
+    }
+    
+    console.log('Admin Dashboard: Current user type:', this.currentUser.userType);
+    console.log('Admin Dashboard: Current user organizationRole:', this.currentUser.organizationRole);
+    
+    // Admin owners can see all tabs including workflows
+    if (this.currentUser.organizationRole === 'admin_owner') {
+      console.log('Admin Dashboard: User is admin owner, showing all tabs');
+      return this.navigationTabs;
+    }
+    
+    // Admin employees can see all tabs except workflows
+    if (this.currentUser.organizationRole === 'admin_employee') {
+      console.log('Admin Dashboard: User is admin employee, hiding workflows tab');
+      return this.navigationTabs.filter(tab => tab.id !== 'workflows');
+    }
+    
+    // Admin accounts can see most tabs but not workflows
+    if (this.currentUser.organizationRole === 'admin_account') {
+      console.log('Admin Dashboard: User is admin account, hiding workflows tab');
+      return this.navigationTabs.filter(tab => tab.id !== 'workflows');
+    }
+    
+    // Legacy role support removed - only use organizationRole
+    
+    // Other users see limited tabs
+    console.log('Admin Dashboard: User has no specific role, showing limited tabs');
+    return this.navigationTabs.filter(tab => 
+      ['overview', 'skill-approvals', 'skills', 'categories'].includes(tab.id)
+    );
+  }
 
   // Profile tab list
   profileTabList: { value: 'personal' | 'addresses' | 'bank' | 'compliance', label: string }[] = [
@@ -196,6 +238,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     private adminService: AdminService,
     private appService: AppService,
     private vendorManagementService: VendorManagementService,
+    private workflowService: WorkflowService,
     private router: Router,
     private apiService: ApiService,
     private changeDetectorRef: ChangeDetectorRef
@@ -436,7 +479,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     }
   }
 
-  setActiveTab(tab: 'overview' | 'skill-approvals' | 'skills' | 'applications' | 'users' | 'user-profile' | 'categories' | 'reports'): void {
+  setActiveTab(tab: 'overview' | 'skill-approvals' | 'skills' | 'applications' | 'users' | 'user-profile' | 'categories' | 'reports' | 'workflows'): void {
     this.activeTab = tab;
     
     // Reset pagination states when switching tabs
@@ -445,6 +488,11 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     this.skillApprovalsPaginationState.currentPage = 1;
     
     this.loadTabData();
+  }
+
+  // Helper method to safely set active tab from template
+  setActiveTabSafe(id: string): void {
+    this.setActiveTab(id as 'overview' | 'skill-approvals' | 'skills' | 'applications' | 'users' | 'user-profile' | 'categories' | 'reports' | 'workflows');
   }
 
   loadTabData(): void {
@@ -650,6 +698,25 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   onApplicationsPageChange(page: number): void {
     this.applicationsPaginationState.currentPage = page;
     this.loadApplications();
+  }
+
+  onApplicationStatusUpdate(data: {applicationId: string, status: string, notes?: string}): void {
+    console.log('Admin: Application status update requested:', data);
+    
+    this.adminService.updateApplicationStatus(data.applicationId, data.status, data.notes).subscribe({
+      next: (response: any) => {
+        if (response.success) {
+          console.log('Application status updated successfully:', response);
+          // Reload applications to reflect the change
+          this.loadApplications();
+        } else {
+          console.error('Failed to update application status:', response.message);
+        }
+      },
+      error: (error: any) => {
+        console.error('Error updating application status:', error);
+      }
+    });
   }
 
   onUsersPageChange(page: number): void {

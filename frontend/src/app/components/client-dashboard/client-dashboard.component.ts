@@ -917,11 +917,10 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
       );
     }
 
-    // If user is client_account, show finance management but hide user management
+    // If user is client_account, show ONLY finance management
     if (this.currentUser?.organizationRole === 'client_account') {
       return allMenuItems.filter(item => 
-        item.id !== 'user-management' && 
-        (!item.roles || item.roles.includes('client_account'))
+        item.id === 'finance-management'
       );
     }
 

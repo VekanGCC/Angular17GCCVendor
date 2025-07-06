@@ -237,7 +237,7 @@ const updateRequirement = asyncHandler(async (req, res, next) => {
   }
 
   // Make sure user is requirement owner or admin
-  if (requirement.createdBy.toString() !== req.user.id && req.user.role !== 'admin') {
+  if (requirement.createdBy.toString() !== req.user.id && req.user.organizationRole !== 'admin_owner' && req.user.organizationRole !== 'admin_employee') {
     return next(
       new ErrorResponse('Not authorized to update this requirement', 403)
     );
@@ -289,7 +289,7 @@ const updateRequirementStatus = asyncHandler(async (req, res, next) => {
   }
 
   // Make sure user is requirement owner or admin
-  if (requirement.createdBy.toString() !== req.user.id && req.user.role !== 'admin') {
+  if (requirement.createdBy.toString() !== req.user.id && req.user.organizationRole !== 'admin_owner' && req.user.organizationRole !== 'admin_employee') {
     return next(
       new ErrorResponse('Not authorized to update this requirement', 403)
     );
@@ -339,7 +339,7 @@ const deleteRequirement = asyncHandler(async (req, res, next) => {
   }
 
   // Make sure user is requirement owner or admin
-  if (requirement.createdBy.toString() !== req.user.id && req.user.role !== 'admin') {
+  if (requirement.createdBy.toString() !== req.user.id && req.user.organizationRole !== 'admin_owner' && req.user.organizationRole !== 'admin_employee') {
     return next(
       new ErrorResponse('Not authorized to delete this requirement', 403)
     );

@@ -399,7 +399,7 @@ const updateResource = asyncHandler(async (req, res, next) => {
   }
 
   // Make sure user is resource owner or admin
-  if (resource.createdBy.toString() !== req.user.id && req.user.role !== 'admin') {
+  if (resource.createdBy.toString() !== req.user.id && req.user.organizationRole !== 'admin_owner' && req.user.organizationRole !== 'admin_employee') {
     return next(
       new ErrorResponse('Not authorized to update this resource', 403)
     );
@@ -426,7 +426,7 @@ const deleteResource = asyncHandler(async (req, res, next) => {
   }
 
   // Make sure user is resource owner or admin
-  if (resource.createdBy.toString() !== req.user.id && req.user.role !== 'admin') {
+  if (resource.createdBy.toString() !== req.user.id && req.user.organizationRole !== 'admin_owner' && req.user.organizationRole !== 'admin_employee') {
     return next(
       new ErrorResponse('Not authorized to delete this resource', 403)
     );

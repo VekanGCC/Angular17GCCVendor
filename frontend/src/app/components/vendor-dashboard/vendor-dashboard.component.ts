@@ -131,11 +131,10 @@ export class VendorDashboardComponent implements OnInit, OnDestroy {
       );
     }
 
-    // If user is vendor_account, show finance management but hide user management
+    // If user is vendor_account, show ONLY finance management
     if (this.currentUser?.organizationRole === 'vendor_account') {
       return allMenuItems.filter(item => 
-        item.id !== 'user-management' && 
-        (!item.roles || item.roles.includes('vendor_account'))
+        item.id === 'finance-management'
       );
     }
 

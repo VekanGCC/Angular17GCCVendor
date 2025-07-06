@@ -1,6 +1,7 @@
 const asyncHandler = require('../middleware/async');
 const ErrorResponse = require('../utils/errorResponse');
 const ApiResponse = require('../models/ApiResponse');
+const { isAdmin } = require('../utils/adminRoleHelper');
 const File = require('../models/File');
 const User = require('../models/User');
 const fs = require('fs').promises;
@@ -116,7 +117,7 @@ const getFilesByEntity = asyncHandler(async (req, res, next) => {
   }
 
   // Enhanced permission check for cross-access
-  if (req.user.role !== 'admin') {
+  if (!isAdmin(req.user)) {
     // Build permission query
     let permissionQuery = { $or: [] };
 
@@ -196,7 +197,7 @@ const getFile = asyncHandler(async (req, res, next) => {
   let hasPermission = false;
 
   // Admin can access everything
-  if (req.user.role === 'admin') {
+  if (isAdmin(req.user)) {
     hasPermission = true;
   }
   // File owner can always access their files
@@ -279,7 +280,7 @@ const downloadFile = asyncHandler(async (req, res, next) => {
   let hasPermission = false;
 
   // Admin can access everything
-  if (req.user.role === 'admin') {
+  if (isAdmin(req.user)) {
     hasPermission = true;
   }
   // File owner can always access their files
@@ -425,7 +426,7 @@ const updateFile = asyncHandler(async (req, res, next) => {
   }
 
   // Check permissions - only uploader or admin can update
-  if (file.uploadedBy.toString() !== req.user.id && req.user.role !== 'admin') {
+  if (file.uploadedBy.toString() !== req.user.id && req.user.organizationRole !== 'admin_owner' && req.user.organizationRole !== 'admin_employee') {
     return next(new ErrorResponse('Not authorized to update this file', 403));
   }
 
@@ -464,7 +465,7 @@ const deleteFile = asyncHandler(async (req, res, next) => {
   }
 
   // Check permissions - only uploader or admin can delete
-  if (file.uploadedBy.toString() !== req.user.id && req.user.role !== 'admin') {
+  if (file.uploadedBy.toString() !== req.user.id && req.user.organizationRole !== 'admin_owner' && req.user.organizationRole !== 'admin_employee') {
     return next(new ErrorResponse('Not authorized to delete this file', 403));
   }
 
@@ -487,7 +488,7 @@ const deleteFile = asyncHandler(async (req, res, next) => {
 // @route   PATCH /api/files/:id/approval
 // @access  Private (Admin only)
 const updateFileApproval = asyncHandler(async (req, res, next) => {
-  if (req.user.role !== 'admin') {
+  if (req.user.organizationRole !== 'admin_owner' && req.user.organizationRole !== 'admin_employee') {
     return next(new ErrorResponse('Not authorized to approve files', 403));
   }
 
@@ -556,7 +557,7 @@ const getMyFiles = asyncHandler(async (req, res, next) => {
 // @route   GET /api/files/pending-approvals
 // @access  Private (Admin only)
 const getPendingApprovals = asyncHandler(async (req, res, next) => {
-  if (req.user.role !== 'admin') {
+  if (req.user.organizationRole !== 'admin_owner' && req.user.organizationRole !== 'admin_employee') {
     return next(new ErrorResponse('Not authorized to view pending approvals', 403));
   }
 
@@ -584,7 +585,7 @@ const getPendingApprovals = asyncHandler(async (req, res, next) => {
 // @route   POST /api/files/bulk-approval
 // @access  Private (Admin only)
 const bulkUpdateApproval = asyncHandler(async (req, res, next) => {
-  if (req.user.role !== 'admin') {
+  if (req.user.organizationRole !== 'admin_owner' && req.user.organizationRole !== 'admin_employee') {
     return next(new ErrorResponse('Not authorized to approve files', 403));
   }
 
@@ -762,7 +763,7 @@ const simpleDownload = asyncHandler(async (req, res, next) => {
   let hasPermission = false;
 
   // Admin can access everything
-  if (req.user.role === 'admin') {
+  if (isAdmin(req.user)) {
     hasPermission = true;
   }
   // File owner can always access their files

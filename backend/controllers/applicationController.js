@@ -2,6 +2,8 @@ const Application = require('../models/Application');
 const Requirement = require('../models/Requirement');
 const Resource = require('../models/Resource');
 const ApplicationHistory = require('../models/ApplicationHistory');
+const WorkflowConfiguration = require('../models/WorkflowConfiguration');
+const WorkflowInstance = require('../models/WorkflowInstance');
 const asyncHandler = require('../utils/asyncHandler');
 const ErrorResponse = require('../utils/errorResponse');
 const ApiResponse = require('../models/ApiResponse');
@@ -380,10 +382,63 @@ const createApplication = asyncHandler(async (req, res, next) => {
     });
   }
 
+  // Start workflow if configured
+  try {
+    await startWorkflowForApplication(application._id, req.user.userType);
+  } catch (workflowError) {
+    console.error('Error starting workflow for application:', workflowError);
+    // Don't fail the application creation if workflow fails
+  }
+
   res.status(201).json(
     ApiResponse.success(populatedApplication, 'Application created successfully')
   );
 });
+
+// Helper function to start workflow for application
+const startWorkflowForApplication = async (applicationId, userType) => {
+  // Determine application type based on user type
+  const applicationType = userType === 'client' ? 'client_applied' : 'vendor_applied';
+  
+  // Find default workflow for this application type
+  const defaultWorkflow = await WorkflowConfiguration.findOne({
+    applicationTypes: { $in: [applicationType, 'both'] },
+    isActive: true,
+    isDefault: true
+  });
+
+  if (!defaultWorkflow) {
+    console.log(`No default workflow found for application type: ${applicationType}`);
+    return;
+  }
+
+  // Create workflow instance
+  const workflowInstance = await WorkflowInstance.create({
+    applicationId: applicationId,
+    workflowConfigurationId: defaultWorkflow._id,
+    currentStep: 1,
+    status: 'active',
+    steps: defaultWorkflow.steps.map(step => ({
+      stepId: step._id || `step_${step.order}`,
+      stepName: step.name,
+      order: step.order,
+      role: step.role,
+      action: step.action,
+      status: 'pending',
+      required: step.required,
+      autoAdvance: step.autoAdvance
+    }))
+  });
+
+  // Update application with workflow info
+  await Application.findByIdAndUpdate(applicationId, {
+    workflowInstanceId: workflowInstance._id,
+    workflowStatus: 'in_progress',
+    currentWorkflowStep: 1
+  });
+
+  console.log(`Workflow started for application ${applicationId}: ${defaultWorkflow.name}`);
+};
 
 // @desc    Update application status
 // @route   PUT /api/applications/:id/status
@@ -410,7 +465,7 @@ const updateApplicationStatus = asyncHandler(async (req, res, next) => {
     return next(new ErrorResponse('Application not found', 404));
   }
 
-  // Check authorization - requirement owner, resource owner, or admin can update status
+  // Check authorization based on user role and current status
   const requirement = await Requirement.findById(application.requirement);
   const resource = await Resource.findById(application.resource);
   
@@ -424,19 +479,46 @@ const updateApplicationStatus = asyncHandler(async (req, res, next) => {
 
   const isRequirementOwner = requirement.createdBy.toString() === req.user.id;
   const isResourceOwner = resource.createdBy.toString() === req.user.id;
-  const isAdmin = req.user.userType === 'admin';
+  const isAdmin = req.user.userType === 'admin' || req.user.organizationRole?.includes('admin');
+  const isClient = req.user.userType === 'client' || req.user.organizationRole?.includes('client');
+  const isVendor = req.user.userType === 'vendor' || req.user.organizationRole?.includes('vendor');
 
-  if (!isRequirementOwner && !isResourceOwner && !isAdmin) {
+  // Check if user has permission to update status based on current status and role
+  let hasPermission = false;
+  const currentStatus = application.status;
+
+  // Admin can update any status
+  if (isAdmin) {
+    hasPermission = true;
+  }
+  // Client can update status in their process flow
+  else if (isClient && isRequirementOwner) {
+    const clientAllowedStatuses = ['shortlisted', 'interview', 'accepted', 'offer_created'];
+    hasPermission = clientAllowedStatuses.includes(status) && 
+                   (currentStatus === 'applied' || clientAllowedStatuses.includes(currentStatus));
+  }
+  // Vendor can only revoke (withdraw) at any point
+  else if (isVendor && (isResourceOwner || application.createdBy.toString() === req.user.id)) {
+    hasPermission = status === 'withdrawn';
+  }
+
+  if (!hasPermission) {
     return next(
-      new ErrorResponse('Not authorized to update this application. Only the requirement owner, resource owner, or admin can update application status.', 403)
+      new ErrorResponse('Not authorized to update this application status. Check your role and the current application status.', 403)
     );
   }
 
   // Save previous status for history
   const previousStatus = application.status;
 
+  // Special logic for admin approval - automatically set to shortlisted
+  let finalStatus = status;
+  if (isAdmin && status === 'accepted' && currentStatus === 'applied') {
+    finalStatus = 'shortlisted';
+  }
+
   // Update application
-  const updateData = { status };
+  const updateData = { status: finalStatus };
   if (notes) {
     updateData.notes = notes;
   }
@@ -512,7 +594,7 @@ const updateApplicationStatus = asyncHandler(async (req, res, next) => {
     recipient: application.createdBy,
     type: 'application_status_change',
     title: 'Application Status Updated',
-    message: `Your application for ${requirement.title} has been ${status}`,
+    message: `Your application for ${requirement.title} has been ${finalStatus}`,
     relatedRequirement: requirement._id,
     actionUrl: `/applications/${application._id}`
   });
@@ -523,7 +605,7 @@ const updateApplicationStatus = asyncHandler(async (req, res, next) => {
       recipient: application.createdBy,
       type: 'application_status_change',
       title: 'Application Status Update',
-      message: `Your application for ${requirement.title} has been ${status}${decisionReason?.notes ? `: ${decisionReason.notes}` : ''}`,
+      message: `Your application for ${requirement.title} has been ${finalStatus}${decisionReason?.notes ? `: ${decisionReason.notes}` : ''}`,
       relatedRequirement: requirement._id,
       actionUrl: `/applications/${application._id}`
     });
@@ -534,16 +616,95 @@ const updateApplicationStatus = asyncHandler(async (req, res, next) => {
       recipient: requirement.createdBy,
       type: 'application_status_change',
       title: 'Application Status Update',
-      message: `Application for ${requirement.title} has been ${status} by ${req.user.firstName} ${req.user.lastName}`,
+      message: `Application for ${requirement.title} has been ${finalStatus} by ${req.user.firstName} ${req.user.lastName}`,
       relatedRequirement: requirement._id,
       actionUrl: `/applications/${application._id}`
     });
+  }
+
+  // Process workflow step if application has workflow
+  if (application.workflowInstanceId) {
+    try {
+      await processWorkflowStepForApplication(application._id, req.user, finalStatus, notes);
+    } catch (workflowError) {
+      console.error('Error processing workflow step:', workflowError);
+      // Don't fail the status update if workflow processing fails
+    }
   }
 
   res.status(200).json(
     ApiResponse.success(application, 'Application status updated successfully')
   );
 });
+
+// Helper function to process workflow step for application
+const processWorkflowStepForApplication = async (applicationId, user, action, comments) => {
+  const application = await Application.findById(applicationId).populate('workflowInstanceId');
+  
+  if (!application.workflowInstanceId) {
+    return;
+  }
+
+  const workflowInstance = application.workflowInstanceId;
+  const currentStep = workflowInstance.steps.find(step => step.order === workflowInstance.currentStep);
+  
+  if (!currentStep) {
+    console.log(`No current step found for workflow instance ${workflowInstance._id}`);
+    return;
+  }
+
+  // Check if user has permission for this step
+  if (!hasPermissionForWorkflowStep(user, currentStep)) {
+    console.log(`User ${user.id} does not have permission for step ${currentStep.stepName}`);
+    return;
+  }
+
+  // Update step status
+  currentStep.status = 'completed';
+  currentStep.completedAt = new Date();
+  currentStep.performedBy = user.id;
+  currentStep.actionTaken = action;
+  currentStep.comments = comments;
+
+  // Update workflow instance
+  workflowInstance.currentStep = workflowInstance.currentStep + 1;
+  
+  // Check if workflow is completed
+  if (workflowInstance.currentStep > workflowInstance.steps.length) {
+    workflowInstance.status = 'completed';
+    workflowInstance.completedAt = new Date();
+    
+    // Update application workflow status
+    await Application.findByIdAndUpdate(applicationId, {
+      workflowStatus: 'completed',
+      currentWorkflowStep: workflowInstance.currentStep
+    });
+  }
+
+  await workflowInstance.save();
+  console.log(`Workflow step completed for application ${applicationId}: ${currentStep.stepName}`);
+};
+
+// Helper function to check permissions for workflow step
+const hasPermissionForWorkflowStep = (user, step) => {
+  // Use organizationRole if available, otherwise fall back to role/userType
+  const userRole = user.organizationRole || user.role || user.userType;
+  
+  switch (step.role) {
+    case 'super_admin':
+      return userRole === 'admin_owner' || userRole === 'superadmin';
+    case 'admin':
+      return ['admin_owner', 'admin_employee', 'superadmin', 'admin'].includes(userRole);
+    case 'hr_admin':
+      return ['admin_owner', 'admin_employee', 'superadmin', 'admin', 'hr_admin'].includes(userRole);
+    case 'client':
+      return ['client_owner', 'client_employee', 'client'].includes(userRole);
+    case 'vendor':
+      return ['vendor_owner', 'vendor_employee', 'vendor'].includes(userRole);
+    default:
+      return false;
+  }
+};
 
 // @desc    Update application details
 // @route   PUT /api/applications/:id
